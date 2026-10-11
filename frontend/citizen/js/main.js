@@ -778,6 +778,21 @@ function enforcePortalAccess() {
   }
 }
 
+// Swaps the browser tab's favicon — there's no <link rel="icon"> in any
+// page's <head>, so the tab just shows the browser's own default icon
+// until this runs. Called once with the portal's static default logo.png
+// right away, then again with the admin-uploaded one once branding loads
+// below, same best-effort pattern as the navbar logo.
+function setFavicon(url) {
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
+}
+
 // Pulls the navbar brand name + logo from Admin's Website Branding settings
 // (siteinfo.BarangayProfile.site_name/site_logo — see siteinfo/views.py's
 // BrandingPublicView) so every portal shows the same, admin-editable brand
@@ -808,12 +823,14 @@ function applySiteBranding() {
         document.querySelectorAll(".navbar__logo").forEach((el) => {
           el.style.backgroundImage = `url("${branding.site_logo_url}")`;
         });
+        setFavicon(branding.site_logo_url);
       }
     })
     .catch(() => {});
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setFavicon("assets/logo.png");
   applySiteBranding();
   document.querySelectorAll(".navbar__brand").forEach((brand) => {
     brand.style.cursor = "pointer";
