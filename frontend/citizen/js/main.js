@@ -764,6 +764,21 @@ const PUBLIC_PORTAL_PAGES = [
 
 function enforcePortalAccess() {
   const path = window.location.pathname;
+
+  // A Staff/Admin session leaking into the Citizen Portal (e.g. a staff
+  // member still logged in on the Staff Portal edits the URL over to
+  // /citizen/...) must not render as a logged-in citizen — that'd show
+  // their staff account's name/avatar and let citizen-only actions go
+  // through as them. Unlike the Staff/Admin side below, this doesn't
+  // redirect away: Citizen pages allow guest browsing, so clearing the
+  // mismatched session and falling through just leaves the normal guest
+  // view (Login/Sign Up in the navbar, citizen-gated actions prompt login).
+  if (path.startsWith("/citizen/")) {
+    const user = getCurrentUser();
+    if (user && user.role !== "citizen") logOut();
+    return;
+  }
+
   const isStaffOrAdmin = path.startsWith("/staff/") || path.startsWith("/admin/");
   if (!isStaffOrAdmin) return;
 
