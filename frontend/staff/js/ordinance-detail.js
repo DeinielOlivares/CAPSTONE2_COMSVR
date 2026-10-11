@@ -87,6 +87,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const saveBtn = document.getElementById("editOrdinanceSave");
   const cancelBtn = document.getElementById("editOrdinanceCancel");
   const editError = document.getElementById("editOrdinanceError");
+  const unsavedChangesModal = document.getElementById("unsavedChangesModal");
+  const unsavedSaveBtn = document.getElementById("unsavedSaveBtn");
+  const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
+  const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
 
   // Category is a controlled dropdown (an Administrator maintains that list —
   // see ordinances/models.py's OrdinanceCategory), loaded up front rather than
@@ -113,6 +117,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   // for an ordinance with no PDF.
   const displayEls = [detailTitle, detailMeta, detailDescription];
 
+  // ---- Unsaved-changes tracking ----
+  // Snapshotted right as edit mode opens; isDirty() compares the live
+  // inputs against it. hasPdf rather than the File object itself, since two
+  // different File objects are never === even for the same picked file.
+  let savedSnapshot = null;
+
+  function snapshotForm() {
+    return {
+      number: numberInput.value,
+      title: titleInput.value,
+      author: authorInput.value,
+      category: categoryInput.value,
+      date: dateInput.value,
+      description: descriptionInput.value,
+      hasPdf: pdfInput.files.length > 0,
+    };
+  }
+
+  function isDirty() {
+    if (editForm.hidden || !savedSnapshot) return false;
+    const now = snapshotForm();
+    return Object.keys(now).some((key) => now[key] !== savedSnapshot[key]);
+  }
+
   function enterEditMode() {
     numberInput.value = ordinance.number;
     titleInput.value = ordinance.title;
@@ -135,6 +163,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     detailDownload.hidden = true;
     editBtn.hidden = true;
     editForm.hidden = false;
+    savedSnapshot = snapshotForm();
   }
 
   function exitEditMode() {
@@ -144,15 +173,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     detailDownload.hidden = !ordinance.pdf;
     editBtn.hidden = false;
     editForm.hidden = true;
+    savedSnapshot = null;
   }
 
   editBtn.addEventListener("click", enterEditMode);
-  cancelBtn.addEventListener("click", exitEditMode);
   pdfInput.addEventListener("change", () => {
     pdfLabelText.textContent = pdfInput.files[0] ? pdfInput.files[0].name : "Click to replace the PDF (optional)";
   });
 
-  saveBtn.addEventListener("click", async () => {
+  // Returns true on success — shared between the Save Changes button and
+  // the unsaved-changes modal's own "Save Changes" option.
+  async function commitSave() {
     const fields = {
       number: numberInput.value.trim(),
       title: titleInput.value.trim(),
@@ -166,12 +197,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!fields.number || !fields.title || !fields.author || !fields.category || !fields.dateApproved || !fields.description) {
       editError.textContent = "Please fill in every field.";
       editError.hidden = false;
-      return;
+      return false;
     }
     if (fields.pdfFile && fields.pdfFile.size > MAX_ORDINANCE_PDF_MB * 1024 * 1024) {
       editError.textContent = `That PDF is too large — please use one under ${MAX_ORDINANCE_PDF_MB}MB.`;
       editError.hidden = false;
-      return;
+      return false;
     }
 
     saveBtn.disabled = true;
@@ -179,13 +210,85 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       ordinance = await updateOrdinanceById(ordinance.id, fields);
       renderDisplay();
-      exitEditMode();
+      return true;
     } catch (err) {
       editError.textContent = err.message;
       editError.hidden = false;
+      return false;
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = "Save Changes";
     }
+  }
+
+  saveBtn.addEventListener("click", async () => {
+    if (await commitSave()) exitEditMode();
+  });
+
+  // What to do once the unsaved-changes modal resolves (Save/Discard) —
+  // null just exits edit mode in place (Cancel button), or a real
+  // navigation when a sidebar/other in-page link triggered it.
+  let pendingAction = null;
+
+  cancelBtn.addEventListener("click", () => {
+    if (isDirty()) {
+      pendingAction = null;
+      unsavedChangesModal.hidden = false;
+    } else {
+      exitEditMode();
+    }
+  });
+
+  unsavedSaveBtn.addEventListener("click", async () => {
+    unsavedChangesModal.hidden = true;
+    const saved = await commitSave();
+    if (saved) {
+      exitEditMode();
+      if (pendingAction) pendingAction();
+    }
+    pendingAction = null;
+  });
+  unsavedDiscardBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    exitEditMode();
+    if (pendingAction) pendingAction();
+    pendingAction = null;
+  });
+  unsavedCancelBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    pendingAction = null;
+  });
+  unsavedChangesModal.addEventListener("click", (e) => {
+    if (e.target === unsavedChangesModal) {
+      unsavedChangesModal.hidden = true;
+      pendingAction = null;
+    }
+  });
+
+  // Catches every in-page link (sidebar, navbar, etc.) while mid-edit —
+  // beforeunload below is the fallback for anything that isn't a click
+  // (browser back/refresh/close).
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!isDirty()) return;
+      const link = e.target.closest("a[href]");
+      if (!link) return;
+      const href = link.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pendingAction = () => {
+        window.location.href = href;
+      };
+      unsavedChangesModal.hidden = false;
+    },
+    true
+  );
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!isDirty()) return;
+    e.preventDefault();
+    e.returnValue = "";
   });
 });

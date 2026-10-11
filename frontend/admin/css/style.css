@@ -2251,6 +2251,11 @@ button {
   color: var(--navy);
 }
 
+.profile-sidebar__cancel {
+  display: block;
+  text-align: center;
+  margin-top: 24px;
+}
 
 .profile-panel {
   background: var(--white);
@@ -3674,6 +3679,62 @@ button {
   .boundary-toolbar__check {
     margin-left: 0;
   }
+}
+
+/* "+ Add Street" toggled on — the map's next click places a street instead
+   of a boundary point (see map-boundary.js), so this needs to visibly read
+   as "armed" the same way the map's cursor changes. */
+#streetAddToggle.is-active {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.street-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.street-list__empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.street-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.street-list__delete {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.street-list__delete:hover {
+  background: #fdeceb;
+  color: #c0392b;
 }
 
 .setup-table td {

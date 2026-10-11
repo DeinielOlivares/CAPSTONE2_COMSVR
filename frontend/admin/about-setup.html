@@ -254,6 +254,19 @@
     </div>
   </div>
 
+  <!-- Leaving the Barangay Details form with unsaved changes -->
+  <div class="modal-overlay" id="unsavedChangesModal" hidden>
+    <div class="modal-card">
+      <h2>Save Changes?</h2>
+      <p class="auth-card__subtitle">You have unsaved changes to the barangay's details.</p>
+      <div class="stacked-buttons">
+        <button type="button" class="btn" id="unsavedSaveBtn">Save Changes</button>
+        <button type="button" class="btn btn-muted" id="unsavedDiscardBtn">Discard Changes</button>
+        <button type="button" class="btn btn-danger" id="unsavedCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Logout confirmation -->
   <div class="modal-overlay" id="logoutConfirmModal" hidden>
     <div class="modal-card">

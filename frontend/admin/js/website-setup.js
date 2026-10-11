@@ -116,20 +116,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     resetBrandingLogo(branding.site_logo_url || "");
   }
 
-  brandingForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  function isBrandingDirty() {
+    if (!savedBranding) return false;
+    return brandingSiteName.value.trim() !== (savedBranding.site_name || "") || brandingLogoInput.files.length > 0;
+  }
+
+  // Returns true on success — shared between the form's own submit and the
+  // page-level unsaved-changes modal's "Save Changes" option below.
+  async function commitBrandingSave() {
     clearFormError(brandingForm);
     const siteName = brandingSiteName.value.trim();
     if (!siteName) {
       showFormError(brandingForm, "The website name can't be empty.");
-      return;
+      return false;
     }
     const fields = {};
     if (savedBranding && siteName !== savedBranding.site_name) fields.site_name = siteName;
     if (brandingLogoInput.files[0]) fields.site_logo = brandingLogoInput.files[0];
     if (!Object.keys(fields).length) {
       brandingStatus.textContent = "Nothing to save.";
-      return;
+      return true;
     }
 
     brandingSave.disabled = true;
@@ -137,12 +143,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       fillBrandingForm(await saveBranding(fields));
       brandingStatus.textContent = "Saved. The brand is updated across every portal.";
+      return true;
     } catch (err) {
       showFormError(brandingForm, err.message);
+      return false;
     } finally {
       brandingSave.disabled = false;
       brandingSave.textContent = "Save Branding";
     }
+  }
+
+  brandingForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await commitBrandingSave();
   });
 
   // ================================ Site footer ================================
@@ -190,6 +203,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  let savedFooterSnapshot = null;
+
+  // Same shape saveBarangayProfile's footer fields are sent/received in —
+  // doubles as both the dirty-check's comparison value and (via
+  // fillFooterForm) the "Discard Changes" restore value.
+  function currentFooterValues() {
+    readFooterEditor("quick");
+    readFooterEditor("legal");
+    return {
+      footer_tagline: footerTagline.value.trim(),
+      footer_notice: footerNotice.value.trim(),
+      footer_quick_links: footerEditors.quick.links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })),
+      footer_legal_links: footerEditors.legal.links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })),
+    };
+  }
+
+  function isFooterDirty() {
+    if (!savedFooterSnapshot) return false;
+    return JSON.stringify(currentFooterValues()) !== JSON.stringify(savedFooterSnapshot);
+  }
+
   function fillFooterForm(profile) {
     footerTagline.value = profile.footer_tagline || "";
     footerNotice.value = profile.footer_notice || "";
@@ -197,6 +231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     footerEditors.legal.links = (profile.footer_legal_links || []).map((l) => ({ ...l }));
     renderFooterEditor("quick");
     renderFooterEditor("legal");
+    savedFooterSnapshot = currentFooterValues();
   }
 
   document.querySelectorAll("[data-footer-add]").forEach((btn) => {
@@ -232,8 +267,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  footerForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  // Returns true on success — shared between the form's own submit and the
+  // page-level unsaved-changes modal's "Save Changes" option below.
+  async function commitFooterSave() {
     clearFormError(footerForm);
     readFooterEditor("quick");
     readFooterEditor("legal");
@@ -252,11 +288,85 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       fillFooterForm(await saveBarangayProfile(fields));
       footerStatus.textContent = "Saved. The footer is updated on every page.";
+      return true;
     } catch (err) {
       showFormError(footerForm, err.message);
+      return false;
     } finally {
       footerSave.disabled = false;
       footerSave.textContent = "Save Footer";
+    }
+  }
+
+  footerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await commitFooterSave();
+  });
+
+  // ============== Leaving with unsaved Branding/Footer changes ==============
+  // One combined check across both forms (Legal pages has its own separate
+  // exit-confirm modal below, scoped to that popup). beforeunload covers
+  // browser back/refresh/close; the click interceptor covers in-page
+  // navigation (sidebar, etc.) — same "Save Changes?" modal every other
+  // editable page in the app uses.
+
+  function isSetupDirty() {
+    return isBrandingDirty() || isFooterDirty();
+  }
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!isSetupDirty()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
+  const unsavedChangesModal = document.getElementById("unsavedChangesModal");
+  const unsavedSaveBtn = document.getElementById("unsavedSaveBtn");
+  const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
+  const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
+  let pendingAction = null;
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!isSetupDirty()) return;
+      const link = e.target.closest("a[href]");
+      if (!link) return;
+      const href = link.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pendingAction = () => {
+        window.location.href = href;
+      };
+      unsavedChangesModal.hidden = false;
+    },
+    true
+  );
+
+  unsavedSaveBtn.addEventListener("click", async () => {
+    unsavedChangesModal.hidden = true;
+    let ok = true;
+    if (isBrandingDirty()) ok = (await commitBrandingSave()) && ok;
+    if (ok && isFooterDirty()) ok = (await commitFooterSave()) && ok;
+    if (ok && pendingAction) pendingAction();
+    pendingAction = null;
+  });
+  unsavedDiscardBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    if (savedBranding) fillBrandingForm(savedBranding);
+    if (savedFooterSnapshot) fillFooterForm(savedFooterSnapshot);
+    if (pendingAction) pendingAction();
+    pendingAction = null;
+  });
+  unsavedCancelBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    pendingAction = null;
+  });
+  unsavedChangesModal.addEventListener("click", (e) => {
+    if (e.target === unsavedChangesModal) {
+      unsavedChangesModal.hidden = true;
+      pendingAction = null;
     }
   });
 

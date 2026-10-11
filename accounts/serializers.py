@@ -282,17 +282,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return clean_ph_mobile(value)
 
-    def validate(self, attrs):
-        # A name is set at sign-up or account setup and can't be changed afterward.
-        user = self.instance
-        if user is not None and user.role in (User.Role.CITIZEN, User.Role.STAFF, User.Role.ADMIN):
-            for field in ("first_name", "last_name"):
-                if field in attrs and attrs[field].strip() != getattr(user, field):
-                    raise serializers.ValidationError(
-                        {field: "Your name was set when you signed up and can't be changed."}
-                    )
-        return attrs
-
 
 class ChangePasswordSerializer(serializers.Serializer):
     """

@@ -73,6 +73,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("passwordHintEmail").value = user.email || "";
   }
 
+  // Awaited before the first populate() below, since splitAddress() (inside
+  // it) needs STREETS to actually recognize the saved address's street.
+  await ensureStreetsLoaded().catch(() => {});
+
   const cached = getCurrentUser();
   if (cached) populate(cached);
 
