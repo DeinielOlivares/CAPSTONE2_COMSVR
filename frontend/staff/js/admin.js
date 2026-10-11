@@ -139,7 +139,10 @@ const STAFF_NAV_ACCESS = {
   "reports.html": ["Investigator", "Barangay Captain"],
   "concerns-dashboard.html": ["Barangay Captain"],
   "secretary-dashboard.html": ["Secretary"],
-  "concerns.html": ["Secretary"],
+  // Barangay Captain gets read-only Concerns/Suggestions too, same pattern
+  // as Reports above — concerns-list.js and concern-detail.js hide every
+  // editing/category-management control for anyone but the Secretary.
+  "concerns.html": ["Secretary", "Barangay Captain"],
   "ordinances.html": ["Barangay Captain", "Secretary", "Investigator"],
   "questions.html": ["Barangay Captain", "Secretary", "Investigator"],
   "announcements.html": ["Barangay Captain", "Secretary"],

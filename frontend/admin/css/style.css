@@ -45,6 +45,7 @@
 :root {
   --navy: #057a12;
   --navy-dark: #045c0e;
+  --navy-darker: #034e0c;
   --green-soft: #e3f7e5;
   --green-mist: #f7fdf8;
   --cream: #e3f7e5;
@@ -2566,8 +2567,8 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 28px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  background: var(--navy-darker);
+  color: var(--white);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -2577,7 +2578,7 @@ button {
   border: none;
   background: none;
   font-size: 1.25rem;
-  color: var(--text);
+  color: var(--white);
   line-height: 1;
 }
 
@@ -2636,7 +2637,8 @@ button {
 }
 
 .admin-topbar__name small {
-  color: var(--text-muted);
+  color: inherit;
+  opacity: 0.75;
   font-size: 0.78rem;
 }
 

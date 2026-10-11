@@ -1214,18 +1214,39 @@ label.geo-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  color: var(--text);
+  box-shadow: 0 2px 6px rgba(20, 60, 30, 0.08);
   margin-bottom: 18px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.detail-back:hover {
-  background: #f2f1ec;
+.detail-back svg {
+  transition: transform 0.15s ease;
+}
+
+.detail-back:hover,
+.detail-back:focus-visible {
+  background: var(--plain-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.detail-back:hover svg,
+.detail-back:focus-visible svg {
+  transform: translateX(-2px);
+}
+
+.detail-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .detail-title {
   font-size: 1.4rem;
   font-weight: 700;
   margin: 0 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--accent);
 }
 
 .detail-meta {
@@ -1255,11 +1276,17 @@ label.geo-toggle {
   margin-bottom: 26px;
 }
 
+/* Matches the Home page's Latest Ordinances list (.latest-ord-rows/__row):
+   a bordered white box with each field as a divided row, rather than the
+   solid-fill blocks this used before. */
 .detail-info-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   margin-bottom: 26px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .detail-info-block {
@@ -1267,28 +1294,36 @@ label.geo-toggle {
   flex-wrap: wrap;
   gap: 6px 10px;
   align-items: baseline;
-  background: var(--navy);
-  color: var(--white);
-  border-radius: 8px;
   padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
 }
 
+.detail-info-stack .detail-info-block:last-child {
+  border-bottom: none;
+}
+
 .detail-info-block__label {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+  color: var(--text-muted);
   flex-shrink: 0;
   width: 120px;
 }
 
 .detail-info-block__value {
-  color: var(--white);
+  color: var(--text);
 }
 
 .detail-info-block--description {
   display: block;
   font-size: 0.88rem;
   line-height: 1.6;
+}
+
+.detail-info-block--description .detail-info-block__label {
+  display: block;
+  margin-bottom: 8px;
+  width: auto;
 }
 
 .detail-info-block--description p:last-child {

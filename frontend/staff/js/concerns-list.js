@@ -29,6 +29,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const folderDeleteConfirm = document.getElementById("folderDeleteConfirm");
   const folderDeleteCancel = document.getElementById("folderDeleteCancel");
 
+  // Concerns/Suggestions is the Secretary's section (see
+  // frontend/staff/js/admin.js's STAFF_NAV_ACCESS + ConcernFolder*View's
+  // IsSecretaryOrAdmin check) — Barangay Captain can reach this list too,
+  // but strictly to view: no creating/renaming/deleting categories. Per-
+  // concern responding is gated the same way in concern-detail.js.
+  const currentUser = getAdminUser();
+  const isSecretary = currentUser && currentUser.position === "Secretary";
+  if (!isSecretary) addFolderBtn.hidden = true;
+
   let page = 1;
   // Only re-filters on Search (or pressing Enter in the field), not on every
   // keystroke — this tracks the query that was actually searched for.
@@ -66,8 +75,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             <span><svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${f.name}</span>
             <span class="folder-chip__count">(${f.count})</span>
           </button>
-          <button type="button" class="folder-icon-btn" data-rename="${f.id}" aria-label="Rename ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20H5.5a1.5 1.5 0 01-1.5-1.5V12"/><path d="M17.4 3.6a2.1 2.1 0 013 3L10 17l-4.5 1.2L6.8 13.7z"/></svg></button>
-          <button type="button" class="folder-icon-btn folder-icon-btn--delete" data-delete="${f.id}" aria-label="Delete ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>
+          ${
+            isSecretary
+              ? `<button type="button" class="folder-icon-btn" data-rename="${f.id}" aria-label="Rename ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20H5.5a1.5 1.5 0 01-1.5-1.5V12"/><path d="M17.4 3.6a2.1 2.1 0 013 3L10 17l-4.5 1.2L6.8 13.7z"/></svg></button>
+          <button type="button" class="folder-icon-btn folder-icon-btn--delete" data-delete="${f.id}" aria-label="Delete ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>`
+              : ""
+          }
         </div>`
       )
       .join("");

@@ -38,7 +38,9 @@
   <div class="plain-page">
     <div class="plain-page__inner">
     <div class="detail-card">
-      <a class="detail-back" href="ordinances.html" aria-label="Back to Ordinances">&#8592;</a>
+      <a class="detail-back" href="ordinances.html" aria-label="Back to Ordinances">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>
+      </a>
 
       <div id="detailBody">
         <h1 class="detail-title" id="detailTitle">Loading…</h1>
@@ -60,7 +62,10 @@
             <span class="detail-info-block__label">Date Approved</span>
             <span class="detail-info-block__value" id="detailDate"></span>
           </div>
-          <div class="detail-info-block detail-info-block--description" id="detailDescription"></div>
+          <div class="detail-info-block detail-info-block--description">
+            <span class="detail-info-block__label">Brief Summary</span>
+            <div class="detail-info-block__value" id="detailDescription"></div>
+          </div>
         </div>
 
         <div class="pdf-preview" id="pdfPreview" hidden>
