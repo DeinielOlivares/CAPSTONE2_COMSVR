@@ -2793,6 +2793,46 @@ button {
   overflow-x: auto;
 }
 
+/* Fixed column widths so a long reporter name or ordinance title (Reporter/
+   Ordinance below) can't force the table past the card's width — without
+   this, table-layout's default "auto" sizing grows columns to fit their
+   content, which is what made this table need horizontal scrolling. The
+   over-wide text itself is handled by .admin-table__ellipsis. */
+.admin-table--unclaimed-reports {
+  table-layout: fixed;
+}
+
+.admin-table--unclaimed-reports th:nth-child(1),
+.admin-table--unclaimed-reports td:nth-child(1) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(2),
+.admin-table--unclaimed-reports td:nth-child(2) {
+  width: 35%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(3),
+.admin-table--unclaimed-reports td:nth-child(3) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(4),
+.admin-table--unclaimed-reports td:nth-child(4) {
+  width: 12%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(5),
+.admin-table--unclaimed-reports td:nth-child(5) {
+  width: 27%;
+}
+
+.admin-table__ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Per-row action buttons (Ordinance Authors) — .btn/.btn-muted are full-width
    block buttons meant for forms/modals, too bulky to sit inline in a table
    cell, hence this smaller, inline-sized variant instead of reusing them. */
