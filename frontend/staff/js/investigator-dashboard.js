@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td>${r.location || "—"}</td>
           <td><span class="status-pill ${agingPillClass(days)}">${days} ${days === 1 ? "day" : "days"}</span></td>
           <td><span class="status-pill ${statusPillClass(r.status)}">${r.status}</span></td>
-          <td><a class="recent-reports-table__action" href="report-detail.html?id=${encodeURIComponent(r.id)}" aria-label="View report">&#8594;</a></td>
+          <td><a class="recent-reports-table__view-btn" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a></td>
         </tr>`;
           })
           .join("")
