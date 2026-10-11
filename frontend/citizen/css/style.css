@@ -341,7 +341,7 @@ button {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -1439,11 +1439,19 @@ label.geo-toggle {
   max-width: 1060px;
 }
 
+/* minmax(0, 1fr), not plain 1fr: a 1fr column refuses to shrink below its
+   widest unbreakable content, so one long single-line value (the chosen
+   ordinance's name, which is nowrap + ellipsis) stretched the whole form
+   column past the page instead of being cut off with "…". */
 .plain-page__layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 24px;
   align-items: start;
+}
+
+.plain-page__layout > * {
+  min-width: 0;
 }
 
 .info-panel {
@@ -1487,7 +1495,7 @@ label.geo-toggle {
 
 @media (max-width: 900px) {
   .plain-page__layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2674,7 +2682,7 @@ label.geo-toggle {
   }
 
   .form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     /* Each stacked .field already carries its own margin-bottom; without
        this, the grid's row-gap (meant for the desktop 2-column layout)
        stacks on top of it too, doubling the space between fields that

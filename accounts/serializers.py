@@ -63,6 +63,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def validate_email(self, value):
+        # The column's own uniqueness is case-sensitive, so "Juan@x.com" would
+        # get past it while "juan@x.com" exists — and login matches email
+        # ignoring case, so the two accounts would then collide there.
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
     def validate_contact_number(self, value):
         return clean_ph_mobile(value)
 
@@ -278,6 +286,15 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email", "contact_number", "address", "profile_picture"]
+
+    def validate_email(self, value):
+        # Same case-insensitive check as sign-up, ignoring the account's own row.
+        others = User.objects.filter(email__iexact=value)
+        if self.instance is not None:
+            others = others.exclude(pk=self.instance.pk)
+        if others.exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
 
     def validate_contact_number(self, value):
         return clean_ph_mobile(value)

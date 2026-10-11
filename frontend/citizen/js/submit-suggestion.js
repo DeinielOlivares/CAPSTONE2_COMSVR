@@ -25,9 +25,15 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await authFetch("/api/concerns/", { method: "POST", body: formData });
       if (!response.ok) {
+        // Field errors come back as {field: ["..."]}, a refusal (not logged in,
+        // too many requests) as {detail: "..."}. Anything else — a server
+        // error page, a request blocked before it reached the app — has no
+        // message to show, so the status code is given instead of nothing.
         const data = await response.json().catch(() => ({}));
         const firstError = Object.values(data)[0];
-        throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not submit your concern/suggestion.");
+        if (Array.isArray(firstError)) throw new Error(firstError[0]);
+        if (typeof firstError === "string") throw new Error(firstError);
+        throw new Error(`Could not submit your concern/suggestion. (server responded ${response.status})`);
       }
       successModal.hidden = false;
     } catch (err) {
