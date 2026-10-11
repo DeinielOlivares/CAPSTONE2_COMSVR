@@ -2604,9 +2604,7 @@ label.geo-toggle {
   color: var(--navy);
 }
 
-.profile-sidebar__cancel {
-  display: block;
-  text-align: center;
+.profile-sidebar__delete {
   margin-top: 24px;
 }
 

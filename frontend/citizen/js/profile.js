@@ -399,6 +399,76 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // ---- Delete Account ----
+  // Permanent and self-service — Report/Concern/Question all CASCADE off
+  // User (see accounts.views.MeView.delete), so this wipes everything the
+  // citizen ever submitted along with the account itself. Requires the
+  // current password, same reasoning as Change Password above.
+  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+  const deleteAccountModal = document.getElementById("deleteAccountModal");
+  const deleteAccountForm = document.getElementById("deleteAccountForm");
+  const deleteAccountPasswordInput = document.getElementById("deleteAccountPassword");
+  const deleteAccountConfirmBtn = document.getElementById("deleteAccountConfirm");
+  const deleteAccountCancel = document.getElementById("deleteAccountCancel");
+  const deleteAccountDoneModal = document.getElementById("deleteAccountDoneModal");
+  const deleteAccountDoneConfirm = document.getElementById("deleteAccountDoneConfirm");
+
+  deleteAccountBtn.addEventListener("click", () => {
+    deleteAccountPasswordInput.value = "";
+    clearFormError(deleteAccountForm);
+    deleteAccountModal.hidden = false;
+    deleteAccountPasswordInput.focus();
+  });
+  deleteAccountCancel.addEventListener("click", () => {
+    deleteAccountModal.hidden = true;
+  });
+  deleteAccountModal.addEventListener("click", (e) => {
+    if (e.target === deleteAccountModal) deleteAccountModal.hidden = true;
+  });
+
+  deleteAccountForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearFormError(deleteAccountForm);
+    deleteAccountConfirmBtn.disabled = true;
+    deleteAccountConfirmBtn.textContent = "Deleting...";
+    try {
+      const response = await authFetch("/api/auth/me/", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: deleteAccountPasswordInput.value }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const firstError = Object.values(data)[0];
+        throw new Error(
+          Array.isArray(firstError) ? firstError[0] : data.detail || "Could not delete your account."
+        );
+      }
+      // Neutralizes any unsaved Edit/Password form changes so beforeunload's
+      // isDirty() check doesn't throw up a native "leave site?" prompt on
+      // the way out, right after the account was just deleted on purpose.
+      savedSnapshot = {
+        firstName: firstNameInput.value,
+        lastName: lastNameInput.value,
+        email: emailInput.value,
+        mobile: mobileInput.value,
+        address: addressInput.value,
+      };
+      deleteAccountModal.hidden = true;
+      deleteAccountDoneModal.hidden = false;
+    } catch (err) {
+      showFormError(deleteAccountForm, err.message);
+    } finally {
+      deleteAccountConfirmBtn.disabled = false;
+      deleteAccountConfirmBtn.textContent = "Delete My Account";
+    }
+  });
+
+  deleteAccountDoneConfirm.addEventListener("click", () => {
+    logOut();
+    window.location.href = "/citizen/login.html";
+  });
+
   // ---- Leaving with unsaved changes ----
   // Catches every in-page link on the page (navbar, Cancel, the profile
   // popup, notification "View All", etc.) while something's unsaved — not

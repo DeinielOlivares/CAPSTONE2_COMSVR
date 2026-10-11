@@ -235,6 +235,18 @@ def send_account_deleted_email(name, email):
     )
 
 
+def send_account_self_deleted_email(name, email):
+    # Citizen-initiated deletion (My Profile → Delete Account — see
+    # MeView.delete) — distinct wording from send_account_deleted_email,
+    # which is specifically for an Administrator-initiated deletion.
+    send_templated_email(
+        to=email,
+        subject="Barangay Platero OVRMS — Your account has been deleted",
+        template_name="account_self_deleted",
+        context={"name": name},
+    )
+
+
 def send_profile_edit_code_email(user, code, expires_minutes):
     # Sent to the address already on file, not whatever new one is being
     # entered — see accounts.views.ProfileEditCodeRequestView.

@@ -42,7 +42,7 @@
           <h1 class="profile-sidebar__title">My Profile</h1>
           <button type="button" class="profile-tab active" data-tab="edit">Edit Account Information</button>
           <button type="button" class="profile-tab" data-tab="password">Change Password</button>
-          <a class="btn btn-danger profile-sidebar__cancel" href="ordinances.html" id="profileCancelBtn">Cancel</a>
+          <button type="button" class="btn btn-danger profile-sidebar__delete" id="deleteAccountBtn">Delete Account</button>
         </aside>
 
         <div class="profile-panel">
@@ -160,6 +160,33 @@
         <button type="button" class="btn btn-muted" id="unsavedDiscardBtn">Discard Changes</button>
         <button type="button" class="btn btn-danger" id="unsavedCancelBtn">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Delete Account confirmation -->
+  <div class="modal-overlay" id="deleteAccountModal" hidden>
+    <div class="modal-card">
+      <h2>Delete Your Account?</h2>
+      <p class="auth-card__subtitle">This permanently deletes your account, along with every report, concern/suggestion, and question you've ever submitted. This can't be undone.</p>
+      <form id="deleteAccountForm" novalidate>
+        <div class="field field--boxed">
+          <label for="deleteAccountPassword">Enter your password to confirm</label>
+          <input type="password" id="deleteAccountPassword" required />
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-danger" id="deleteAccountConfirm">Delete My Account</button>
+          <button type="button" class="btn btn-muted" id="deleteAccountCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirms the account was deleted, then logs out -->
+  <div class="modal-overlay" id="deleteAccountDoneModal" hidden>
+    <div class="modal-card">
+      <h2>Account Deleted</h2>
+      <p class="auth-card__subtitle">Your account and everything tied to it have been permanently deleted.</p>
+      <button type="button" class="btn" id="deleteAccountDoneConfirm">Confirm</button>
     </div>
   </div>
 
