@@ -376,6 +376,7 @@ button {
 
 .combobox {
   position: relative;
+  min-width: 0;
 }
 
 .combobox__list {
@@ -427,6 +428,7 @@ button {
    blowing the native popup past the edge of the page. */
 .combobox__trigger {
   width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2610,9 +2612,7 @@ label.geo-toggle {
   color: var(--navy);
 }
 
-.profile-sidebar__cancel {
-  display: block;
-  text-align: center;
+.profile-sidebar__delete {
   margin-top: 24px;
 }
 

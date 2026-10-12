@@ -17,6 +17,7 @@ from orms_backend.emails import (
     send_account_deactivated_email,
     send_account_deleted_email,
     send_account_rejected_email,
+    send_account_self_deleted_email,
     send_profile_edit_code_email,
     send_staff_setup_code_email,
 )
@@ -38,6 +39,7 @@ from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    DeleteAccountSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PasswordResetVerifySerializer,
@@ -332,6 +334,31 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(UserSerializer(user, context={"request": request}).data)
+
+    def delete(self, request):
+        """
+        DELETE /api/auth/me/ — My Profile → Delete Account, Citizen Portal
+        only (AdminAccountDetailView.delete already covers Staff/Admin
+        removal, with its own last-admin/claimed-reports handling that a
+        generic self-delete here doesn't account for). Requires the current
+        password (see DeleteAccountSerializer). Report/Concern/Question all
+        CASCADE off User, so this also wipes everything the citizen ever
+        submitted — the confirmation UI says so up front.
+        """
+        if request.user.role != User.Role.CITIZEN:
+            return Response({"detail": "Only a citizen account can be deleted this way."}, status=403)
+
+        serializer = DeleteAccountSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        name = user.get_full_name() or user.username
+        email = user.email
+        with transaction.atomic():
+            log_action(user, "Deleted own account")
+            user.delete()
+        send_account_self_deleted_email(name, email)
+        return Response(status=204)
 
 
 class ChangePasswordView(APIView):

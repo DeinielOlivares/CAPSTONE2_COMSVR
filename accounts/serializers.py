@@ -345,6 +345,23 @@ class ChangePasswordSerializer(serializers.Serializer):
         return user
 
 
+class DeleteAccountSerializer(serializers.Serializer):
+    """
+    Self-service account deletion from My Profile (Citizen Portal only —
+    see MeView.delete). Requires the current password, same reasoning as
+    ChangePasswordSerializer — a logged-in-but-unattended session shouldn't
+    be enough on its own to permanently delete the account.
+    """
+
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Incorrect password.")
+        return value
+
+
 class AdminAccountSerializer(serializers.ModelSerializer):
     """
     Shapes a User into exactly the fields the admin Manage Accounts page
