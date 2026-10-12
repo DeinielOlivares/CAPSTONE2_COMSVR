@@ -3,7 +3,7 @@ import re
 from PIL import Image
 from rest_framework import serializers
 
-from .models import AboutLogo, BarangayProfile, CouncilMember
+from .models import AboutLogo, BarangayProfile, CouncilMember, Street
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
@@ -146,6 +146,31 @@ class BoundarySerializer(serializers.Serializer):
         if len(points) > 3 and points[0] == points[-1]:
             points = points[:-1]
         return [[round(lat, 6), round(lng, 6)] for lat, lng in points]
+
+
+class StreetSerializer(serializers.ModelSerializer):
+    """
+    name + a single [lat, lng] point, placed by an Administrator clicking
+    the Map Boundary page's map. Same Biñan bounds check as the boundary
+    outline above, for the same reason (catches an obviously wrong point).
+    """
+
+    class Meta:
+        model = Street
+        fields = ["id", "name", "latitude", "longitude"]
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Street name is required.")
+        return value
+
+    def validate(self, attrs):
+        lat = attrs.get("latitude", getattr(self.instance, "latitude", None))
+        lng = attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if lat is not None and lng is not None and not (13.5 <= lat <= 15.0 and 120.5 <= lng <= 121.7):
+            raise serializers.ValidationError("That point is nowhere near Biñan, Laguna.")
+        return attrs
 
 
 class CouncilMemberSerializer(serializers.ModelSerializer):

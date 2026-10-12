@@ -172,8 +172,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (r) => `
         <tr>
-          <td>${escapeHtml(r.reporter)}</td>
-          <td>${escapeHtml(r.ordinance)}</td>
+          <td class="admin-table__ellipsis" title="${escapeHtml(r.reporter)}">${escapeHtml(r.reporter)}</td>
+          <td class="admin-table__ellipsis" title="${escapeHtml(r.ordinance)}">${escapeHtml(r.ordinance)}</td>
           <td>${formatDate(r.created_at)}</td>
           <td><span class="status-badge ${REPORT_STATUS_BADGE_CLASS[r.status] || ""}">${escapeHtml(REPORT_STATUS_LABEL[r.status] || r.status)}</span></td>
           <td>${assignControlHtml(r)}</td>

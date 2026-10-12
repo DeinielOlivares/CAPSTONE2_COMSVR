@@ -64,6 +64,32 @@ class BarangayProfile(models.Model):
         return self.name
 
 
+class Street(models.Model):
+    """
+    One barangay street — the Street combobox on Sign Up/File Report/My
+    Profile (frontend/*/js/streets-data.js's old hardcoded STREETS list),
+    and the point its reports plot at on the staff incident heatmap when a
+    report has no device location (frontend/staff/js/street-coordinates.js's
+    old hardcoded STREET_COORDINATES). Added by an Administrator clicking a
+    point on the Map Boundary page's map, same interaction as the boundary
+    outline itself. Report.location stays free text rather than a foreign
+    key here (see reports.models.Report), so deleting a street never
+    touches past reports that cited it.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=150, unique=True)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class CouncilMember(models.Model):
     """
     One person in About Us' "Sangguniang Barangay" section. Managed by an

@@ -82,9 +82,11 @@ function countByLocation(items) {
 }
 
 // The known street a "Block X, Lot Y, <Street>" location ends in, or null.
+// Callers must await ensureStreetsLoaded() first (see street-coordinates.js).
 function streetOf(locationName) {
-  if (STREET_COORDINATES[locationName]) return locationName;
-  return Object.keys(STREET_COORDINATES).find((street) => locationName.endsWith(`, ${street}`)) || null;
+  const names = liveStreets().map((s) => s.name);
+  if (names.includes(locationName)) return locationName;
+  return names.find((street) => locationName.endsWith(`, ${street}`)) || null;
 }
 
 function escapeHeatmapHtml(text) {
@@ -119,19 +121,19 @@ function heatmapTooltipHtml(group, compact) {
   `;
 }
 
-// Report.location is now "Block X, Lot Y, <Street>" (see file-report.js's
+// Report.location is "Block X, Lot Y, <Street>" (see file-report.js's
 // Block/Lot field) instead of just the street name, so a plain
-// STREET_COORDINATES[name] lookup stopped matching anything and every
-// report silently vanished from the heatmap. Falls back to whichever known
-// street the location ends with, on a ", " boundary so "Blueberry Street"
-// can't accidentally match something like "New Blueberry Street".
+// streetCoordinate(name) lookup on the whole string wouldn't match. Falls
+// back to whichever known street the location ends with, on a ", "
+// boundary so "Blueberry Street" can't accidentally match something like
+// "New Blueberry Street".
 function resolveStreetCoord(locationName) {
   if (locationName.startsWith("@")) {
     const [lat, lng] = locationName.slice(1).split(",").map(Number);
     return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
   }
   const street = streetOf(locationName);
-  return street ? STREET_COORDINATES[street] : null;
+  return street ? streetCoordinate(street) : null;
 }
 
 // The barangay outline (siteinfo's BarangayProfile.boundary, drawn/uploaded

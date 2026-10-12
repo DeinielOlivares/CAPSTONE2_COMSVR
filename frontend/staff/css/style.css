@@ -2502,6 +2502,11 @@ button {
   color: var(--navy);
 }
 
+.profile-sidebar__cancel {
+  display: block;
+  text-align: center;
+  margin-top: 24px;
+}
 
 .profile-panel {
   background: var(--white);

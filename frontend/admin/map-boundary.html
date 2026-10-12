@@ -91,6 +91,7 @@
               <button type="button" class="btn btn-muted boundary-toolbar__btn" id="boundaryUndo" disabled>Undo</button>
               <button type="button" class="btn btn-muted boundary-toolbar__btn" id="boundaryReset" disabled>Revert to Saved</button>
               <button type="button" class="btn btn-danger boundary-toolbar__btn" id="boundaryClear" disabled>Clear</button>
+              <button type="button" class="btn btn-muted boundary-toolbar__btn" id="streetAddToggle">+ Add Street</button>
               <label class="setup-check boundary-toolbar__check"><input type="checkbox" id="boundaryShowStreets" checked /> Show app streets</label>
             </div>
 
@@ -100,7 +101,7 @@
               <li><strong>Click the map</strong> to add a point. Once there are 3 points, a new point is placed on the nearest edge, so clicking beside an edge refines it.</li>
               <li><strong>Drag a point</strong> to move it. <strong>Right-click a point</strong> to remove it.</li>
               <li><strong>Upload File</strong> accepts GeoJSON (<code>.geojson</code>/<code>.json</code>) or KML (<code>.kml</code>, e.g. exported from Google My Maps or Google Earth). If the file holds several shapes, the largest one is used.</li>
-              <li>The yellow dots are the streets citizens can pick when filing a report. The outline should take them in.</li>
+              <li>The yellow dots are the streets citizens can pick when filing a report. <strong>+ Add Street</strong>, then click the map to place a new one — the outline should take them in.</li>
             </ul>
 
             <div class="setup-actions">
@@ -109,6 +110,43 @@
             </div>
           </form>
         </section>
+
+        <section class="setup-card" aria-labelledby="streetsHeading">
+          <h2 class="setup-card__title" id="streetsHeading">Streets</h2>
+          <p class="field-hint" style="margin: -8px 0 16px;">
+            Every street citizens can pick on Sign Up, File Report and My Profile — the same yellow dots shown on the map above. Click <strong>+ Add Street</strong> and then a point on the map to add one; remove one below.
+          </p>
+          <ul class="street-list" id="streetList"></ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Name a new street, just placed on the map -->
+  <div class="modal-overlay" id="streetNameModal" hidden>
+    <div class="modal-card">
+      <h2>Name This Street</h2>
+      <form id="streetNameForm" novalidate>
+        <div class="field">
+          <label for="streetNameInput">Street Name</label>
+          <input type="text" id="streetNameInput" placeholder="e.g. Beatriz Drive" required />
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn" id="streetNameConfirm">Add Street</button>
+          <button type="button" class="btn btn-danger" id="streetNameCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete street confirmation -->
+  <div class="modal-overlay" id="streetDeleteModal" hidden>
+    <div class="modal-card">
+      <h2>Remove this street?</h2>
+      <p class="auth-card__subtitle">"<strong id="streetDeleteName"></strong>" will no longer be offered on Sign Up, File Report or My Profile. Past reports that cited it are unaffected.</p>
+      <div class="btn-row">
+        <button type="button" class="btn btn-danger" id="streetDeleteConfirm">Remove</button>
+        <button type="button" class="btn" id="streetDeleteCancel">Cancel</button>
       </div>
     </div>
   </div>

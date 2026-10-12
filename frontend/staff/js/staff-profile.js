@@ -5,6 +5,21 @@
 // previously this page always showed a hardcoded "Eliseo Aurelio Jr."
 // mock regardless of who was actually logged in.
 
+// Where Cancel and the post-save confirmation send the user back to — each
+// Staff role's own landing page (kept in sync with main.js's
+// STAFF_POSITION_HOME; duplicated here since this page doesn't load
+// main.js, only admin.js).
+const STAFF_HOME_PAGE = {
+  "Barangay Captain": "reports-dashboard.html",
+  Secretary: "secretary-dashboard.html",
+  Investigator: "investigator-dashboard.html",
+};
+
+function staffHomePage() {
+  const user = getAdminUser();
+  return (user && STAFF_HOME_PAGE[user.position]) || "reports-dashboard.html";
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const avatarUpload = document.getElementById("avatarUpload");
   const avatarImg = document.getElementById("editAvatarImg");
@@ -52,6 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const cached = getAdminUser();
   if (cached) populate(cached);
+  document.getElementById("profileCancelBtn").href = staffHomePage();
 
   try {
     const res = await authFetch("/api/auth/me/");
@@ -293,7 +309,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (await commitEditSave()) {
       updatedTitle.textContent = "Information Changed!";
       onUpdatedConfirm = () => {
-        window.location.href = "reports-dashboard.html";
+        window.location.href = staffHomePage();
       };
       updatedModal.hidden = false;
     }

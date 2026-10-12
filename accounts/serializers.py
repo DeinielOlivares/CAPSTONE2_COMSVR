@@ -299,17 +299,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return clean_ph_mobile(value)
 
-    def validate(self, attrs):
-        # A name is set at sign-up or account setup and can't be changed afterward.
-        user = self.instance
-        if user is not None and user.role in (User.Role.CITIZEN, User.Role.STAFF, User.Role.ADMIN):
-            for field in ("first_name", "last_name"):
-                if field in attrs and attrs[field].strip() != getattr(user, field):
-                    raise serializers.ValidationError(
-                        {field: "Your name was set when you signed up and can't be changed."}
-                    )
-        return attrs
-
 
 class ChangePasswordSerializer(serializers.Serializer):
     """
@@ -477,8 +466,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     portal = serializers.ChoiceField(choices=["citizen", "staff"], required=False, write_only=True)
 
     WRONG_PORTAL = {
-        "citizen": ({User.Role.STAFF, User.Role.ADMIN}, "Barangay staff and administrator accounts can't log in here. Please use the Staff Portal."),
-        "staff": ({User.Role.CITIZEN}, "Citizen accounts can't log in here. Please use the citizen portal."),
+        # Citizen-portal side is deliberately indistinguishable from a wrong
+        # password — a descriptive "that's a staff/admin account" message
+        # would let anyone probe which emails have elevated access just by
+        # trying them on the citizen login form. Staff Portal doesn't have
+        # that exposure the other way (a citizen email isn't sensitive the
+        # same way), so it keeps the more helpful message.
+        "citizen": (
+            {User.Role.STAFF, User.Role.ADMIN},
+            "No active account found with the given credentials",
+            "no_active_account",
+        ),
+        "staff": (
+            {User.Role.CITIZEN},
+            "Citizen accounts can't log in here. Please use the citizen portal.",
+            "wrong_portal",
+        ),
     }
 
     """
@@ -519,7 +522,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         portal = attrs.get("portal")
         if portal in self.WRONG_PORTAL and self.user.role in self.WRONG_PORTAL[portal][0]:
-            raise AuthenticationFailed(self.WRONG_PORTAL[portal][1], code="wrong_portal")
+            _, message, code = self.WRONG_PORTAL[portal]
+            raise AuthenticationFailed(message, code=code)
 
         # Citizens start unverified until an Administrator approves their
         # voter's ID (see AdminApproveVerificationView). Staff/Admin accounts

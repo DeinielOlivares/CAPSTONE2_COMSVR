@@ -42,39 +42,100 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   profileForm.addEventListener("input", () => {
-    profileStatus.textContent = savedProfile && Object.keys(changedProfileFields()).length ? "Unsaved changes" : "";
+    profileStatus.textContent = isProfileDirty() ? "Unsaved changes" : "";
   });
 
-  profileForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  function isProfileDirty() {
+    return !!(savedProfile && Object.keys(changedProfileFields()).length);
+  }
+
+  // Returns true on success — shared between the form's own submit and the
+  // unsaved-changes modal's "Save Changes" option below.
+  async function commitProfileSave() {
     clearFormError(profileForm);
     const changes = changedProfileFields();
     if (!Object.keys(changes).length) {
       profileStatus.textContent = "Nothing to save.";
-      return;
+      return true;
     }
     if ("name" in changes && !changes.name) {
       showFormError(profileForm, "The barangay name can't be empty.");
-      return;
+      return false;
     }
     profileSave.disabled = true;
     profileSave.textContent = "Saving...";
     try {
       fillProfileForm(await saveBarangayProfile(changes));
       profileStatus.textContent = "Saved. The About Us page is updated.";
+      return true;
     } catch (err) {
       showFormError(profileForm, err.message);
+      return false;
     } finally {
       profileSave.disabled = false;
       profileSave.textContent = "Save Details";
     }
+  }
+
+  profileForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await commitProfileSave();
   });
 
-  // Leaving with unsaved details is easy to do by accident on a long form.
+  // ---- Leaving with unsaved details — easy to do by accident on a long
+  // form. beforeunload covers browser back/refresh/close; the click
+  // interceptor below covers in-page navigation (sidebar, etc.), with the
+  // same "Save Changes?" modal every other editable page in the app uses. ----
   window.addEventListener("beforeunload", (e) => {
-    if (savedProfile && Object.keys(changedProfileFields()).length) {
+    if (!isProfileDirty()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
+  const unsavedChangesModal = document.getElementById("unsavedChangesModal");
+  const unsavedSaveBtn = document.getElementById("unsavedSaveBtn");
+  const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
+  const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
+  let pendingAction = null;
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!isProfileDirty()) return;
+      const link = e.target.closest("a[href]");
+      if (!link) return;
+      const href = link.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
       e.preventDefault();
-      e.returnValue = "";
+      e.stopPropagation();
+      pendingAction = () => {
+        window.location.href = href;
+      };
+      unsavedChangesModal.hidden = false;
+    },
+    true
+  );
+
+  unsavedSaveBtn.addEventListener("click", async () => {
+    unsavedChangesModal.hidden = true;
+    const saved = await commitProfileSave();
+    if (saved && pendingAction) pendingAction();
+    pendingAction = null;
+  });
+  unsavedDiscardBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    fillProfileForm(savedProfile);
+    if (pendingAction) pendingAction();
+    pendingAction = null;
+  });
+  unsavedCancelBtn.addEventListener("click", () => {
+    unsavedChangesModal.hidden = true;
+    pendingAction = null;
+  });
+  unsavedChangesModal.addEventListener("click", (e) => {
+    if (e.target === unsavedChangesModal) {
+      unsavedChangesModal.hidden = true;
+      pendingAction = null;
     }
   });
 

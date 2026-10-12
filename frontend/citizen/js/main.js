@@ -764,6 +764,21 @@ const PUBLIC_PORTAL_PAGES = [
 
 function enforcePortalAccess() {
   const path = window.location.pathname;
+
+  // A Staff/Admin session leaking into the Citizen Portal (e.g. a staff
+  // member still logged in on the Staff Portal edits the URL over to
+  // /citizen/...) must not render as a logged-in citizen — that'd show
+  // their staff account's name/avatar and let citizen-only actions go
+  // through as them. Unlike the Staff/Admin side below, this doesn't
+  // redirect away: Citizen pages allow guest browsing, so clearing the
+  // mismatched session and falling through just leaves the normal guest
+  // view (Login/Sign Up in the navbar, citizen-gated actions prompt login).
+  if (path.startsWith("/citizen/")) {
+    const user = getCurrentUser();
+    if (user && user.role !== "citizen") logOut();
+    return;
+  }
+
   const isStaffOrAdmin = path.startsWith("/staff/") || path.startsWith("/admin/");
   if (!isStaffOrAdmin) return;
 
@@ -843,13 +858,22 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPasswordHints();
   setupPasswordVisibilityToggles();
 
-  // Sign Up's Street field: a type-to-filter combobox over the fixed
-  // STREETS list (streets-data.js), same pattern as File Report's location
-  // field. Guarded on STREETS existing since not every page that loads
-  // main.js also loads streets-data.js.
-  if (typeof STREETS !== "undefined") {
-    wireStreetCombobox("signupStreet", "signupStreetList");
-    wireStreetCombobox("profileStreet", "profileStreetList");
+  // Sign Up's Street field: a type-to-filter combobox over the real street
+  // list (streets-data.js, now API-backed — see ensureStreetsLoaded), same
+  // pattern as File Report's location field. Guarded on streets-data.js
+  // being loaded at all, since not every page that loads main.js does.
+  // Awaited in its own IIFE rather than making this whole (very large)
+  // DOMContentLoaded handler async, so the fetch doesn't hold up every
+  // other unrelated bit of wiring below it.
+  if (typeof ensureStreetsLoaded === "function") {
+    ensureStreetsLoaded()
+      .then(() => {
+        wireStreetCombobox("signupStreet", "signupStreetList");
+        wireStreetCombobox("profileStreet", "profileStreetList");
+      })
+      .catch(() => {
+        // Best-effort — the comboboxes just show no options if this fails.
+      });
   }
 
   // Prevent full page reload on forms that don't have a real backend yet;
@@ -1156,7 +1180,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // not automatically, so following a link can't trigger emails.
     const emailFromQuery = new URLSearchParams(window.location.search).get("email");
     if (emailFromQuery) setupEmailField.value = emailFromQuery;
-    if (typeof STREETS !== "undefined") wireStreetCombobox("setupStreet", "setupStreetList");
+    if (typeof ensureStreetsLoaded === "function") {
+      ensureStreetsLoaded()
+        .then(() => wireStreetCombobox("setupStreet", "setupStreetList"))
+        .catch(() => {});
+    }
     // The link in the account-creation email already has a code sent, so go
     // straight to the code step rather than sending another (which would
     // invalidate the one in the email).

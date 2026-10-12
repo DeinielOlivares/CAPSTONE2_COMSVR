@@ -2251,6 +2251,11 @@ button {
   color: var(--navy);
 }
 
+.profile-sidebar__cancel {
+  display: block;
+  text-align: center;
+  margin-top: 24px;
+}
 
 .profile-panel {
   background: var(--white);
@@ -2791,6 +2796,46 @@ button {
   overflow: hidden;
   box-shadow: var(--shadow);
   overflow-x: auto;
+}
+
+/* Fixed column widths so a long reporter name or ordinance title (Reporter/
+   Ordinance below) can't force the table past the card's width — without
+   this, table-layout's default "auto" sizing grows columns to fit their
+   content, which is what made this table need horizontal scrolling. The
+   over-wide text itself is handled by .admin-table__ellipsis. */
+.admin-table--unclaimed-reports {
+  table-layout: fixed;
+}
+
+.admin-table--unclaimed-reports th:nth-child(1),
+.admin-table--unclaimed-reports td:nth-child(1) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(2),
+.admin-table--unclaimed-reports td:nth-child(2) {
+  width: 35%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(3),
+.admin-table--unclaimed-reports td:nth-child(3) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(4),
+.admin-table--unclaimed-reports td:nth-child(4) {
+  width: 12%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(5),
+.admin-table--unclaimed-reports td:nth-child(5) {
+  width: 27%;
+}
+
+.admin-table__ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Per-row action buttons (Ordinance Authors) — .btn/.btn-muted are full-width
@@ -3634,6 +3679,62 @@ button {
   .boundary-toolbar__check {
     margin-left: 0;
   }
+}
+
+/* "+ Add Street" toggled on — the map's next click places a street instead
+   of a boundary point (see map-boundary.js), so this needs to visibly read
+   as "armed" the same way the map's cursor changes. */
+#streetAddToggle.is-active {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.street-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.street-list__empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.street-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.street-list__delete {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.street-list__delete:hover {
+  background: #fdeceb;
+  color: #c0392b;
 }
 
 .setup-table td {

@@ -2957,10 +2957,6 @@ label.geo-toggle {
     padding: 10px 14px;
   }
 
-  .navbar__brand span {
-    display: none;
-  }
-
   .navbar__controls {
     gap: 8px;
   }
@@ -3055,10 +3051,6 @@ label.geo-toggle {
     padding: 10px 14px;
   }
 
-  .navbar__brand span {
-    display: none;
-  }
-
   .auth-card {
     padding: 20px 16px 18px;
   }
@@ -3095,10 +3087,6 @@ label.geo-toggle {
 
   .navbar {
     padding: 10px 14px;
-  }
-
-  .navbar__brand span {
-    display: none;
   }
 
   .auth-card {
@@ -3846,69 +3834,6 @@ label.geo-toggle {
   white-space: pre-line;
   line-height: 1.6;
   font-size: 0.95rem;
-}
-
-.home-notifications {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
-  overflow: hidden;
-}
-
-.home-notifications__item {
-  display: grid;
-  grid-template-columns: 1fr 120px 28px;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.95rem;
-}
-
-.home-notifications__item:last-child {
-  border-bottom: none;
-}
-
-.home-notifications__time {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.home-notifications__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-}
-
-.home-notifications__clear {
-  border: none;
-  background: none;
-  color: var(--accent, #c8553d);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: 4px 0;
-}
-
-.home-notifications__clear:hover {
-  text-decoration: underline;
-}
-
-.home-notifications__dismiss {
-  border: none;
-  background: none;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0 4px;
-  margin-left: 4px;
 }
 
 .home-latest {

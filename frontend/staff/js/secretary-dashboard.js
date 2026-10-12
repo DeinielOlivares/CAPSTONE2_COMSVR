@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <tr>
           <td>${c.folderName || "Uncategorized"}</td>
           <td>${days} ${days === 1 ? "day" : "days"}</td>
-          <td><a class="recent-reports-table__action" href="concern-detail.html?id=${encodeURIComponent(c.id)}" aria-label="View concern">&#8594;</a></td>
+          <td><a class="recent-reports-table__view-btn" href="concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a></td>
         </tr>`;
           })
           .join("")

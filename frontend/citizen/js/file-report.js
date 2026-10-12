@@ -290,6 +290,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Street: type-to-filter street combobox ----
+  // Best-effort — on failure STREETS just stays empty, same as any other
+  // street-data.js consumer; the field degrades to "no matching street".
+  await ensureStreetsLoaded().catch(() => {});
   const locationInput = document.getElementById("reportLocation");
   const locationList = document.getElementById("reportLocationList");
 

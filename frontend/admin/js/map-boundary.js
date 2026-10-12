@@ -1,7 +1,12 @@
 // Barangay Platero OVRMS — Map Boundary (Admin Portal): draw, upload or edit the
-// barangay outline shown on the staff incident heatmap. Backed by
-// GET/PUT /api/site/boundary/ (see siteinfo/views.py's BoundaryView), which
-// stores one ring of [lat, lng] points.
+// barangay outline shown on the staff incident heatmap, plus add/remove the
+// streets citizens pick from on Sign Up/File Report/My Profile (the yellow
+// dots). Boundary is backed by GET/PUT /api/site/boundary/ (see
+// siteinfo/views.py's BoundaryView), one ring of [lat, lng] points. Streets
+// are backed by GET/POST /api/site/streets/ + DELETE /api/site/streets/<id>/
+// (StreetListCreateView/StreetDetailView) via /staff/js/street-coordinates.js's
+// ensureStreetsLoaded/liveStreets — click "+ Add Street" then a point on the
+// map to add one; remove one from the Streets card's list below.
 //
 // Depends (load order): /staff/vendor/leaflet/leaflet.js,
 // /staff/js/street-coordinates.js — then this file, then admin.js.
@@ -31,6 +36,31 @@ async function saveBoundary(points) {
     throw new Error(typeof first === "string" ? first : "Could not save the boundary. Check the points and try again.");
   }
   return data.boundary;
+}
+
+// ---- Streets (name + the single point placed by clicking the map) ----
+// GET is public (streets-data.js's ensureStreetsLoaded) — only add/remove
+// need the Administrator's token, same split as the boundary above.
+
+async function apiExtractError(response, fallback) {
+  const data = await response.json().catch(() => null);
+  const first = data && (data.detail || data.name || data.latitude || data.longitude);
+  return new Error(typeof first === "string" ? first : Array.isArray(first) ? first[0] : fallback);
+}
+
+async function createStreet(name, lat, lng) {
+  const response = await authFetch("/api/site/streets/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, latitude: lat, longitude: lng }),
+  });
+  if (!response.ok) throw await apiExtractError(response, "Could not add that street.");
+  return response.json();
+}
+
+async function deleteStreet(id) {
+  const response = await authFetch(`/api/site/streets/${encodeURIComponent(id)}/`, { method: "DELETE" });
+  if (!response.ok && response.status !== 204) throw await apiExtractError(response, "Could not remove that street.");
 }
 
 // ---- File import (GeoJSON / KML) ----
@@ -116,7 +146,7 @@ function pointsFromFile(name, text) {
 
 // ---- Page ----
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const mapEl = document.getElementById("boundaryMap");
   const statusEl = document.getElementById("boundaryStatus");
   const errorForm = document.getElementById("boundaryForm");
@@ -126,21 +156,157 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveBtn = document.getElementById("boundarySave");
   const fileInput = document.getElementById("boundaryFile");
   const streetsToggle = document.getElementById("boundaryShowStreets");
+  const streetAddToggle = document.getElementById("streetAddToggle");
+  const streetListEl = document.getElementById("streetList");
+  const streetNameModal = document.getElementById("streetNameModal");
+  const streetNameForm = document.getElementById("streetNameForm");
+  const streetNameInput = document.getElementById("streetNameInput");
+  const streetNameConfirm = document.getElementById("streetNameConfirm");
+  const streetNameCancel = document.getElementById("streetNameCancel");
+  const streetDeleteModal = document.getElementById("streetDeleteModal");
+  const streetDeleteName = document.getElementById("streetDeleteName");
+  const streetDeleteConfirm = document.getElementById("streetDeleteConfirm");
+  const streetDeleteCancel = document.getElementById("streetDeleteCancel");
 
   const map = L.map(mapEl, { doubleClickZoom: false }).setView(BOUNDARY_DEFAULT_CENTER, 15);
   L.tileLayer(BOUNDARY_TILE_URL, { maxZoom: 19, attribution: BOUNDARY_TILE_ATTRIBUTION }).addTo(map);
   map.attributionControl.setPrefix("");
 
-  // The app's street list, as a tracing reference — the outline should
-  // take these in.
-  const streetsLayer = L.layerGroup(
-    Object.entries(typeof STREET_COORDINATES === "object" ? STREET_COORDINATES : {}).map(([name, coord]) =>
-      L.circleMarker(coord, { radius: 4, color: "#1f2430", weight: 1, fillColor: "#f2c94c", fillOpacity: 0.9 }).bindTooltip(name)
-    )
-  ).addTo(map);
+  // ---- Streets: the yellow-dot layer above, and the Streets card below,
+  // both backed by the real API (streets-data.js's ensureStreetsLoaded) —
+  // added by clicking "+ Add Street" then a point on the map (see the click
+  // handler and streetNameModal wiring further down), removed from the
+  // Streets card's list. ----
+
+  function escapeStreetHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  const streetsLayer = L.layerGroup().addTo(map);
+
+  function renderStreetMarkers() {
+    streetsLayer.clearLayers();
+    liveStreets().forEach((s) => {
+      L.circleMarker([s.latitude, s.longitude], {
+        radius: 4,
+        color: "#1f2430",
+        weight: 1,
+        fillColor: "#f2c94c",
+        fillOpacity: 0.9,
+      })
+        .bindTooltip(s.name)
+        .addTo(streetsLayer);
+    });
+  }
+
+  function renderStreetList() {
+    const streets = liveStreets().slice().sort((a, b) => a.name.localeCompare(b.name));
+    streetListEl.innerHTML = streets.length
+      ? streets
+          .map(
+            (s) => `
+        <li class="street-list__row">
+          <span>${escapeStreetHtml(s.name)}</span>
+          <button type="button" class="street-list__delete" data-delete-street="${s.id}" aria-label="Remove ${escapeStreetHtml(s.name)}">&times;</button>
+        </li>`
+          )
+          .join("")
+      : `<li class="street-list__empty">No streets yet — click + Add Street, then the map, to add one.</li>`;
+  }
+
+  function refreshStreets() {
+    renderStreetMarkers();
+    renderStreetList();
+  }
+
+  try {
+    await ensureStreetsLoaded();
+  } catch {
+    // Best-effort — the outline editor still works with no street dots/list.
+  }
+  refreshStreets();
+
   streetsToggle.addEventListener("change", () => {
     if (streetsToggle.checked) streetsLayer.addTo(map);
     else streetsLayer.remove();
+  });
+
+  // ---- "+ Add Street" mode: arms the map so its next click places a new
+  // street instead of a boundary point (see the click handler below). ----
+  let addStreetMode = false;
+  let pendingStreetPoint = null;
+
+  function setAddStreetMode(on) {
+    addStreetMode = on;
+    streetAddToggle.classList.toggle("is-active", on);
+    streetAddToggle.textContent = on ? "Click the map…" : "+ Add Street";
+  }
+
+  streetAddToggle.addEventListener("click", () => setAddStreetMode(!addStreetMode));
+
+  streetNameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = streetNameInput.value.trim();
+    if (!name || !pendingStreetPoint) return;
+    clearFormError(streetNameForm);
+    streetNameConfirm.disabled = true;
+    try {
+      const created = await createStreet(name, pendingStreetPoint[0], pendingStreetPoint[1]);
+      _streetsCache = [...liveStreets(), created];
+      STREETS = _streetsCache.map((s) => s.name);
+      refreshStreets();
+      streetNameModal.hidden = true;
+      pendingStreetPoint = null;
+    } catch (err) {
+      showFormError(streetNameForm, err.message);
+    } finally {
+      streetNameConfirm.disabled = false;
+    }
+  });
+
+  function closeStreetNameModal() {
+    streetNameModal.hidden = true;
+    pendingStreetPoint = null;
+  }
+  streetNameCancel.addEventListener("click", closeStreetNameModal);
+  streetNameModal.addEventListener("click", (e) => {
+    if (e.target === streetNameModal) closeStreetNameModal();
+  });
+
+  let streetDeleteTargetId = null;
+  streetListEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-delete-street]");
+    if (!btn) return;
+    streetDeleteTargetId = btn.dataset.deleteStreet;
+    const street = liveStreets().find((s) => s.id === streetDeleteTargetId);
+    streetDeleteName.textContent = street ? street.name : "";
+    streetDeleteModal.hidden = false;
+  });
+
+  function closeStreetDeleteModal() {
+    streetDeleteModal.hidden = true;
+    streetDeleteTargetId = null;
+  }
+  streetDeleteCancel.addEventListener("click", closeStreetDeleteModal);
+  streetDeleteModal.addEventListener("click", (e) => {
+    if (e.target === streetDeleteModal) closeStreetDeleteModal();
+  });
+  streetDeleteConfirm.addEventListener("click", async () => {
+    if (!streetDeleteTargetId) return;
+    streetDeleteConfirm.disabled = true;
+    try {
+      await deleteStreet(streetDeleteTargetId);
+      _streetsCache = liveStreets().filter((s) => s.id !== streetDeleteTargetId);
+      STREETS = _streetsCache.map((s) => s.name);
+      refreshStreets();
+      closeStreetDeleteModal();
+    } catch (err) {
+      siteAlert(err.message);
+    } finally {
+      streetDeleteConfirm.disabled = false;
+    }
   });
 
   const outline = L.polygon([], {
@@ -225,6 +391,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   map.on("click", (e) => {
+    if (addStreetMode) {
+      pendingStreetPoint = [+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)];
+      setAddStreetMode(false);
+      streetNameInput.value = "";
+      clearFormError(streetNameForm);
+      streetNameModal.hidden = false;
+      streetNameInput.focus();
+      return;
+    }
     if (points.length >= BOUNDARY_MAX_POINTS) return;
     pushHistory();
     const point = [+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)];

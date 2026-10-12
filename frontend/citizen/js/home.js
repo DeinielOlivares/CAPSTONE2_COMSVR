@@ -167,43 +167,6 @@ function openAnnouncement(id, grid) {
   }
 }
 
-function renderNotificationsSection(section, container) {
-  const notifications = getCitizenNotifications();
-  section.hidden = false;
-  if (!notifications.length) {
-    container.innerHTML = `<div class="ordinances-empty">No notifications yet.</div>`;
-    return;
-  }
-  container.innerHTML = `
-    <div class="home-notifications__toolbar">
-      <button type="button" class="home-notifications__clear" id="homeNotifClearAll">Clear all</button>
-    </div>
-    <ul class="home-notifications">${notifications
-      .map(
-        (n) => `
-      <li class="home-notifications__item">
-        ${n.link ? `<a href="${escapeHtml(n.link)}" data-home-notif="${n.id}">${n.message}</a>` : `<span>${n.message}</span>`}
-        <span class="home-notifications__time">${citizenTimeAgo(n.time)}</span>
-        <button type="button" class="home-notifications__dismiss" data-home-dismiss="${n.id}" aria-label="Dismiss notification">&times;</button>
-      </li>`
-      )
-      .join("")}</ul>`;
-
-  container.querySelector("#homeNotifClearAll").addEventListener("click", () => {
-    clearAllCitizenNotifications();
-    renderNotificationsSection(section, container);
-  });
-  container.querySelectorAll("[data-home-dismiss]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      removeCitizenNotification(btn.dataset.homeDismiss);
-      renderNotificationsSection(section, container);
-    });
-  });
-  container.querySelectorAll("[data-home-notif]").forEach((link) => {
-    link.addEventListener("click", () => removeCitizenNotification(link.dataset.homeNotif));
-  });
-}
-
 async function renderLatestOrdinances(container, loggedIn) {
   const response = loggedIn ? await authFetch("/api/ordinances/") : await fetch("/api/ordinances/");
   if (!response.ok) throw new Error("Could not load ordinances.");
@@ -259,13 +222,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await renderLatestOrdinances(document.getElementById("latestOrdinancesBody"), loggedIn);
   } catch (err) {
     document.getElementById("latestOrdinancesBody").innerHTML = `<div class="ordinances-empty">${escapeHtml(err.message)}</div>`;
-  }
-
-  if (loggedIn) {
-    renderNotificationsSection(
-      document.getElementById("notificationsSection"),
-      document.getElementById("notificationsBody")
-    );
   }
 });
 

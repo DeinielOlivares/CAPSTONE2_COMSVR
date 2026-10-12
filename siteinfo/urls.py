@@ -16,4 +16,6 @@ urlpatterns = [
     path("logos/", views.AboutLogoListCreateView.as_view(), name="site_logo_list_create"),
     path("logos/reorder/", views.AboutLogoReorderView.as_view(), name="site_logo_reorder"),
     path("logos/<uuid:pk>/", views.AboutLogoDetailView.as_view(), name="site_logo_detail"),
+    path("streets/", views.StreetListCreateView.as_view(), name="site_streets"),
+    path("streets/<uuid:pk>/", views.StreetDetailView.as_view(), name="site_street_detail"),
 ]

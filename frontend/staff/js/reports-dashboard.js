@@ -71,6 +71,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return;
   }
+  // Best-effort, unlike the two above — the heatmap/geo summary just can't
+  // place a street-only report precisely if this fails, not worth failing
+  // the whole dashboard over.
+  await ensureStreetsLoaded().catch(() => {});
 
   // Every category a real ordinance defines, plus "Other" only if some
   // report's ordinance text didn't match any of them — computed once so the
