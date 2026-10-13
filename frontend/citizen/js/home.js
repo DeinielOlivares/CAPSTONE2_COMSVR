@@ -126,7 +126,7 @@ function renderNewsGrid(container, announcements, loggedIn) {
           <h2 class="news-card__title">${escapeHtml(a.title)}</h2>
           <p class="news-card__excerpt">${escapeHtml(excerpt(a.description))}</p>
           <div class="news-card__footer">
-            <span class="news-card__date">${formatNewsDate(a.created_at)}</span>
+            <span class="news-card__date">${formatNewsDate(a.created_at)}${a.is_edited ? ` &middot; <em>(edited)</em>` : ""}</span>
             <button type="button" class="news-card__more" data-read-more="${a.id}">Read more</button>
           </div>
         </div>
@@ -149,7 +149,7 @@ function openAnnouncement(id, grid) {
   document.getElementById("announcementModalBody").innerHTML = `
     ${a.image_url ? `<img class="news-modal__image" src="${escapeHtml(a.image_url)}" alt="" />` : ""}
     <h2 class="news-modal__title">${escapeHtml(a.title)}</h2>
-    <p class="news-modal__meta">${formatNewsDate(a.created_at)}${a.posted_by_name ? ` &middot; Posted by ${escapeHtml(a.posted_by_name)}` : ""}</p>
+    <p class="news-modal__meta">${formatNewsDate(a.created_at)}${a.posted_by_name ? ` &middot; Posted by ${escapeHtml(a.posted_by_name)}` : ""}${a.is_edited ? ` &middot; <em>(edited)</em>` : ""}</p>
     <p class="news-modal__description">${escapeHtml(a.description)}</p>`;
   modal.hidden = false;
 

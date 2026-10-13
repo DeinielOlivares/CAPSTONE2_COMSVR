@@ -391,9 +391,13 @@ function storeAuthSession(data, remember) {
     JSON.stringify({
       name: data.user.name,
       firstName: data.user.first_name,
+      middleInitial: data.user.middle_initial,
       lastName: data.user.last_name,
-      initials: data.user.name
-        .split(" ")
+      // First + last initials specifically — data.user.name now may have a
+      // middle initial in between (see User.get_full_name), which splitting
+      // the full name by space would pick up instead of the last name.
+      initials: [data.user.first_name, data.user.last_name]
+        .filter(Boolean)
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
@@ -480,7 +484,9 @@ async function apiCompleteStaffSetup(email, code, details) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const firstError = Object.values(data)[0];
-    throw new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not complete account setup."));
+    const err = new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not complete account setup."));
+    err.fields = data;
+    throw err;
   }
   return storeAuthSession(await response.json(), false);
 }
@@ -506,6 +512,26 @@ async function apiRegister(formData) {
     throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not create your account.");
   }
 
+  return response.json();
+}
+
+// Sign Up step 1 calls this before moving to step 2's ID photo upload, so a
+// duplicate email/phone is caught on the same page it was typed into.
+// Returns the field -> message map on a conflict ({} means available),
+// rather than throwing, since the caller needs to know which field(s).
+async function apiCheckAvailability(email, contact_number) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/check-availability/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, contact_number }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (response.ok) return {};
+  if (response.status !== 400) throw new Error("Could not check that information. Please try again.");
   return response.json();
 }
 
@@ -608,6 +634,32 @@ function showFormError(form, message) {
 
 function clearFormError(form) {
   const errEl = form.querySelector(".form-error");
+  if (errEl) errEl.remove();
+}
+
+// Highlights one input/select red with an inline message underneath it —
+// for mistakes tied to a specific field (invalid street, duplicate email or
+// phone) rather than the whole form, so the person knows exactly what to
+// fix without re-reading every field.
+function markFieldInvalid(input, message) {
+  if (!input) return;
+  input.classList.add("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  let errEl = field.querySelector(".field-error");
+  if (!errEl) {
+    errEl = document.createElement("p");
+    errEl.className = "field-error";
+    field.appendChild(errEl);
+  }
+  errEl.textContent = message;
+  input.addEventListener("input", () => clearFieldInvalid(input), { once: true });
+}
+
+function clearFieldInvalid(input) {
+  if (!input) return;
+  input.classList.remove("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  const errEl = field.querySelector(".field-error");
   if (errEl) errEl.remove();
 }
 
@@ -925,10 +977,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (form.dataset.signupStep1 !== undefined) {
         const password = form.querySelector('[name="password"]');
         const confirmPassword = form.querySelector('[name="confirmPassword"]');
-        const firstName = form.querySelector('[name="first_name"]').value.trim();
-        const lastName = form.querySelector('[name="last_name"]').value.trim();
-        const email = form.querySelector('[name="email"]').value.trim();
+        const firstNameField = form.querySelector('[name="first_name"]');
+        const lastNameField = form.querySelector('[name="last_name"]');
+        const middleInitialField = form.querySelector('[name="middle_initial"]');
+        const emailField = form.querySelector('[name="email"]');
+        const phoneField = form.querySelector('[name="phone"]');
+        const firstName = firstNameField.value.trim();
+        const lastName = lastNameField.value.trim();
+        const middleInitial = middleInitialField ? middleInitialField.value.trim() : "";
+        const email = emailField.value.trim();
         clearFormError(form);
+        [emailField, phoneField, form.querySelector('[name="address"]')].forEach(clearFieldInvalid);
+        clearFieldInvalid(document.getElementById("signupStreet"));
         if (password.value !== confirmPassword.value) {
           showFormError(form, "Passwords do not match.");
           return;
@@ -956,8 +1016,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // above) rather than free text, so it has to actually match an
         // entry — typing something and not clicking an option shouldn't
         // silently go through as if it were a valid street.
-        if (!isValidPhMobile(form.querySelector('[name="phone"]').value)) {
-          showFormError(form, "Enter a valid mobile number, like 09XXXXXXXXX.");
+        if (!isValidPhMobile(phoneField.value)) {
+          markFieldInvalid(phoneField, "Enter a valid mobile number, like 09XXXXXXXXX.");
           return;
         }
 
@@ -966,9 +1026,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const street = streetField ? streetField.value.trim() : "";
         const blockLot = blockLotField ? blockLotField.value.trim() : "";
         if (streetField && typeof STREETS !== "undefined" && !STREETS.includes(street)) {
-          showFormError(form, "Please select a street from the list.");
+          markFieldInvalid(streetField, "Please select a street from the list.");
           return;
         }
+
+        const contactNumber = phoneField.value.trim();
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        let availability;
+        try {
+          availability = await apiCheckAvailability(email, contactNumber);
+        } catch (err) {
+          showFormError(form, err.message);
+          submitBtn.disabled = false;
+          return;
+        }
+        submitBtn.disabled = false;
+        if (availability.email) markFieldInvalid(emailField, availability.email[0]);
+        if (availability.contact_number) markFieldInvalid(phoneField, availability.contact_number[0]);
+        if (availability.email || availability.contact_number) return;
 
         sessionStorage.setItem(
           SIGNUP_DRAFT_KEY,
@@ -976,8 +1052,9 @@ document.addEventListener("DOMContentLoaded", () => {
             email,
             password: password.value,
             first_name: firstName,
+            middle_initial: middleInitial,
             last_name: lastName,
-            contact_number: form.querySelector('[name="phone"]').value.trim(),
+            contact_number: contactNumber,
             address: streetField ? `${blockLot}, ${street}` : form.querySelector('[name="address"]').value.trim(),
           })
         );
@@ -1264,6 +1341,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const lastName = document.getElementById("setupLastName");
       const firstName = document.getElementById("setupFirstName");
+      const middleInitial = document.getElementById("setupMiddleInitial");
       const phone = document.getElementById("setupPhone");
       const password = document.getElementById("setupPassword");
       const confirmPassword = document.getElementById("setupConfirmPassword");
@@ -1288,11 +1366,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const streetField = document.getElementById("setupStreet");
       const blockLotField = document.getElementById("setupBlockLot");
       let address;
+      clearFieldInvalid(phone);
+      clearFieldInvalid(streetField);
       if (streetField) {
         const street = streetField.value.trim();
         const blockLot = blockLotField.value.trim();
         if (!STREETS.includes(street)) {
-          showFormError(staffSetupDetailsForm, "Please select a street from the list.");
+          markFieldInvalid(streetField, "Please select a street from the list.");
           return;
         }
         address = `${blockLot}, ${street}`;
@@ -1303,6 +1383,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const role = await apiCompleteStaffSetup(setupEmail, setupCode, {
           first_name: firstName.value.trim(),
+          middle_initial: middleInitial.value.trim(),
           last_name: lastName.value.trim(),
           contact_number: phone.value.trim(),
           password: password.value,
@@ -1310,7 +1391,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         window.location.href = loginHome(role) || "index.html";
       } catch (err) {
-        showFormError(staffSetupDetailsForm, err.message);
+        if (err.fields && err.fields.contact_number) {
+          markFieldInvalid(phone, err.fields.contact_number[0]);
+        } else {
+          showFormError(staffSetupDetailsForm, err.message);
+        }
         submitBtn.disabled = false;
         submitBtn.textContent = "Complete Setup";
       }

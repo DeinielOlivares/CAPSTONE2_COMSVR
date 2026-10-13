@@ -345,9 +345,17 @@ button {
   gap: 16px;
 }
 
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
+}
+
 .field {
   margin-bottom: 16px;
   text-align: left;
+}
+
+.field--narrow {
+  max-width: 140px;
 }
 
 .field label {
@@ -372,6 +380,17 @@ button {
   outline: none;
   border-color: var(--navy);
   box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
+}
+
+.field input.field-invalid,
+.field select.field-invalid {
+  border-color: #c0392b;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
 }
 
 .combobox {

@@ -32,6 +32,7 @@ from .models import (
     log_action,
 )
 from .serializers import (
+    AccountAvailabilityCheckSerializer,
     AdminAccountSerializer,
     CitizenInviteSerializer,
     CitizenSetupSerializer,
@@ -67,6 +68,18 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         admins = User.objects.filter(role=User.Role.ADMIN, is_active=True)
         send_account_created_admin_emails(user, admins)
+
+
+class CheckAccountAvailabilityView(APIView):
+    """POST /api/auth/check-availability/ — see AccountAvailabilityCheckSerializer."""
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
+
+    def post(self, request):
+        serializer = AccountAvailabilityCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({})
 
 
 class PasswordResetRequestView(APIView):

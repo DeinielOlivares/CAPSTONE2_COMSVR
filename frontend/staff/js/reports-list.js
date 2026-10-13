@@ -23,7 +23,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   dateTo.max = todayStr;
   const dateRangeClear = document.getElementById("dateRangeClear");
   const statusFilter = document.getElementById("statusFilter");
-  const list = document.getElementById("reportsList");
+  const listMine = document.getElementById("reportsListMine");
+  const listOthers = document.getElementById("reportsListOthers");
+  const listUnclaimed = document.getElementById("reportsListUnclaimed");
+  const sectionMine = document.getElementById("reportsSectionMine");
+  const sectionOthersTitle = document.getElementById("reportsSectionOthersTitle");
   const pagination = document.getElementById("reportsPagination");
   const pageSizeSelect = document.getElementById("reportsPageSize");
 
@@ -32,12 +36,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   // keystroke — this tracks the query that was actually searched for.
   let appliedQuery = "";
 
-  list.innerHTML = skeletonCards(5);
+  listMine.innerHTML = skeletonCards(3);
+  listOthers.innerHTML = skeletonCards(3);
+  listUnclaimed.innerHTML = skeletonCards(5);
   try {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    listUnclaimed.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    listMine.innerHTML = "";
+    listOthers.innerHTML = "";
     return;
   }
 
@@ -81,16 +89,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (statusFilter.value !== "all") {
       rows = rows.filter((r) => r.status === statusFilter.value);
     } else {
-      // "all": every status shows, but ranked so whatever isn't Resolved yet
-      // (New Submission/Under Review/In Action) comes ahead of Resolved
-      // reports, newest first within each group — so a backlog of old
-      // resolved reports doesn't bury what's still active.
-      rows = rows.slice().sort((a, b) => {
-        const aResolved = a.status === "Resolved" ? 1 : 0;
-        const bResolved = b.status === "Resolved" ? 1 : 0;
-        if (aResolved !== bResolved) return aResolved - bResolved;
-        return b.dateSubmitted - a.dateSubmitted;
-      });
+      // "all": every status shows, ranked New Submission > Under Review >
+      // In Action > Resolved, newest first within each group — so a backlog
+      // of old resolved reports doesn't bury what's still active.
+      rows = sortReportsByStatusThenDate(rows);
     }
 
     if (appliedQuery) {
@@ -105,31 +107,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     return rows;
   }
 
-  function render() {
-    const rows = getFiltered();
-    const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
-    page = Math.min(page, totalPages);
-    const start = pageSize ? (page - 1) * pageSize : 0;
-    const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
-
-    const currentUser = getAdminUser();
-    // Claiming is Investigator-only (same rule as report-detail.js and
-    // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
-    // page but only gets a read-only view of who's working what.
-    const isInvestigator = currentUser && currentUser.position === "Investigator";
-
-    list.innerHTML = pageRows.length
-      ? pageRows
-          .map((r) => {
-            const isMine = r.assignedInvestigatorId && currentUser && r.assignedInvestigatorId === currentUser.id;
-            const claimLabel = r.assignedInvestigator
-              ? `Claimed by ${isMine ? "you" : escapeReportHtml(r.assignedInvestigator)}`
-              : "Unclaimed";
-            const claimAction =
-              isInvestigator && !r.assignedInvestigator
-                ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
-                : "";
-            return `
+  function reportRow(r, { claimLabel, claimAction }) {
+    return `
         <div class="report-row">
           <div class="report-row__top">
             <span class="concern-row__title">${r.incidentType}</span>
@@ -142,11 +121,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             ${claimAction}
           </div>
         </div>`;
-          })
-          .join("")
-      : `<div class="ordinances-empty">${liveReports().length ? "No reports match your search or filters." : "No reports submitted yet."}</div>`;
+  }
 
-    list.querySelectorAll("[data-claim]").forEach((btn) => {
+  function renderGroup(container, rows, emptyMessage, rowFn) {
+    container.innerHTML = rows.length
+      ? rows.map(rowFn).join("")
+      : `<div class="ordinances-empty">${emptyMessage}</div>`;
+  }
+
+  function wireClaimButtons(container) {
+    container.querySelectorAll("[data-claim]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE)) return;
         btn.disabled = true;
@@ -159,6 +143,59 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       });
     });
+  }
+
+  function render() {
+    const rows = getFiltered();
+    const currentUser = getAdminUser();
+    // Claiming is Investigator-only (same rule as report-detail.js and
+    // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
+    // page but only gets a read-only view of who's working what.
+    const isInvestigator = currentUser && currentUser.position === "Investigator";
+
+    // Split into three groups instead of one mixed list, so an investigator's
+    // own claimed work doesn't get lost among everyone else's.
+    const mine = [];
+    const others = [];
+    const unclaimed = [];
+    rows.forEach((r) => {
+      if (!r.assignedInvestigatorId) unclaimed.push(r);
+      else if (currentUser && r.assignedInvestigatorId === currentUser.id) mine.push(r);
+      else others.push(r);
+    });
+
+    sectionMine.hidden = !isInvestigator;
+    sectionOthersTitle.textContent = isInvestigator ? "Claimed by Other Investigators" : "Claimed Reports";
+
+    if (isInvestigator) {
+      renderGroup(listMine, mine, "You haven't claimed any reports yet.", (r) =>
+        reportRow(r, { claimLabel: "Claimed by you", claimAction: "" })
+      );
+    }
+    renderGroup(listOthers, others, "No reports claimed by other investigators.", (r) =>
+      reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" })
+    );
+
+    // Only the Unclaimed section is paginated — it's the one that can grow
+    // into an actual queue; claimed work is naturally bounded per person.
+    const totalPages = pageSize ? Math.max(1, Math.ceil(unclaimed.length / pageSize)) : 1;
+    page = Math.min(page, totalPages);
+    const start = pageSize ? (page - 1) * pageSize : 0;
+    const pageRows = pageSize ? unclaimed.slice(start, start + pageSize) : unclaimed;
+
+    renderGroup(
+      listUnclaimed,
+      pageRows,
+      liveReports().length ? "No reports match your search or filters." : "No reports submitted yet.",
+      (r) =>
+        reportRow(r, {
+          claimLabel: "Unclaimed",
+          claimAction: isInvestigator
+            ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
+            : "",
+        })
+    );
+    wireClaimButtons(listUnclaimed);
 
     renderPaginationControls(pagination, page, totalPages, (n) => {
       page = n;

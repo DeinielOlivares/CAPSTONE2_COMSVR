@@ -540,10 +540,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function renderLatest() {
     const body = document.getElementById("latestBody");
-    const latest = liveConcerns()
-      .slice()
-      .sort((a, b) => b.dateSubmitted - a.dateSubmitted)
-      .slice(0, latestListLimit);
+    const latest = sortConcernsByStatusThenDate(liveConcerns()).slice(0, latestListLimit);
     if (!latest.length) {
       body.innerHTML = `<tr><td colspan="5" class="ordinances-empty">No concerns or suggestions yet.</td></tr>`;
       return;
