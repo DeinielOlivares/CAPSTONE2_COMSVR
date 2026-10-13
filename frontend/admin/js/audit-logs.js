@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let appliedQuery = "";
 
   async function loadLogs() {
-    tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="5">Loading audit logs...</td></tr>`;
+    tbody.innerHTML = skeletonTableRows(6, 5);
     try {
       logs = await getAuditLogs();
       render();

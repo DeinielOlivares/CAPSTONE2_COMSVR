@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function loadData() {
-    tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="5">Loading reports...</td></tr>`;
+    tbody.innerHTML = skeletonTableRows(5, 5);
     try {
       const [reportsRes, usersRes] = await Promise.all([
         authFetch("/api/reports/staff/"),

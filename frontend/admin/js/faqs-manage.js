@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  if (faqManageList) faqManageList.innerHTML = `<div class="ordinances-empty">Loading...</div>`;
+  if (faqManageList) faqManageList.innerHTML = skeletonCards(4);
 
   try {
     faqs = await getManagedFAQs();

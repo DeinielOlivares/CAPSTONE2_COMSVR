@@ -1,5 +1,28 @@
 // Barangay Platero OVRMS — shared behavior for admin pages (sidebar toggle + logout).
 
+// ---- Skeleton loading placeholders (see .skeleton* in style.css) ----
+// Used in place of a bare "Loading..." string so a slow connection shows
+// something that already roughly matches the real layout, instead of a
+// layout jump once data arrives.
+
+// `count` <tr> rows for a <tbody>, each with `columns` cells containing a
+// shimmering bar.
+function skeletonTableRows(count, columns) {
+  const row = `<tr>${Array.from({ length: columns }, () => `<td><span class="skeleton skeleton-text"></span></td>`).join("")}</tr>`;
+  return Array.from({ length: count }).fill(row).join("");
+}
+
+// `count` card-style blocks for a simple list container — two bars each,
+// standing in for a title line and a shorter meta line underneath it.
+function skeletonCards(count) {
+  const card = `
+    <div class="skeleton-card">
+      <span class="skeleton skeleton-text skeleton-text--medium"></span>
+      <span class="skeleton skeleton-text skeleton-text--short"></span>
+    </div>`;
+  return Array.from({ length: count }).fill(card).join("");
+}
+
 const ADMIN_AUTH_STORAGE_KEY = "orms_auth_user";
 const ADMIN_ACCESS_TOKEN_KEY = "orms_access_token";
 const ADMIN_REFRESH_TOKEN_KEY = "orms_refresh_token";

@@ -554,8 +554,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ================================= Load ==================================
 
-  membersBody.innerHTML = `<tr><td colspan="5" class="admin-table__empty">Loading...</td></tr>`;
-  logosBody.innerHTML = `<tr><td colspan="4" class="admin-table__empty">Loading...</td></tr>`;
+  membersBody.innerHTML = skeletonTableRows(4, 5);
+  logosBody.innerHTML = skeletonTableRows(3, 4);
   const [profileResult, membersResult, logosResult] = await Promise.allSettled([
     getBarangayProfile(),
     listCouncilMembers(),

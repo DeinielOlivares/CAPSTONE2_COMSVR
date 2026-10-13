@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let renameTargetId = null;
   let deleteTargetId = null;
 
-  list.innerHTML = `<div class="ordinances-empty">Loading concerns/suggestions...</div>`;
+  list.innerHTML = skeletonCards(5);
   try {
     await Promise.all([ensureConcernsLoaded(), ensureFoldersLoaded()]);
   } catch (err) {

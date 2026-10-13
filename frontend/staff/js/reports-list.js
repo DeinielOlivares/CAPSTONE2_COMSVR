@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // keystroke — this tracks the query that was actually searched for.
   let appliedQuery = "";
 
-  list.innerHTML = `<div class="ordinances-empty">Loading reports...</div>`;
+  list.innerHTML = skeletonCards(5);
   try {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();

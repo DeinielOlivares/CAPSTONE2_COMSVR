@@ -452,7 +452,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     legalKey = key;
     document.getElementById("legalModalTitle").textContent = `Edit ${LEGAL_PAGE_TITLES[key]}`;
     clearFormError(legalForm);
-    legalEditor.innerHTML = '<p class="field-hint" style="margin: 0;">Loading...</p>';
+    legalEditor.innerHTML = `
+      <div class="skeleton-card" style="padding: 0 0 16px; border-top: none;">
+        <span class="skeleton skeleton-text skeleton-text--medium"></span>
+        <span class="skeleton skeleton-text"></span>
+        <span class="skeleton skeleton-text skeleton-text--short"></span>
+      </div>`;
     legalModal.hidden = false;
     legalSave.disabled = true;
     try {

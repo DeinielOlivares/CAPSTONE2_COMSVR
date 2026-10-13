@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let page = 1;
 
   async function loadAccounts() {
-    tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="4">Loading accounts...</td></tr>`;
+    tbody.innerHTML = skeletonTableRows(5, 4);
     try {
       accounts = await getAllAccounts();
       render();
