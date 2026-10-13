@@ -1146,6 +1146,66 @@ button {
   color: var(--text-muted);
 }
 
+/* ---------- Skeleton loading placeholders ----------
+   A shimmering gray bar standing in for text/content that's still loading,
+   instead of a bare "Loading..." string, so a slow connection shows
+   something that already roughly matches the real layout rather than a
+   layout jump once data arrives. See skeletonTableRows()/skeletonCards()
+   in admin.js. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--plain-bg) 50%, var(--border) 75%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  height: 0.85em;
+  width: 100%;
+}
+
+.skeleton-text + .skeleton-text {
+  margin-top: 8px;
+}
+
+.skeleton-text--short {
+  width: 35%;
+}
+
+.skeleton-text--medium {
+  width: 65%;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-card:first-child {
+  border-top: none;
+}
+
+.skeleton-block {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+}
+
 /* ---------- Ordinance detail ---------- */
 
 .detail-card {
@@ -2574,6 +2634,32 @@ button {
   .navbar {
     flex-wrap: wrap;
     row-gap: 10px;
+  }
+
+  /* The auth pages' navbar (login, forgot/reset password, verify code) has
+     no .navbar__links to wrap onto its own row — just the brand and this
+     label — so it stays on one row on mobile too instead of wrapping,
+     shrunk just enough to fit both side by side. :has() scopes this to
+     those pages only, leaving every other page's .navbar (with real nav
+     links that do need to wrap) untouched. */
+  .navbar:has(.navbar__portal-label) {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .navbar:has(.navbar__portal-label) .navbar__brand {
+    gap: 8px;
+    font-size: 1rem;
+  }
+
+  .navbar:has(.navbar__portal-label) .navbar__logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .navbar__portal-label {
+    font-size: 0.78rem;
   }
 
   .navbar__links {

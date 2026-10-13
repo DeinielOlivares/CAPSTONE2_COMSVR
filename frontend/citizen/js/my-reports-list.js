@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  list.innerHTML = `<div class="ordinances-empty">Loading your reports...</div>`;
+  list.innerHTML = skeletonCards(4);
   try {
     reports = await getMyReports();
     render();

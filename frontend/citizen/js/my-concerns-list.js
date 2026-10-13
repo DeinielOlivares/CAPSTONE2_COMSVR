@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  list.innerHTML = `<div class="ordinances-empty">Loading your concerns/suggestions...</div>`;
+  list.innerHTML = skeletonCards(4);
   try {
     concerns = await getMyConcerns();
     render();
