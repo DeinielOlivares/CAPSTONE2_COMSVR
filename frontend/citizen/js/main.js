@@ -1679,6 +1679,8 @@ document.addEventListener("DOMContentLoaded", () => {
     navHamburger.innerHTML = "&#9776;";
     navBrand.insertAdjacentElement("afterend", navHamburger);
 
+    const navbarEl = navLinks.closest(".navbar");
+
     const closeNavMenu = () => {
       navLinks.classList.remove("is-open");
       navHamburger.setAttribute("aria-expanded", "false");
@@ -1696,11 +1698,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target.closest("a")) closeNavMenu();
     });
 
+    // Above the ~860px mobile breakpoint, .navbar__links lays out as a
+    // normal (non-hamburger) flex row that wraps onto a second line once
+    // the links no longer fit — e.g. a window narrower than "desktop" but
+    // still wider than the mobile breakpoint. Rather than let that wrap
+    // happen, detect it (first and last link landing at different
+    // offsetTop means it wrapped) and switch to the same collapsed
+    // hamburger treatment the mobile media query uses, via .navbar--compact
+    // (see style.css) — so it "compresses" like the mobile view instead of
+    // stacking onto a second row.
+    function syncNavCompact() {
+      if (!navbarEl || window.innerWidth <= 860) return; // CSS media query already handles this width
+      navbarEl.classList.remove("navbar--compact");
+      // Guests don't see the [data-auth-only] links (My Reports, My
+      // Concerns/Suggestions) — they're still in the DOM, just [hidden], so
+      // an unfiltered querySelectorAll would include their offsetTop (0,
+      // since a hidden element isn't laid out) and always read as "wrapped"
+      // against the visible ones, even at a wide desktop width.
+      const anchors = Array.from(navLinks.querySelectorAll("a")).filter((a) => a.offsetParent !== null);
+      const wrapped = anchors.length > 1 && anchors[0].offsetTop !== anchors[anchors.length - 1].offsetTop;
+      navbarEl.classList.toggle("navbar--compact", wrapped);
+    }
+    syncNavCompact();
+    window.addEventListener("load", syncNavCompact); // fonts/images can still shift link widths after first paint
+
     // Rotating a tablet/resizing past the mobile breakpoint while the menu
     // is open would otherwise leave it stuck open once desktop styles
     // (where .navbar__links is always visible) no longer apply .is-open.
     window.addEventListener("resize", () => {
       if (window.innerWidth > 860) closeNavMenu();
+      syncNavCompact();
     });
   }
 
@@ -1739,17 +1766,43 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loggedIn && user) {
       renderAvatar(profileBtn, user);
     } else {
+      const loginActive = window.location.pathname.startsWith("/citizen/login");
+      const signUpActive = window.location.pathname.endsWith("/signup.html");
+
+      // Desktop/wide: Login + Sign Up sit next to each other in the top
+      // row, outside the main link list — both hidden below the mobile
+      // breakpoint (see .navbar__profile--login in style.css), where they
+      // move into the hamburger dropdown instead (below).
       profileBtn.textContent = "Login";
       profileBtn.classList.add("navbar__profile--login");
-      if (window.location.pathname.startsWith("/citizen/login")) {
-        profileBtn.classList.add("active");
-      }
+      if (loginActive) profileBtn.classList.add("active");
+
       const signUpLink = document.createElement("a");
       signUpLink.href = "/citizen/signup.html";
       signUpLink.textContent = "Sign Up";
       signUpLink.className = "navbar__profile--login";
-      if (window.location.pathname.endsWith("/signup.html")) signUpLink.classList.add("active");
+      if (signUpActive) signUpLink.classList.add("active");
       profileBtn.insertAdjacentElement("afterend", signUpLink);
+
+      // Mobile: Login and Sign Up live inside the hamburger dropdown after
+      // Submit Suggestion instead (appended last — My Reports/My
+      // Concerns/Suggestions are [hidden] for guests, so these land right
+      // after Submit Suggestion visually) — hidden above the mobile
+      // breakpoint (see .navbar__links-login/.navbar__links-signup).
+      if (navLinks) {
+        const addDropdownLink = (className, href, text, active) => {
+          const item = document.createElement("li");
+          item.className = className;
+          const link = document.createElement("a");
+          link.href = href;
+          link.textContent = text;
+          if (active) link.classList.add("active");
+          item.appendChild(link);
+          navLinks.appendChild(item);
+        };
+        addDropdownLink("navbar__links-login", "/citizen/login.html", "Login", loginActive);
+        addDropdownLink("navbar__links-signup", "/citizen/signup.html", "Sign Up", signUpActive);
+      }
     }
 
     const openProfileModal = () => {

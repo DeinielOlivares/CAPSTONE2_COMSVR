@@ -218,6 +218,66 @@ button {
   border-bottom-color: var(--accent);
 }
 
+/* Login and Sign Up each have two copies for guests: one inline in the top
+   row (desktop), one inside the hamburger dropdown after Submit Suggestion
+   (mobile) — see the guest-nav wiring in main.js. Only one of each pair is
+   ever visible at a time; the mobile breakpoint and .navbar--compact below
+   flip which. Declared here (ahead of both) so these unconditional rules
+   don't win the cascade over them by sheer source order despite equal
+   specificity. */
+.navbar__links-login,
+.navbar__links-signup {
+  display: none;
+}
+
+/* Same collapsed-into-hamburger treatment as the mobile media query further
+   down, but triggered by actual overflow (see syncNavCompact in main.js)
+   instead of a fixed viewport width — above the mobile breakpoint the links
+   would otherwise wrap onto a second row rather than fit in one. */
+.navbar--compact {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.navbar--compact .navbar__hamburger {
+  display: block;
+}
+
+.navbar--compact .navbar__links {
+  display: none;
+  order: 4;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  margin: 10px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.navbar--compact .navbar__links.is-open {
+  display: flex;
+}
+
+.navbar--compact .navbar__links a {
+  display: block;
+  padding: 10px 4px;
+}
+
+.navbar--compact .navbar__links-signup {
+  display: block;
+}
+
+.navbar--compact .navbar__links-login {
+  display: block;
+}
+
+/* Login (and, for a guest, the inline Sign Up next to it) move into the
+   dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+.navbar--compact .navbar__profile--login {
+  display: none;
+}
+
 /* Inverted chip: navbar itself is navy, so the bell's own background flips
    to white (with a navy icon) rather than sitting flat against the navbar. */
 .navbar__bell {
@@ -877,6 +937,13 @@ label.geo-toggle {
 
 .auth-card .form-footer a:hover {
   color: var(--accent);
+}
+
+/* Login's "Don't Have an Account?" — underlined (not just on hover, like the
+   rest of .form-footer) so it reads as a second, equally-valid action
+   instead of easy-to-miss fine print under the Login button. */
+.form-footer__cta {
+  text-decoration: underline;
 }
 
 .form-back {
@@ -2781,6 +2848,20 @@ label.geo-toggle {
   .navbar__links a {
     display: block;
     padding: 10px 4px;
+  }
+
+  .navbar__links-signup {
+    display: block;
+  }
+
+  .navbar__links-login {
+    display: block;
+  }
+
+  /* Login (and, for a guest, the inline Sign Up next to it) move into the
+     dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+  .navbar__profile--login {
+    display: none;
   }
 
   .info-grid {
