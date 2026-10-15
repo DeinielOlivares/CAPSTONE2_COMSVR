@@ -337,6 +337,10 @@ button {
   gap: 16px;
 }
 
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
+}
+
 .field {
   margin-bottom: 16px;
   text-align: left;
@@ -3438,7 +3442,12 @@ button {
    and Citizen (full 2-column) forms above it — see create-accounts.js. */
 .create-account-type-field {
   max-width: 300px;
-  margin-top: 28px;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
 }
 
 /* Barangay Staff only ever collects an email + role (see

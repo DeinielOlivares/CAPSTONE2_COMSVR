@@ -45,6 +45,7 @@ function getPasswordRequirementError(pw, attrs = {}) {
 
 document.addEventListener("DOMContentLoaded", () => {
   const accountType = document.getElementById("caAccountType");
+  const accountTypeField = document.getElementById("caAccountTypeField");
   const staffForm = document.getElementById("createStaffAccountForm");
   const citizenForm = document.getElementById("createCitizenAccountForm");
   const createdModal = document.getElementById("accountCreatedModal");
@@ -55,6 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const isCitizen = accountType.value === "citizen";
     staffForm.hidden = isCitizen;
     citizenForm.hidden = !isCitizen;
+    // The Account Type field lives inside whichever card is currently shown,
+    // instead of sitting in its own separate section above both forms.
+    const card = (isCitizen ? citizenForm : staffForm).querySelector(".create-account-card");
+    card.insertBefore(accountTypeField, card.firstChild);
   }
   accountType.addEventListener("change", syncFormVisibility);
   syncFormVisibility();
@@ -62,7 +67,28 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- Barangay Staff form ----
   const email = document.getElementById("caEmail");
   const role = document.getElementById("caRole");
+  const roleWarning = document.getElementById("caRoleWarning");
   const staffSubmitBtn = staffForm.querySelector('button[type="submit"]');
+
+  // Live warning (before submit) when picking a role that's limited to one
+  // active holder at a time — the server enforces this too (see
+  // validate_staff_role_uniqueness in accounts/serializers.py), this is just
+  // an earlier heads-up using the same account list Manage Accounts shows.
+  const UNIQUE_STAFF_ROLES = new Set(["Barangay Captain", "Secretary"]);
+  role.addEventListener("change", async () => {
+    roleWarning.hidden = true;
+    if (!UNIQUE_STAFF_ROLES.has(role.value)) return;
+    try {
+      const accounts = await getAllAccounts();
+      const taken = accounts.some((a) => a.active && (a.position || "").toLowerCase() === role.value.toLowerCase());
+      if (taken) {
+        roleWarning.textContent = `There's already an active ${role.value}. Only one is allowed at a time.`;
+        roleWarning.hidden = false;
+      }
+    } catch (err) {
+      // Non-blocking: the server-side check on submit still catches it.
+    }
+  });
 
   staffForm.addEventListener("submit", async (e) => {
     e.preventDefault();

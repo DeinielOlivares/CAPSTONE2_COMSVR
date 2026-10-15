@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const avatarImg = document.getElementById("editAvatarImg");
   const avatarInitials = document.getElementById("editAvatarInitials");
   const firstNameInput = document.getElementById("profileFirstName");
+  const middleInitialInput = document.getElementById("profileMiddleInitial");
   const lastNameInput = document.getElementById("profileLastName");
   const emailInput = document.getElementById("profileEmail");
   const mobileInput = document.getElementById("profileMobile");
@@ -35,6 +36,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       avatarImg.hidden = true;
     }
     firstNameInput.value = user.firstName || "";
+    middleInitialInput.value = user.middleInitial || "";
     lastNameInput.value = user.lastName || "";
     emailInput.value = user.email || "";
     mobileInput.value = user.mobile || "";
@@ -59,6 +61,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         initials: initialsFor(fresh.first_name, fresh.last_name),
         profilePicture: fresh.profile_picture,
         firstName: fresh.first_name,
+        middleInitial: fresh.middle_initial,
         lastName: fresh.last_name,
         email: fresh.email,
         mobile: fresh.contact_number,
@@ -75,6 +78,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // the live inputs against whichever snapshot is current.
   let savedSnapshot = {
     firstName: firstNameInput.value,
+    middleInitial: middleInitialInput.value,
     lastName: lastNameInput.value,
     email: emailInput.value,
     mobile: mobileInput.value,
@@ -84,6 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function isEditDirty() {
     return (
       firstNameInput.value !== savedSnapshot.firstName ||
+      middleInitialInput.value !== savedSnapshot.middleInitial ||
       lastNameInput.value !== savedSnapshot.lastName ||
       emailInput.value !== savedSnapshot.email ||
       mobileInput.value !== savedSnapshot.mobile ||
@@ -230,6 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const formData = new FormData();
     formData.append("first_name", firstNameInput.value.trim());
+    formData.append("middle_initial", middleInitialInput.value.trim());
     formData.append("last_name", lastNameInput.value.trim());
     formData.append("email", emailInput.value.trim());
     formData.append("contact_number", mobileInput.value.trim());
@@ -259,6 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ...(getAdminUser() || {}),
           name: updated.name,
           firstName: updated.first_name,
+          middleInitial: updated.middle_initial,
           lastName: updated.last_name,
           initials: initialsFor(updated.first_name, updated.last_name),
           email: updated.email,
@@ -270,6 +277,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       savedSnapshot = {
         firstName: firstNameInput.value,
+        middleInitial: middleInitialInput.value,
         lastName: lastNameInput.value,
         email: emailInput.value,
         mobile: mobileInput.value,

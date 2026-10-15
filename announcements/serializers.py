@@ -41,9 +41,9 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         model = Announcement
         fields = [
             "id", "title", "description", "image", "remove_image", "image_url",
-            "posted_by_name", "created_at", "is_read",
+            "posted_by_name", "created_at", "is_read", "is_edited",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "is_edited"]
         extra_kwargs = {
             "title": {"allow_blank": False},
             "description": {"allow_blank": False},
@@ -77,6 +77,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        validated_data["is_edited"] = True
         remove_image = validated_data.pop("remove_image", False)
         # The old file isn't referenced by anything once it's replaced or
         # removed, so it's deleted from storage rather than left orphaned

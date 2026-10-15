@@ -88,6 +88,13 @@
                 staff member finishes setting up their own name, phone number, and
                 password the first time they log in.
               </p>
+              <div class="create-account-type-field field" id="caAccountTypeField">
+                <label for="caAccountType">Account Type</label>
+                <select id="caAccountType" class="admin-select admin-select--block">
+                  <option value="staff">Barangay Staff</option>
+                  <option value="citizen">Barangay Citizen</option>
+                </select>
+              </div>
               <div class="field">
                 <label for="caEmail">Email</label>
                 <input type="email" id="caEmail" name="email" placeholder="name@example.com" required />
@@ -102,6 +109,7 @@
                   <option value="Administrator">Administrator</option>
                 </select>
                 <p class="field__hint">Barangay Captain and Secretary can only be held by one active account at a time. Administrator gets access to the Admin Portal.</p>
+                <p class="field-error" id="caRoleWarning" hidden></p>
               </div>
               <button type="submit" class="btn">Create Account</button>
             </div>
@@ -118,14 +126,6 @@
               <button type="submit" class="btn">Send Invite</button>
             </div>
           </form>
-
-          <div class="create-account-type-field field">
-            <label for="caAccountType">Account Type</label>
-            <select id="caAccountType" class="admin-select admin-select--block">
-              <option value="staff">Barangay Staff</option>
-              <option value="citizen">Barangay Citizen</option>
-            </select>
-          </div>
         </div>
       </div>
     </div>

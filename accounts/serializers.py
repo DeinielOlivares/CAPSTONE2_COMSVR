@@ -28,6 +28,44 @@ def clean_ph_mobile(value):
     return cleaned
 
 
+def phone_already_used(value, exclude_user=None):
+    """
+    contact_number is encrypted at rest (see EncryptedTextField) with a random
+    salt/IV per value, so the database can't filter or compare it directly —
+    duplicates have to be found by decrypting every stored number in Python.
+    """
+    candidates = User.objects.exclude(contact_number="")
+    if exclude_user is not None:
+        candidates = candidates.exclude(pk=exclude_user.pk)
+    return any(u.contact_number == value for u in candidates.only("pk", "contact_number"))
+
+
+class AccountAvailabilityCheckSerializer(serializers.Serializer):
+    """
+    Sign Up step 1 (frontend/citizen/signup.html) calls this before moving to
+    step 2's ID photo upload, so a duplicate email/phone is caught on the
+    same page it was typed into instead of after uploading the photo.
+    RegisterSerializer re-checks the same thing at actual account creation
+    regardless — this is just an earlier, friendlier heads-up.
+    """
+
+    email = serializers.EmailField(required=False, allow_blank=True)
+    contact_number = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
+    def validate_contact_number(self, value):
+        if not value:
+            return value
+        cleaned = clean_ph_mobile(value)
+        if phone_already_used(cleaned):
+            raise serializers.ValidationError("An account with this phone number already exists.")
+        return cleaned
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Public self-registration. Always creates a `citizen` role account —
@@ -58,21 +96,29 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "email", "password", "first_name", "last_name",
+            "id", "email", "password", "first_name", "middle_initial", "last_name",
             "contact_number", "address", "voter_id_image",
         ]
         read_only_fields = ["id"]
 
     def validate_email(self, value):
+<<<<<<< HEAD
         # The column's own uniqueness is case-sensitive, so "Juan@x.com" would
         # get past it while "juan@x.com" exists — and login matches email
         # ignoring case, so the two accounts would then collide there.
+=======
+        # ModelSerializer would otherwise raise DRF's generic "user with this
+        # email already exists" — same wording as the rest of this file.
+>>>>>>> d25722c750c6948bb66bdf7d2601e4a0234cc036
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return value
 
     def validate_contact_number(self, value):
-        return clean_ph_mobile(value)
+        value = clean_ph_mobile(value)
+        if phone_already_used(value):
+            raise serializers.ValidationError("An account with this phone number already exists.")
+        return value
 
     def create(self, validated_data):
         voter_id_image = validated_data.pop("voter_id_image")
@@ -190,6 +236,7 @@ class CitizenSetupSerializer(serializers.ModelSerializer):
     """The citizen's own setup step — the same details as sign-up, minus the voter's ID."""
 
     first_name = serializers.CharField(required=True)
+    middle_initial = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=True)
     contact_number = serializers.CharField(required=True)
     address = serializers.CharField(required=True)
@@ -197,10 +244,13 @@ class CitizenSetupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "contact_number", "address", "password"]
+        fields = ["first_name", "middle_initial", "last_name", "contact_number", "address", "password"]
 
     def validate_contact_number(self, value):
-        return clean_ph_mobile(value)
+        value = clean_ph_mobile(value)
+        if phone_already_used(value, exclude_user=self.instance):
+            raise serializers.ValidationError("An account with this phone number already exists.")
+        return value
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password")
@@ -226,16 +276,20 @@ class StaffAccountSetupSerializer(serializers.ModelSerializer):
     # "optional" — declared explicitly here since this step is exactly what
     # collects them, unlike ProfileUpdateSerializer where they're already set.
     first_name = serializers.CharField(required=True)
+    middle_initial = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=True)
     contact_number = serializers.CharField(required=True)
     password = serializers.CharField(write_only=True, validators=[validate_password])
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "contact_number", "password"]
+        fields = ["first_name", "middle_initial", "last_name", "contact_number", "password"]
 
     def validate_contact_number(self, value):
-        return clean_ph_mobile(value)
+        value = clean_ph_mobile(value)
+        if phone_already_used(value, exclude_user=self.instance):
+            raise serializers.ValidationError("An account with this phone number already exists.")
+        return value
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password")
@@ -259,7 +313,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "email", "name", "first_name", "last_name",
+            "id", "email", "name", "first_name", "middle_initial", "last_name",
             "role", "position", "contact_number", "address", "is_verified",
             "profile_picture",
         ]
@@ -285,7 +339,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "contact_number", "address", "profile_picture"]
+        fields = ["first_name", "middle_initial", "last_name", "email", "contact_number", "address", "profile_picture"]
 
     def validate_email(self, value):
         # Same case-insensitive check as sign-up, ignoring the account's own row.
@@ -516,6 +570,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         except AuthenticationFailed:
             if account and record_failed_login(account):
                 raise AuthenticationFailed(_locked_message(LOCKOUT_MINUTES), code="account_locked")
+            # A real account with that email exists (and is active) but the
+            # password didn't match — say so specifically instead of
+            # SimpleJWT's generic "no active account" message, which reads
+            # as if the email itself wasn't found.
+            if account and not account.check_password(attrs.get("password") or ""):
+                raise AuthenticationFailed("Incorrect password.", code="incorrect_password")
             raise
         if account:
             clear_failed_logins(account)

@@ -380,9 +380,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   let reportFiledThisVisit = false;
+  const blockLotInput = document.getElementById("reportBlockLot");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearFormError(form);
+    clearFieldInvalid(locationInput);
+    clearFieldInvalid(blockLotInput);
 
     if (!isLoggedIn()) {
       showFormError(form, "Please log in to submit a report.");
@@ -390,13 +393,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!STREETS.includes(locationInput.value.trim())) {
-      showFormError(form, "Please select a street from the list.");
+      markFieldInvalid(locationInput, "Please select a street from the list.");
       return;
     }
 
-    const blockLot = document.getElementById("reportBlockLot").value.trim();
+    const blockLot = blockLotInput.value.trim();
     if (!blockLot) {
-      showFormError(form, "Please enter the Block, Lot, etc.");
+      markFieldInvalid(blockLotInput, "Please enter the Block, Lot, etc.");
       return;
     }
 

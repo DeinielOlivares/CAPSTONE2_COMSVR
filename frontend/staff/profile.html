@@ -63,10 +63,14 @@
             </label>
             <input type="file" id="avatarUpload" accept="image/*" hidden />
             <form id="editProfileForm">
-              <div class="form-row">
+              <div class="form-row form-row--with-mi">
                 <div class="field">
                   <label for="profileFirstName">Given Name</label>
                   <input type="text" id="profileFirstName" required />
+                </div>
+                <div class="field">
+                  <label for="profileMiddleInitial">M.I.</label>
+                  <input type="text" id="profileMiddleInitial" maxlength="10" />
                 </div>
                 <div class="field">
                   <label for="profileLastName">Last Name</label>
