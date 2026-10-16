@@ -1,6 +1,7 @@
 import uuid
 from datetime import timedelta
 
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -23,6 +24,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
+from .pdf import build_report_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -311,6 +313,29 @@ class StaffReportDetailView(APIView):
             send_report_resolved_email(report)
 
         return Response(StaffReportSerializer(report, context={"request": request}).data)
+
+
+class StaffReportPdfView(APIView):
+    """
+    GET /api/reports/staff/<id>/pdf/ — downloads a Resolved report as a PDF
+    (see reports/pdf.py). Same viewing access as StaffReportDetailView.get
+    (every Staff role, not just the Investigator who worked it) — if you can
+    see the report, you can export it. Only available once Resolved; a
+    report still in progress has no "final verdict" yet to hand out.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request, pk):
+        report = get_object_or_404(
+            Report.objects.select_related("citizen", "assigned_investigator"), pk=pk
+        )
+        if report.status != Report.Status.RESOLVED:
+            return Response({"detail": "This report hasn't been resolved yet."}, status=400)
+
+        pdf_bytes = build_report_pdf(report)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="report-{report.id}.pdf"'
+        return response
 
 
 class StaffReportClaimView(APIView):
