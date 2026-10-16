@@ -6,11 +6,11 @@ status is already Resolved — the view enforces that before this runs.
 """
 
 import io
-import mimetypes
 import os
 import tempfile
 
 from orms_backend.encrypted_storage import EncryptedStorage, is_encrypted_name
+from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -66,13 +66,34 @@ def _format_datetime(dt):
     return dt.strftime("%B %d, %Y, %I:%M %p") if dt else "—"
 
 
-def _video_thumbnail(data, suffix):
-    """The first frame of a video's bytes -> JPEG bytes, or None if that fails."""
+def _looks_like_image(data):
+    """Sniffs the actual bytes rather than trusting a filename/extension —
+    Cloudinary strips extensions from the names it hands back (see below),
+    and an encrypted photo's on-disk name is a random `enc/....enc` either
+    way, so there's often nothing usable to guess from."""
+    try:
+        with PILImage.open(io.BytesIO(data)) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
+
+def _video_thumbnail(data):
+    """The first frame of a video's bytes -> JPEG bytes, or None if that
+    fails (including if `data` isn't actually a video at all) — this is
+    also how a video gets told apart from some other, unsupported file
+    type, since neither storage nor Cloudinary reliably preserves a usable
+    extension to check instead (see Report.pdf's caller)."""
     try:
         import cv2
     except ImportError:
         return None
-    fd, path = tempfile.mkstemp(suffix=suffix or ".mp4")
+    # The extension is just a hint for which demuxer to try first — ffmpeg
+    # (which OpenCV's VideoCapture uses under the hood) sniffs the actual
+    # container from the bytes regardless, so a fixed ".mp4" here is fine
+    # even for a .mov/.webm upload.
+    fd, path = tempfile.mkstemp(suffix=".mp4")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
@@ -92,22 +113,14 @@ def _video_thumbnail(data, suffix):
             pass
 
 
-def _attachment_content(attachment):
-    """
-    (content_type, bytes) for one attachment. Photos are stored encrypted
-    under a random `enc/....enc` name (see orms_backend/encrypted_storage.py)
-    — mimetypes.guess_type on that name can't tell what it is, so for an
-    encrypted file this reads the real content type that was saved alongside
-    it at encryption time instead of guessing from the filename. Videos keep
-    their original name/extension (never encrypted), so guessing from the
-    name works fine for those.
-    """
+def _attachment_bytes(attachment):
+    """The raw bytes of one attachment, decrypting first if it's an
+    encrypted photo (see orms_backend/encrypted_storage.py)."""
     name = attachment.file.name
     if is_encrypted_name(name):
-        return EncryptedStorage().read(name)
-    content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        return EncryptedStorage().read(name)[1]
     with attachment.file.open("rb") as f:
-        return content_type, f.read()
+        return f.read()
 
 
 def _attachment_flowables(report):
@@ -124,25 +137,22 @@ def _attachment_flowables(report):
         name = attachment.file.name
         filename = name.rsplit("/", 1)[-1]
         try:
-            content_type, data = _attachment_content(attachment)
+            data = _attachment_bytes(attachment)
         except (OSError, FileNotFoundError, ValueError):
             flowables.append(Paragraph(f"• {filename} (could not be read)", _caption_style))
             continue
 
-        is_video = content_type.startswith("video/")
-        if not content_type.startswith("image/") and not is_video:
-            flowables.append(Paragraph(f"• {filename}", _caption_style))
-            continue
-
-        if is_video:
-            image_bytes = _video_thumbnail(data, os.path.splitext(name)[1])
-            if image_bytes is None:
-                flowables.append(Paragraph(f"• {filename} (video — thumbnail unavailable)", _caption_style))
-                continue
-            caption = f"{_format_datetime(attachment.uploaded_at)} — video, first frame shown"
-        else:
+        if _looks_like_image(data):
             image_bytes = data
             caption = _format_datetime(attachment.uploaded_at)
+        else:
+            image_bytes = _video_thumbnail(data)
+            if image_bytes is None:
+                # Not a readable image and not a readable video either —
+                # nothing to show inline, just note it was uploaded.
+                flowables.append(Paragraph(f"• {filename}", _caption_style))
+                continue
+            caption = f"{_format_datetime(attachment.uploaded_at)} — video, first frame shown"
 
         buffer = io.BytesIO(image_bytes)
         reader = ImageReader(buffer)
