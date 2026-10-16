@@ -10,6 +10,7 @@ import mimetypes
 import os
 import tempfile
 
+from orms_backend.encrypted_storage import EncryptedStorage, is_encrypted_name
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -91,6 +92,24 @@ def _video_thumbnail(data, suffix):
             pass
 
 
+def _attachment_content(attachment):
+    """
+    (content_type, bytes) for one attachment. Photos are stored encrypted
+    under a random `enc/....enc` name (see orms_backend/encrypted_storage.py)
+    — mimetypes.guess_type on that name can't tell what it is, so for an
+    encrypted file this reads the real content type that was saved alongside
+    it at encryption time instead of guessing from the filename. Videos keep
+    their original name/extension (never encrypted), so guessing from the
+    name works fine for those.
+    """
+    name = attachment.file.name
+    if is_encrypted_name(name):
+        return EncryptedStorage().read(name)
+    content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    with attachment.file.open("rb") as f:
+        return content_type, f.read()
+
+
 def _attachment_flowables(report):
     flowables = []
     attachments = list(report.attachments.all())
@@ -104,17 +123,15 @@ def _attachment_flowables(report):
     for attachment in attachments:
         name = attachment.file.name
         filename = name.rsplit("/", 1)[-1]
-        content_type = mimetypes.guess_type(name)[0] or ""
+        try:
+            content_type, data = _attachment_content(attachment)
+        except (OSError, FileNotFoundError, ValueError):
+            flowables.append(Paragraph(f"• {filename} (could not be read)", _caption_style))
+            continue
+
         is_video = content_type.startswith("video/")
         if not content_type.startswith("image/") and not is_video:
             flowables.append(Paragraph(f"• {filename}", _caption_style))
-            continue
-
-        try:
-            with attachment.file.open("rb") as f:
-                data = f.read()
-        except (OSError, FileNotFoundError, ValueError):
-            flowables.append(Paragraph(f"• {filename} (could not be read)", _caption_style))
             continue
 
         if is_video:
