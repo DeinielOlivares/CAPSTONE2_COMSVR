@@ -7,6 +7,8 @@ status is already Resolved — the view enforces that before this runs.
 
 import io
 import mimetypes
+import os
+import tempfile
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -63,6 +65,32 @@ def _format_datetime(dt):
     return dt.strftime("%B %d, %Y, %I:%M %p") if dt else "—"
 
 
+def _video_thumbnail(data, suffix):
+    """The first frame of a video's bytes -> JPEG bytes, or None if that fails."""
+    try:
+        import cv2
+    except ImportError:
+        return None
+    fd, path = tempfile.mkstemp(suffix=suffix or ".mp4")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        capture = cv2.VideoCapture(path)
+        try:
+            ok, frame = capture.read()
+        finally:
+            capture.release()
+        if not ok:
+            return None
+        ok, buf = cv2.imencode(".jpg", frame)
+        return buf.tobytes() if ok else None
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def _attachment_flowables(report):
     flowables = []
     attachments = list(report.attachments.all())
@@ -75,26 +103,37 @@ def _attachment_flowables(report):
 
     for attachment in attachments:
         name = attachment.file.name
+        filename = name.rsplit("/", 1)[-1]
         content_type = mimetypes.guess_type(name)[0] or ""
-        if not content_type.startswith("image/"):
-            # Videos (and anything else) aren't embeddable — note it by name
-            # instead of silently dropping it from the record.
-            flowables.append(Paragraph(f"• {name.rsplit('/', 1)[-1]} (not shown — not an image)", _caption_style))
+        is_video = content_type.startswith("video/")
+        if not content_type.startswith("image/") and not is_video:
+            flowables.append(Paragraph(f"• {filename}", _caption_style))
             continue
+
         try:
             with attachment.file.open("rb") as f:
                 data = f.read()
         except (OSError, FileNotFoundError, ValueError):
-            flowables.append(Paragraph(f"• {name.rsplit('/', 1)[-1]} (could not be read)", _caption_style))
+            flowables.append(Paragraph(f"• {filename} (could not be read)", _caption_style))
             continue
 
-        buffer = io.BytesIO(data)
+        if is_video:
+            image_bytes = _video_thumbnail(data, os.path.splitext(name)[1])
+            if image_bytes is None:
+                flowables.append(Paragraph(f"• {filename} (video — thumbnail unavailable)", _caption_style))
+                continue
+            caption = f"{_format_datetime(attachment.uploaded_at)} — video, first frame shown"
+        else:
+            image_bytes = data
+            caption = _format_datetime(attachment.uploaded_at)
+
+        buffer = io.BytesIO(image_bytes)
         reader = ImageReader(buffer)
         img_width, img_height = reader.getSize()
         scale = min(max_width / img_width, max_height / img_height, 1)
         buffer.seek(0)
         flowables.append(Image(buffer, width=img_width * scale, height=img_height * scale))
-        flowables.append(Paragraph(_format_datetime(attachment.uploaded_at), _caption_style))
+        flowables.append(Paragraph(caption, _caption_style))
 
     return flowables
 
@@ -125,7 +164,6 @@ def build_report_pdf(report):
     story = [
         Paragraph("Barangay Platero OVRMS", _label_style),
         Paragraph("Ordinance Violation Report", _title_style),
-        Paragraph(f"Report ID: {report.id}", _caption_style),
         Spacer(1, 10),
         _field_table(
             [
