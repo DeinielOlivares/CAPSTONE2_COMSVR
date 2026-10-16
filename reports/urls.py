@@ -7,6 +7,7 @@ urlpatterns = [
     path("reports/staff/analysis-base/", views.StaffReportAnalysisBaseView.as_view(), name="staff_report_analysis_base"),
     path("reports/staff/<uuid:pk>/", views.StaffReportDetailView.as_view(), name="staff_report_detail"),
     path("reports/staff/<uuid:pk>/pdf/", views.StaffReportPdfView.as_view(), name="staff_report_pdf"),
+    path("reports/staff/pdf-bulk/", views.StaffReportBulkPdfView.as_view(), name="staff_report_pdf_bulk"),
     path("reports/staff/<uuid:pk>/claim/", views.StaffReportClaimView.as_view(), name="staff_report_claim"),
     path("reports/staff/<uuid:pk>/forfeit/", views.StaffReportForfeitView.as_view(), name="staff_report_forfeit"),
     path("reports/staff/<uuid:pk>/assign/", views.StaffReportAssignView.as_view(), name="staff_report_assign"),

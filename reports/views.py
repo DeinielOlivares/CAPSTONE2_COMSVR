@@ -24,7 +24,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
-from .pdf import build_report_pdf
+from .pdf import build_report_pdf, build_reports_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -335,6 +335,47 @@ class StaffReportPdfView(APIView):
         pdf_bytes = build_report_pdf(report)
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="report-{report.id}.pdf"'
+        return response
+
+
+class StaffReportBulkPdfView(APIView):
+    """
+    POST /api/reports/staff/pdf-bulk/ — downloads one combined PDF (see
+    reports/pdf.py's build_reports_pdf, one page per report) of whichever
+    reports the Reports page's filters currently match — computed
+    client-side (reports-list.js's getFiltered()) and posted here as
+    {"ids": [...]}, rather than re-implementing that filtering server-side.
+    Same "Resolved only" rule as the single-report download: ids that
+    aren't Resolved are silently left out of the bundle instead of failing
+    the whole request, since the filtered set on screen is usually a mix of
+    statuses and the button itself says only Resolved ones are included.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        raw_ids = request.data.get("ids")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            return Response({"detail": "No reports to download."}, status=400)
+        # Malformed ids are dropped rather than failing the request — same
+        # "just skip what doesn't qualify" handling as a non-Resolved id.
+        valid_ids = []
+        for raw_id in raw_ids:
+            try:
+                valid_ids.append(uuid.UUID(str(raw_id)))
+            except (ValueError, AttributeError, TypeError):
+                continue
+
+        reports = list(
+            Report.objects.select_related("citizen", "assigned_investigator")
+            .filter(id__in=valid_ids, status=Report.Status.RESOLVED)
+            .order_by("-created_at")
+        )
+        if not reports:
+            return Response({"detail": "None of the matching reports have been resolved yet."}, status=400)
+
+        pdf_bytes = build_reports_pdf(reports)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="resolved-reports.pdf"'
         return response
 
 

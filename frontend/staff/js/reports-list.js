@@ -246,5 +246,48 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
 
+  // Bundles whatever the current filters/search match into one combined PDF
+  // (see reports/pdf.py's build_reports_pdf) — only the Resolved ones among
+  // them actually make it in (no "final verdict" yet otherwise), which is
+  // exactly what the button's own label says, so there's no need for a
+  // separate warning when some get left out.
+  const downloadResolvedBtn = document.getElementById("downloadResolvedBtn");
+  if (downloadResolvedBtn) {
+    downloadResolvedBtn.addEventListener("click", async () => {
+      const ids = getFiltered().map((r) => r.id);
+      if (!ids.length) {
+        siteAlert("No reports match the current filters.");
+        return;
+      }
+      downloadResolvedBtn.disabled = true;
+      downloadResolvedBtn.textContent = "Preparing...";
+      try {
+        const response = await authFetch("/api/reports/staff/pdf-bulk/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.detail || "Could not download the PDF.");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "resolved-reports.pdf";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        siteAlert(err.message);
+      } finally {
+        downloadResolvedBtn.disabled = false;
+        downloadResolvedBtn.textContent = "Download Resolved Reports (PDF)";
+      }
+    });
+  }
+
   render();
 });

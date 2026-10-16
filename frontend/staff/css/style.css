@@ -4923,6 +4923,11 @@ button {
   margin-bottom: 0;
 }
 
+.reports-controls > #downloadResolvedBtn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 @media (max-width: 860px) {
   .reports-controls {
     flex-direction: column;
