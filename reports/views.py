@@ -24,7 +24,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
-from .pdf import build_report_pdf, build_reports_pdf
+from .pdf import build_dashboard_pdf, build_report_pdf, build_reports_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -376,6 +376,32 @@ class StaffReportBulkPdfView(APIView):
         pdf_bytes = build_reports_pdf(reports)
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = 'attachment; filename="resolved-reports.pdf"'
+        return response
+
+
+class StaffReportDashboardPdfView(APIView):
+    """
+    POST /api/reports/staff/dashboard-pdf/ — downloads the Reports
+    Dashboard's current stats/graphs/open-reports as one PDF (see
+    reports/pdf.py's build_dashboard_pdf). Unlike the two views above, this
+    doesn't touch the Report queryset at all: every number is already
+    computed client-side (reports-dashboard.js's gatherDashboardSummary,
+    the same functions the live dashboard renders with) and posted here as
+    plain JSON — this view just lays it out, rather than re-implementing
+    the dashboard's date-range/per-graph filtering a second time in Python.
+    Same viewing access as the dashboard page itself (every Staff role);
+    only Barangay Captain's nav actually links to that page, but there's
+    nothing here a Secretary/Investigator/Admin couldn't already see live.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        try:
+            pdf_bytes = build_dashboard_pdf(request.data or {})
+        except (KeyError, TypeError, ValueError):
+            return Response({"detail": "Could not build the summary from the given data."}, status=400)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="reports-summary.pdf"'
         return response
 
 

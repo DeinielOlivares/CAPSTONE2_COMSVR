@@ -24,6 +24,7 @@ import os
 import tempfile
 
 import pymupdf
+from django.utils import timezone
 from orms_backend.encrypted_storage import EncryptedStorage, is_encrypted_name
 from PIL import Image as PILImage
 from reportlab.lib import colors
@@ -327,3 +328,206 @@ def build_reports_pdf(reports):
             combined.append(PageBreak())
         combined.extend(_best_fit_story(report))
     return _build_doc(combined)
+
+
+# ---- Reports Dashboard summary/analytics PDF -------------------------
+#
+# Unlike the per-report PDFs above, this isn't built from a Report
+# queryset at all — every number here (stats, category/status/investigator
+# breakdowns, the filed-over-time trend, the open-reports list) is already
+# computed client-side in reports-dashboard.js, the same way the dashboard
+# itself renders, respecting the page's date-range filter and each graph's
+# own override. This just lays out whatever JSON it's handed (see
+# StaffReportDashboardPdfView) into a document — it doesn't need, and
+# deliberately avoids, a second implementation of that filtering logic in
+# Python. There's no one-page-fit requirement here (unlike the per-report
+# PDFs) — a multi-section analytics summary spanning a few pages is normal.
+
+_dash_styles_cache = None
+
+
+def _dashboard_styles():
+    global _dash_styles_cache
+    if _dash_styles_cache is not None:
+        return _dash_styles_cache
+    base = getSampleStyleSheet()
+    _dash_styles_cache = {
+        "title": ParagraphStyle("DashTitle", parent=base["Title"], textColor=NAVY, fontSize=18, spaceAfter=2),
+        "meta": ParagraphStyle("DashMeta", parent=base["Normal"], textColor=MUTED, fontSize=9.5, spaceAfter=10),
+        "section": ParagraphStyle(
+            "DashSection", parent=base["Heading2"], textColor=NAVY, fontSize=13, spaceBefore=18, spaceAfter=6
+        ),
+        "section_meta": ParagraphStyle(
+            "DashSectionMeta", parent=base["Normal"], textColor=MUTED, fontSize=8.5, spaceAfter=8
+        ),
+        "empty": ParagraphStyle("DashEmpty", parent=base["Normal"], textColor=MUTED, fontSize=9.5, spaceAfter=6),
+        "cell": ParagraphStyle("DashCell", parent=base["Normal"], fontSize=9.5, leading=12),
+        "cell_header": ParagraphStyle(
+            "DashCellHeader", parent=base["Normal"], fontSize=9, leading=11, textColor=colors.white
+        ),
+    }
+    return _dash_styles_cache
+
+
+def _dashboard_table(headers, rows, col_widths):
+    styles = _dashboard_styles()
+    data = [[Paragraph(h, styles["cell_header"]) for h in headers]]
+    data += [[Paragraph(str(cell), styles["cell"]) for cell in row] for row in rows]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
+def _dashboard_section(flowables, title, period_label, headers, rows, col_widths, empty_message):
+    styles = _dashboard_styles()
+    flowables.append(Paragraph(title, styles["section"]))
+    if period_label:
+        flowables.append(Paragraph(period_label, styles["section_meta"]))
+    if rows:
+        flowables.append(_dashboard_table(headers, rows, col_widths))
+    else:
+        flowables.append(Paragraph(empty_message, styles["empty"]))
+
+
+def _dashboard_stats_rows(payload_stats):
+    current = payload_stats.get("current") or {}
+    previous = payload_stats.get("previous")
+    suffix = payload_stats.get("delta_suffix") or ""
+    labels = [
+        ("total", "Total Reports"),
+        ("new", "New Submission"),
+        ("process", "Under Review"),
+        ("remarks", "In Action"),
+        ("resolved", "Resolved"),
+    ]
+    rows = []
+    for key, label in labels:
+        cur_value = current.get(key, 0)
+        if previous is None:
+            change = "—"
+        else:
+            prev_value = previous.get(key, 0)
+            if prev_value == 0:
+                pct = 0 if cur_value == 0 else 100
+            else:
+                pct = round((cur_value - prev_value) / prev_value * 100)
+            arrow = "↑" if pct >= 0 else "↓"
+            change = f"{arrow} {abs(pct)}% {suffix}".strip()
+        rows.append([label, cur_value, change])
+    return rows
+
+
+def build_dashboard_pdf(payload):
+    """The Reports Dashboard's current stats/graphs/open-reports list (see
+    above) -> one PDF, as a set of summary tables."""
+    styles = _dashboard_styles()
+    generated = timezone.localtime(timezone.now()).strftime("%B %d, %Y, %I:%M %p")
+    story = [
+        Paragraph("Barangay Platero OVRMS", styles["meta"]),
+        Paragraph("Reports Summary &amp; Analytics", styles["title"]),
+        Paragraph(f"Generated {generated} · Period: {payload.get('top_period_label') or '—'}", styles["meta"]),
+    ]
+
+    _dashboard_section(
+        story,
+        "Overview",
+        None,
+        ["Metric", "Count", "Change"],
+        _dashboard_stats_rows(payload.get("stats") or {}),
+        [2.6 * inch, 1.3 * inch, 2.6 * inch],
+        "No data for this period.",
+    )
+
+    category = payload.get("category") or {}
+    _dashboard_section(
+        story,
+        "Reports by Category",
+        category.get("period_label"),
+        ["Category", "Count", "% of Period"],
+        [[s["category"], s["count"], f"{s['pct']}%"] for s in category.get("slices") or []],
+        [3.6 * inch, 1.4 * inch, 1.5 * inch],
+        "No reports filed in this period.",
+    )
+
+    status = payload.get("status") or {}
+    status_stats = status.get("stats") or {}
+    status_rows = (
+        [
+            [label, status_stats.get(key, 0)]
+            for key, label in [
+                ("new", "New Submission"),
+                ("process", "Under Review"),
+                ("remarks", "In Action"),
+                ("resolved", "Resolved"),
+            ]
+        ]
+        if status_stats.get("total")
+        else []
+    )
+    _dashboard_section(
+        story,
+        "Reports by Status",
+        status.get("period_label"),
+        ["Status", "Count"],
+        status_rows,
+        [3.6 * inch, 2.9 * inch],
+        "No reports filed in this period.",
+    )
+
+    investigators = payload.get("investigators") or {}
+    _dashboard_section(
+        story,
+        "Investigator Performance",
+        investigators.get("period_label"),
+        ["Investigator", "Claimed Reports"],
+        [[row["name"], row["count"]] for row in investigators.get("rows") or []],
+        [3.6 * inch, 2.9 * inch],
+        "No claimed reports for this period.",
+    )
+
+    trend = payload.get("trend") or {}
+    unit = trend.get("unit") or "period"
+    _dashboard_section(
+        story,
+        "Reports Filed Over Time",
+        trend.get("period_label"),
+        [unit.capitalize(), "Reports Filed"],
+        [[p["title"], p["count"]] for p in trend.get("points") or []],
+        [4.6 * inch, 1.9 * inch],
+        "No reports filed in this period.",
+    )
+
+    aging = payload.get("aging") or []
+    _dashboard_section(
+        story,
+        "Report Timeline — Open Reports",
+        "Every not-yet-resolved report, regardless of the date filters above — oldest first.",
+        ["Ordinance", "Location", "Days Open", "Status", "Investigator"],
+        [[r["ordinance"], r["location"], r["days"], r["status"], r["investigator"]] for r in aging],
+        [1.9 * inch, 1.7 * inch, 0.8 * inch, 1.1 * inch, 1.0 * inch],
+        "Nothing open — every report has been resolved.",
+    )
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        topMargin=_MARGIN,
+        bottomMargin=_MARGIN,
+        leftMargin=_MARGIN,
+        rightMargin=_MARGIN,
+        title="Reports Summary & Analytics",
+    )
+    doc.build(story)
+    return buffer.getvalue()
