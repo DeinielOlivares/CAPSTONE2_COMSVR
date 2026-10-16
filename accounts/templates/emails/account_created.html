@@ -1,0 +1,20 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">Your account has been created</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ user.first_name|default:user.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">The Barangay has created a Barangay Platero OVRMS account for you. Here's how to log in:</p>
+<table style="margin:0 0 20px;width:100%;border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0;font-size:13px;color:#5b5748;width:90px;">Email</td>
+    <td style="padding:6px 0;font-size:14px;color:#16223f;font-weight:bold;">{{ user.email }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0;font-size:13px;color:#5b5748;">Password</td>
+    <td style="padding:6px 0;">
+      <span style="display:inline-block;font-size:16px;letter-spacing:1px;font-weight:bold;color:#16223f;background:#f0eee6;padding:8px 14px;border-radius:6px;">{{ password }}</span>
+    </td>
+  </tr>
+</table>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#5b5748;">Log in here:<br /><a href="{{ login_url }}" style="word-break:break-all;color:#057a12;">{{ login_url }}</a></p>
+<p style="margin:0;font-size:13px;color:#5b5748;">For your security, we recommend changing this password after you log in (My Profile → Change Password).</p>
+{% endblock %}

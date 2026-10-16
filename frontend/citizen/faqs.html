@@ -35,6 +35,22 @@
     <div class="navbar__profile" role="button" tabindex="0"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></div>
   </nav>
 
+  <script>
+    // Adds .navbar--authed before first paint if a session is cached, so
+    // the mobile navbar's logo/brand doesn't flash into view and then
+    // disappear once main.js's own (later) check runs — see
+    // .navbar--authed in style.css and the guest-nav wiring in main.js.
+    (function () {
+      var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
+      var hasToken = !!store.getItem("orms_access_token");
+      var user;
+      try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
+      if (!hasToken || !user) return;
+      var navbar = document.querySelector(".navbar");
+      if (navbar) navbar.classList.add("navbar--authed");
+    })();
+  </script>
+
   <div class="plain-page">
     <div class="plain-page__inner plain-page__inner--split">
       <h1 class="page-heading">Frequently Asked Questions</h1>

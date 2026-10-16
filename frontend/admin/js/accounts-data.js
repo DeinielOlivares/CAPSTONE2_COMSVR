@@ -77,23 +77,32 @@ async function createAccount({ email, staffRole }) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const firstError = Object.values(data)[0];
-    throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not create this account.");
+    const err = new Error(Array.isArray(firstError) ? firstError[0] : "Could not create this account.");
+    err.fields = data;
+    throw err;
   }
   return response.json();
 }
 
-// Used by the Create Account form's "Barangay Citizen" account type —
-// creates a full, pre-verified citizen account right away (see
-// accounts/serializers.py's AdminCreateCitizenSerializer).
-async function createCitizenAccount({ email }) {
-  const response = await authFetch(`${ADMIN_API_BASE}/create-citizen/`, {
+// Used by the Create Account form's "Barangay Citizen" account type — the
+// admin enters the citizen's full details directly (see
+// StaffCreateCitizenSerializer); the account is created and usable right
+// away, with its login (email + an auto-generated password) emailed to the
+// citizen. Throws with field errors attached (err.fields) so the caller can
+// highlight the specific email/contact_number field, same pattern as
+// citizen Sign Up's apiCheckAvailability.
+async function createCitizenAccount(details) {
+  const response = await authFetch(`${ADMIN_API_BASE}/create-citizen-direct/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(details),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error((data.email && data.email[0]) || data.detail || "Could not send the invite.");
+    const firstError = Object.values(data)[0];
+    const err = new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not create the account."));
+    err.fields = data;
+    throw err;
   }
   return response.json();
 }

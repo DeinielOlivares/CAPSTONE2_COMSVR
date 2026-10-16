@@ -351,6 +351,53 @@ button {
   max-width: 140px;
 }
 
+.combobox {
+  position: relative;
+}
+
+.combobox__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.combobox__list[hidden] {
+  display: none;
+}
+
+.combobox__list li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.combobox__list li:hover,
+.combobox__list li:focus {
+  background: #f6f4ef;
+}
+
+.combobox__list li.combobox__empty {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.combobox__list li.combobox__empty:hover {
+  background: none;
+}
+
 .field label {
   display: block;
   font-size: 0.82rem;

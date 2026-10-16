@@ -113,16 +113,47 @@
       <div class="admin-content">
         <div class="create-citizen-center">
           <h1 class="page-heading" style="text-align: center;">Create Citizen Account</h1>
-          <div class="concerns-card" style="max-width: 520px; padding: 24px;">
-            <p class="field-hint" style="margin: 0 0 16px;">Once an invite is sent, the citizen is advised to check their email and use the link and code inside it to create their account.</p>
+          <div class="concerns-card" style="max-width: 580px; padding: 24px;">
+            <p class="field-hint" style="margin: 0 0 16px;">Enter the citizen's details below. Once created, we'll email them their login — their email and an auto-generated password.</p>
             <form id="createCitizenForm" novalidate>
+              <div class="form-row form-row--with-mi">
+                <div class="field">
+                  <label for="citizenFirstName">Given Name</label>
+                  <input type="text" id="citizenFirstName" placeholder="given name" required />
+                </div>
+                <div class="field">
+                  <label for="citizenMiddleInitial">M.I.</label>
+                  <input type="text" id="citizenMiddleInitial" maxlength="10" />
+                </div>
+                <div class="field">
+                  <label for="citizenLastName">Last Name</label>
+                  <input type="text" id="citizenLastName" placeholder="last name" required />
+                </div>
+              </div>
               <div class="field">
-                <label for="citizenInviteEmail">Email</label>
-                <input type="email" id="citizenInviteEmail" placeholder="name@example.com" required />
+                <label for="citizenEmail">Email</label>
+                <input type="email" id="citizenEmail" placeholder="name@example.com" required />
+              </div>
+              <div class="field">
+                <label for="citizenPhone">Mobile Number</label>
+                <input type="tel" id="citizenPhone" placeholder="09XXXXXXXXX" required />
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label for="citizenStreet">Street</label>
+                  <div class="combobox" id="citizenStreetCombobox">
+                    <input type="text" id="citizenStreet" placeholder="Type to search streets..." autocomplete="off" required />
+                    <ul class="combobox__list" id="citizenStreetList" hidden></ul>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="citizenBlockLot">Block, Lot, etc.</label>
+                  <input type="text" id="citizenBlockLot" placeholder="e.g. Block 1, Lot 2" required />
+                </div>
               </div>
               <p class="setup-photo__warn" id="inviteStatus" role="status" hidden></p>
               <div class="btn-row">
-                <button type="submit" class="btn" id="inviteSubmit">Send Invite</button>
+                <button type="submit" class="btn" id="inviteSubmit">Create Account</button>
               </div>
             </form>
           </div>
@@ -132,6 +163,7 @@
     </div>
   </div>
 
+  <script src="js/street-coordinates.js"></script>
   <script src="js/create-citizen.js"></script>
   <script src="js/admin.js"></script>
 
