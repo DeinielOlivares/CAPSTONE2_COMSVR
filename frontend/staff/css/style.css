@@ -1953,15 +1953,6 @@ button {
    topbar and .admin-content's own padding, scoped to this page only so it
    doesn't touch the shared .admin-content layout every other page uses. ---------- */
 
-.create-citizen-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 140px);
-  text-align: center;
-}
-
 /* ---------- My Concerns/Suggestions list ---------- */
 
 .concerns-card {

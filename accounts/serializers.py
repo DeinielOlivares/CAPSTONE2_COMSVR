@@ -257,8 +257,8 @@ def generate_temp_password(length=12):
 
 class StaffCreateCitizenSerializer(serializers.ModelSerializer):
     """
-    Secretary or Administrator creates a Barangay Citizen account with the
-    full details entered directly (name, email, phone, address) — unlike
+    Administrator creates a Barangay Citizen account with the full details
+    entered directly (name, email, phone, address) — unlike
     CitizenInviteSerializer, where the citizen fills those in themselves
     later. Pre-verified immediately, same as an invited citizen (staff is
     vouching for them in person) — the only thing the citizen doesn't

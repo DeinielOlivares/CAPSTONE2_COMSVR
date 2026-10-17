@@ -495,15 +495,16 @@ class AdminInviteCitizenView(generics.CreateAPIView):
 
 class StaffCreateCitizenView(generics.CreateAPIView):
     """
-    POST /api/auth/admin/create-citizen-direct/ — Barangay Secretary (or
-    Administrator) creates a Barangay Citizen account with the full details
-    entered directly (see StaffCreateCitizenSerializer), rather than just
-    inviting by email (AdminInviteCitizenView above). The account is usable
-    immediately; its auto-generated password is emailed to the citizen.
+    POST /api/auth/admin/create-citizen-direct/ — Administrator creates a
+    Barangay Citizen account with the full details entered directly (see
+    StaffCreateCitizenSerializer), rather than just inviting by email
+    (AdminInviteCitizenView above). The account is usable immediately; its
+    auto-generated password is emailed to the citizen. Admin-only — the
+    Barangay Secretary used to have this too, but that's been removed.
     """
     queryset = User.objects.all()
     serializer_class = StaffCreateCitizenSerializer
-    permission_classes = [IsSecretaryOrAdmin]
+    permission_classes = [IsAdmin]
 
     def perform_create(self, serializer):
         user = serializer.save()
