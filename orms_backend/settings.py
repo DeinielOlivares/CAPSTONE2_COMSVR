@@ -115,7 +115,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "accounts.password_validators.CharacterClassValidator"},
 ]
+
+# How long an emailed one-time account setup link stays valid (see
+# accounts/setup_links.py). Django's own default is the same 3 days; set here
+# so the setup email's "expires in" text and the actual expiry can't drift.
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 72
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Manila"
@@ -199,8 +205,8 @@ REST_FRAMEWORK = {
         # Sensitive endpoints — see the views that name these as throttle_scope.
         "login": "10/min",
         "register": "5/hour",
-        "staff_setup": "10/min",
-        "staff_setup_code": "5/hour",
+        "account_setup": "10/min",
+        "account_setup_link": "5/hour",
         "reset_request": "5/hour",
         "reset_request_email": "3/hour",
         "reset_verify": "5/min",

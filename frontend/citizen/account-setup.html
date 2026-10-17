@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Barangay Platero OVRMS — Complete Account Setup</title>
+  <title>Barangay Platero OVRMS — Set Up Your Account</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -17,25 +17,84 @@
 
   <section class="hero hero--login">
     <div class="auth-card">
-      <h1 class="auth-card__title">Complete Account Setup</h1>
+      <h1 class="auth-card__title">Set Up Your Account</h1>
 
-      <form id="staffSetupEmailForm" novalidate>
-        <p class="auth-card__subtitle">An Administrator created an account for you. Enter the email it was created with and we'll send you a code to confirm it's yours.</p>
+      <p class="auth-card__subtitle" id="setupLoading">Checking your setup link...</p>
+
+      <form id="setupRequestForm" novalidate hidden>
+        <p class="auth-card__subtitle">Was an account created for you by the Barangay? Enter the email it was created with and we'll send you a link to set it up. Each link works once and expires after 3 days.</p>
         <div class="field">
           <label for="setupEmail">Email</label>
           <input type="email" id="setupEmail" name="email" placeholder="name@example.com" required />
         </div>
-        <button type="submit" class="btn">Send Code</button>
+        <button type="submit" class="btn">Email Me a Setup Link</button>
       </form>
 
-      <form id="staffSetupCodeForm" novalidate hidden>
-        <p class="auth-card__subtitle">We've emailed a 6-digit code to <strong id="setupCodeEmail"></strong>. Enter it below. A code works for 15 minutes; if yours has expired, choose <strong>Send a new code</strong>.</p>
+      <div id="setupSent" hidden>
+        <p class="auth-card__subtitle">If that account is waiting to be set up, we've emailed it a new setup link. Use the newest email &mdash; earlier links no longer work.</p>
+      </div>
+
+      <div id="setupInvalid" hidden>
+        <p class="auth-card__subtitle" id="setupInvalidMessage"></p>
+        <p class="auth-card__subtitle">Already finished setting up? <a href="login.html">Log in</a>. Otherwise we can email you a new link.</p>
+        <button type="button" class="btn" id="setupNewLinkBtn">Email Me a New Link</button>
+      </div>
+
+      <form id="setupDetailsForm" novalidate hidden>
+        <p class="auth-card__subtitle">Welcome! Confirm your details and choose your own password for <strong id="setupAccountEmail"></strong>.</p>
+        <!-- Feeds the password-hint "not too similar to your name or email"
+             check (see setupPasswordHints in main.js). -->
+        <input type="hidden" name="email" id="setupHintEmail" />
         <div class="field">
-          <label for="setupCode">Code</label>
-          <input type="text" id="setupCode" name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required />
+          <label for="setupLastName">Last Name</label>
+          <input type="text" id="setupLastName" name="last_name" placeholder="lastname" required />
         </div>
-        <button type="submit" class="btn">Verify Code</button>
-        <p class="form-footer"><a href="#" id="setupResendCode">Send a new code</a></p>
+        <div class="field">
+          <label for="setupFirstName">Given Name</label>
+          <input type="text" id="setupFirstName" name="first_name" placeholder="given name" required />
+        </div>
+        <div class="field field--narrow">
+          <label for="setupMiddleInitial">Middle Initial</label>
+          <input type="text" id="setupMiddleInitial" name="middle_initial" placeholder="M.I." maxlength="10" />
+        </div>
+        <div class="field">
+          <label for="setupPhone">Phone Number</label>
+          <input type="tel" id="setupPhone" name="phone" placeholder="09XXXXXXXXX" required />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="setupStreet">Street</label>
+            <div class="combobox" id="setupStreetCombobox">
+              <input type="text" id="setupStreet" placeholder="Type to search streets..." autocomplete="off" required />
+              <ul class="combobox__list" id="setupStreetList" hidden></ul>
+            </div>
+          </div>
+          <div class="field">
+            <label for="setupBlockLot">Block, Lot, etc.</label>
+            <input type="text" id="setupBlockLot" placeholder="e.g. Block 1, Lot 2" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="setupPassword">Password</label>
+          <input type="password" id="setupPassword" name="password" placeholder="Enter your password" autocomplete="new-password" required />
+        </div>
+        <ul class="password-hint" data-password-field="setupPassword">
+          <li data-rule="length"><input type="checkbox" disabled tabindex="-1" /> At least 8 characters</li>
+          <li data-rule="lowercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 lowercase character</li>
+          <li data-rule="uppercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 uppercase character</li>
+          <li data-rule="special"><input type="checkbox" disabled tabindex="-1" /> At least 1 special character</li>
+          <li data-rule="numeric"><input type="checkbox" disabled tabindex="-1" /> Not entirely numbers</li>
+          <li data-rule="common"><input type="checkbox" disabled tabindex="-1" /> Not a commonly used password</li>
+          <li data-rule="similar"><input type="checkbox" disabled tabindex="-1" /> Not too similar to your name or email</li>
+        </ul>
+        <div class="field">
+          <label for="setupConfirmPassword">Confirm Password</label>
+          <input type="password" id="setupConfirmPassword" name="confirmPassword" placeholder="Enter your password" autocomplete="new-password" required />
+        </div>
+        <button type="submit" class="btn">Complete Setup</button>
+      </form>
+
+      <p class="form-footer"><a href="#" id="setupResendCode">Send a new code</a></p>
       </form>
 
       <form id="staffSetupDetailsForm" novalidate hidden>

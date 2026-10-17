@@ -1,15 +1,19 @@
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta
+from unittest import mock
 
 from django.core import mail
 from django.core.cache import cache
 from django.test import override_settings
 from django.utils import timezone
+from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APITestCase
 
 from orms_backend.codes import MAX_CODE_ATTEMPTS
 
 from .lockout import FAILURE_WINDOW_MINUTES, LOCKOUT_MINUTES, MAX_FAILED_LOGINS
 from .models import AuditLog, PasswordResetCode, User
+from .setup_links import RESET_LINK_TTL_HOURS, SETUP_LINK_TTL_HOURS, reset_token_generator, setup_token_generator
 
 LOGIN_URL = "/api/auth/login/"
 GOOD_PASSWORD = "Str0ng!Pass#2026x"
@@ -252,174 +256,243 @@ class AuthThrottleTests(APITestCase):
 DETAILS = {
     "first_name": "Ana", "last_name": "Reyes", "contact_number": "09171234567", "password": GOOD_PASSWORD,
 }
+SETUP_LINK_RE = re.compile(r"account-setup\.html#uid=([\w-]+)&(?:amp;)?token=([\w-]+)")
 
 
 @override_settings(PASSWORD_HASHERS=FAST_HASHER)
-class StaffSetupTakeoverTests(APITestCase):
+class AccountSetupLinkTests(APITestCase):
     """
-    An admin-created staff account has no password until its owner finishes setup.
-    Anyone who knew that email used to be able to finish setup themselves and be
-    logged in as it — as an Administrator, if that was the role. Setup now needs a
-    code emailed to the address.
+    Accounts someone else creates get no password — just a one-time emailed
+    link where the owner fills in their details and chooses their own (see
+    accounts/setup_links.py). Anyone who merely knows the email, or holds an
+    old/used/expired link, must get nowhere.
     """
 
     def setUp(self):
-        self.pending = self._pending("newsec@test.com", User.Role.STAFF, "Secretary")
+        self.admin = User.objects.create_user(
+            username="adm1", email="adm1@test.com", password=GOOD_PASSWORD, role=User.Role.ADMIN, is_verified=True
+        )
         self.existing = User.objects.create_user(
             username="cap", email="cap@test.com", password=GOOD_PASSWORD, role=User.Role.STAFF,
             position="Barangay Captain", is_verified=True,
         )
 
-    def _pending(self, email, role, position):
-        user = User(username=email, email=email, role=role, position=position, is_verified=True)
-        user.set_unusable_password()
-        user.save()
-        return user
+    # --- helpers ---
 
-    def _request_code(self, email):
-        return self.client.post("/api/auth/staff-setup/request-code/", {"email": email}, format="json")
+    def _create_staff(self, email="newsec@test.com", staff_role="Secretary"):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/auth/admin/create-user/", {"email": email, "staff_role": staff_role}, format="json"
+        )
+        self.client.force_authenticate(None)
+        self.assertEqual(response.status_code, 201, response.data)
+        return User.objects.get(email=email)
 
-    def _latest_code(self, user):
-        return PasswordResetCode.objects.filter(user=user).latest("created_at").code
+    def _create_citizen_direct(self, email="juana@test.com"):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post("/api/auth/admin/create-citizen-direct/", {
+            "email": email, "first_name": "Juana", "last_name": "Cruz",
+            "contact_number": "09181234567", "address": "Block 1, Lot 2, Rizal St.",
+        }, format="json")
+        self.client.force_authenticate(None)
+        self.assertEqual(response.status_code, 201, response.data)
+        return User.objects.get(email=email)
 
-    def _verify(self, email, code):
-        return self.client.post("/api/auth/password-reset/verify/", {"email": email, "code": code}, format="json")
+    def _link(self):
+        return SETUP_LINK_RE.search(mail.outbox[-1].body).groups()
 
-    def _setup(self, email, code=None, **extra):
-        body = {"email": email, **DETAILS, **extra}
-        if code is not None:
-            body["code"] = code
-        return self.client.post("/api/auth/staff-setup/", body, format="json")
+    def _check(self, uid, token):
+        return self.client.post("/api/auth/account-setup/check/", {"uid": uid, "token": token}, format="json")
 
-    def _login_as(self, email, password=GOOD_PASSWORD):
-        return self.client.post(LOGIN_URL, {"email": email, "password": password}, format="json")
+    def _setup(self, uid, token, **extra):
+        body = {"uid": uid, "token": token, **DETAILS, **extra}
+        return self.client.post("/api/auth/account-setup/", body, format="json")
+
+    def _request_link(self, **body):
+        return self.client.post("/api/auth/account-setup/request-link/", body, format="json")
+
+    def _login_as(self, email, password=GOOD_PASSWORD, portal="staff"):
+        return self.client.post(LOGIN_URL, {"email": email, "password": password, "portal": portal}, format="json")
 
     def _assert_still_pending(self, user):
         user.refresh_from_db()
         self.assertFalse(user.has_usable_password())
 
-    def test_cannot_take_over_a_pending_account_with_just_the_email(self):
-        response = self._setup("newsec@test.com")
-        self.assertEqual(response.status_code, 400)
-        self.assertNotIn("access", response.data)
-        self._assert_still_pending(self.pending)
+    # --- creation sends a link, never a password ---
 
-    def test_pending_administrator_account_is_protected_too(self):
-        admin = self._pending("newadmin@test.com", User.Role.ADMIN, "Administrator")
-        response = self._setup("newadmin@test.com")
-        self.assertEqual(response.status_code, 400)
-        self.assertNotIn("access", response.data)
-        self._assert_still_pending(admin)
-
-    def test_a_guessed_code_does_not_work(self):
-        self._request_code("newsec@test.com")
-        code = self._latest_code(self.pending)
-        guess = "000000" if code != "000000" else "111111"
-        self.assertEqual(self._setup("newsec@test.com", guess).status_code, 400)
-        self._assert_still_pending(self.pending)
-
-    def test_a_code_that_was_emailed_but_not_verified_is_not_enough(self):
-        self._request_code("newsec@test.com")
-        code = self._latest_code(self.pending)
-        self.assertEqual(self._setup("newsec@test.com", code).status_code, 400)
-        self._assert_still_pending(self.pending)
-
-    def test_full_flow_works(self):
-        response = self._request_code("newsec@test.com")
-        self.assertEqual(response.status_code, 200)
+    def test_admin_created_staff_account_gets_a_setup_link_and_no_password(self):
+        user = self._create_staff()
+        self.assertFalse(user.has_usable_password())
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["newsec@test.com"])
-        code = self._latest_code(self.pending)
-        self.assertRegex(code, r"^\d{6}$")
-        self.assertIn(code, mail.outbox[0].body)
+        self.assertIn("/staff/account-setup.html#uid=", mail.outbox[0].body)
 
-        self.assertEqual(self._verify("newsec@test.com", code).status_code, 200)
-        response = self._setup("newsec@test.com", code)
+    def test_directly_created_citizen_gets_a_link_with_their_details_prefilled(self):
+        user = self._create_citizen_direct()
+        self.assertFalse(user.has_usable_password())
+        self.assertIn("/citizen/account-setup.html#uid=", mail.outbox[-1].body)
+        response = self._check(*self._link())
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["first_name"], "Juana")
+        self.assertEqual(response.data["address"], "Block 1, Lot 2, Rizal St.")
+
+    def test_invited_citizen_gets_a_link(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post("/api/auth/admin/create-citizen/", {"email": "inv@test.com"}, format="json")
+        self.client.force_authenticate(None)
+        self.assertEqual(self._check(*self._link()).status_code, 200)
+
+    # --- the happy path ---
+
+    def test_full_staff_setup_flow(self):
+        user = self._create_staff()
+        uid, token = self._link()
+        self.assertEqual(self._check(uid, token).data["email"], "newsec@test.com")
+
+        response = self._setup(uid, token)
+        self.assertEqual(response.status_code, 200, response.data)
         self.assertIn("access", response.data)
-
-        self.pending.refresh_from_db()
-        self.assertTrue(self.pending.has_usable_password())
-        self.assertEqual(self.pending.first_name, "Ana")
+        user.refresh_from_db()
+        self.assertTrue(user.has_usable_password())
+        self.assertEqual(user.first_name, "Ana")
         self.assertEqual(self._login_as("newsec@test.com").status_code, 200)
 
-    def test_code_cannot_be_reused(self):
-        self._request_code("newsec@test.com")
-        code = self._latest_code(self.pending)
-        self._verify("newsec@test.com", code)
-        self.assertEqual(self._setup("newsec@test.com", code).status_code, 200)
-        # The account is no longer pending, so someone replaying the code gets nowhere.
-        self.assertEqual(self._setup("newsec@test.com", code, password="Hijack!Pass#2028z").status_code, 400)
-        self.assertEqual(self._login_as("newsec@test.com").status_code, 200)
+    def test_citizen_can_correct_prefilled_details_during_setup(self):
+        user = self._create_citizen_direct()
+        response = self._setup(
+            *self._link(), first_name="Juanita", last_name="Cruz",
+            contact_number="09181234567", address="Block 3, Lot 4, Rizal St.",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, "Juanita")
+        self.assertEqual(user.address, "Block 3, Lot 4, Rizal St.")
 
-    def test_code_for_one_account_cannot_set_up_another(self):
-        other = self._pending("other@test.com", User.Role.STAFF, "Investigator")
-        self._request_code("newsec@test.com")
-        code = self._latest_code(self.pending)
-        self._verify("newsec@test.com", code)
-        self.assertEqual(self._setup("other@test.com", code).status_code, 400)
-        self._assert_still_pending(other)
+    # --- what must not work ---
 
-    def test_setup_on_an_already_set_up_account_is_refused_and_changes_nothing(self):
-        response = self._setup("cap@test.com", "123456")
+    def test_cannot_set_up_with_just_the_email(self):
+        user = self._create_staff()
+        response = self.client.post(
+            "/api/auth/account-setup/", {"email": "newsec@test.com", **DETAILS}, format="json"
+        )
         self.assertEqual(response.status_code, 400)
         self.assertNotIn("access", response.data)
+        self._assert_still_pending(user)
+
+    def test_a_tampered_token_does_not_work(self):
+        user = self._create_staff()
+        uid, token = self._link()
+        tampered = token[:-1] + ("a" if token[-1] != "a" else "b")
+        self.assertEqual(self._setup(uid, tampered).status_code, 400)
+        self._assert_still_pending(user)
+
+    def test_link_is_single_use(self):
+        self._create_staff()
+        uid, token = self._link()
+        self.assertEqual(self._setup(uid, token).status_code, 200)
+        self.assertEqual(self._check(uid, token).status_code, 400)
+        self.assertEqual(self._setup(uid, token, password="Hijack!Pass#2028z").status_code, 400)
+        self.assertEqual(self._login_as("newsec@test.com").status_code, 200)
+
+    def test_one_accounts_token_cannot_set_up_another(self):
+        self._create_staff()
+        _, token = self._link()
+        other = self._create_staff("other@test.com", "Investigator")
+        other_uid, _ = self._link()
+        self.assertEqual(self._setup(other_uid, token).status_code, 400)
+        self._assert_still_pending(other)
+
+    def test_expired_link_is_refused(self):
+        user = self._create_staff()
+        uid, token = self._link()
+        later = datetime.now() + timedelta(hours=SETUP_LINK_TTL_HOURS + 1)
+        with mock.patch.object(setup_token_generator, "_now", return_value=later):
+            self.assertEqual(self._check(uid, token).status_code, 400)
+            self.assertEqual(self._setup(uid, token).status_code, 400)
+        self._assert_still_pending(user)
+
+    def test_requesting_a_new_link_kills_the_old_one(self):
+        self._create_staff()
+        old = self._link()
+        self._request_link(email="newsec@test.com")
+        new = self._link()
+        self.assertEqual(self._check(*old).status_code, 400)
+        self.assertEqual(self._check(*new).status_code, 200)
+
+    def test_new_link_can_be_requested_from_an_expired_one(self):
+        self._create_staff()
+        uid, _ = self._link()
+        self.assertEqual(self._request_link(uid=uid).status_code, 200)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[-1].to, ["newsec@test.com"])
+
+    def test_a_valid_token_for_an_already_set_up_account_is_refused(self):
+        uid = urlsafe_base64_encode(str(self.existing.pk).encode())
+        token = setup_token_generator.make_token(self.existing)
+        self.assertEqual(self._setup(uid, token).status_code, 400)
         self.assertEqual(self._login_as("cap@test.com").status_code, 200)
 
-    def test_request_code_gives_the_same_answer_whether_or_not_the_account_exists(self):
-        pending = self._request_code("newsec@test.com")
-        unknown = self._request_code("nobody@test.com")
-        set_up = self._request_code("cap@test.com")
+    def test_request_link_gives_the_same_answer_whether_or_not_the_account_exists(self):
+        self._create_staff()
+        mail.outbox.clear()
+        pending = self._request_link(email="newsec@test.com")
+        unknown = self._request_link(email="nobody@test.com")
+        set_up = self._request_link(email="cap@test.com")
         self.assertEqual((pending.status_code, unknown.status_code, set_up.status_code), (200, 200, 200))
         self.assertEqual(pending.data, unknown.data)
         self.assertEqual(pending.data, set_up.data)
-        # ...but only the pending account's inbox actually got a code.
         self.assertEqual([m.to for m in mail.outbox], [["newsec@test.com"]])
 
-    def test_a_citizen_email_is_not_treated_as_pending(self):
-        User.objects.create_user(username="cit", email="cit@test.com", password=GOOD_PASSWORD, is_verified=True)
-        self._request_code("cit@test.com")
-        self.assertEqual(len(mail.outbox), 0)
+    # --- password rules apply at setup too ---
 
-    def test_requesting_a_new_code_kills_the_old_one(self):
-        self._request_code("newsec@test.com")
-        first = self._latest_code(self.pending)
-        self._request_code("newsec@test.com")
-        newest = self._latest_code(self.pending)
-        if first != newest:
-            self.assertEqual(self._verify("newsec@test.com", first).status_code, 400)
-        self.assertEqual(self._verify("newsec@test.com", newest).status_code, 200)
+    def test_setup_password_must_meet_the_rules(self):
+        user = self._create_staff()
+        response = self._setup(*self._link(), password="qwertzuiop")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self._assert_still_pending(user)
 
-    def test_the_setup_code_cannot_be_brute_forced(self):
-        self._request_code("newsec@test.com")
-        code = self._latest_code(self.pending)
-        guess = "000000" if code != "000000" else "111111"
-        for _ in range(MAX_CODE_ATTEMPTS):
-            self._verify("newsec@test.com", guess)
-        self.assertEqual(self._verify("newsec@test.com", code).status_code, 400)
-        self.assertEqual(self._setup("newsec@test.com", code).status_code, 400)
-        self._assert_still_pending(self.pending)
+    def test_setup_password_cannot_resemble_the_name_being_entered(self):
+        user = self._create_staff()
+        response = self._setup(*self._link(), first_name="Maximiliano", password="Maximiliano!1")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self._assert_still_pending(user)
 
-    def test_status_endpoint_that_revealed_staff_emails_is_gone(self):
-        response = self.client.get("/api/auth/staff-setup/status/", {"email": "cap@test.com"})
-        self.assertEqual(response.status_code, 404)
+    # --- login on a pending account ---
+
+    def test_login_on_a_pending_account_points_to_setup(self):
+        self._create_staff()
+        response = self._login_as("newsec@test.com", "anything")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("hasn't been set up", str(response.data["detail"]))
+
+    def test_citizen_login_does_not_reveal_pending_staff_accounts(self):
+        self._create_staff()
+        response = self._login_as("newsec@test.com", "anything", portal="citizen")
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("set up", str(response.data["detail"]))
+
+    def test_old_code_based_setup_endpoints_are_gone(self):
+        self.assertEqual(self.client.post("/api/auth/staff-setup/", {}, format="json").status_code, 404)
+        self.assertEqual(self.client.post("/api/auth/staff-setup/request-code/", {}, format="json").status_code, 404)
 
 
 @override_settings(PASSWORD_HASHERS=FAST_HASHER, CACHES=REAL_CACHE)
-class StaffSetupThrottleTests(APITestCase):
+class AccountSetupThrottleTests(APITestCase):
     def setUp(self):
         cache.clear()
         self.addCleanup(cache.clear)
 
     def _request(self, email):
-        return self.client.post("/api/auth/staff-setup/request-code/", {"email": email}, format="json")
+        return self.client.post("/api/auth/account-setup/request-link/", {"email": email}, format="json")
 
-    def test_code_requests_are_limited_per_email(self):
+    def test_link_requests_are_limited_per_email(self):
         for _ in range(3):
             self.assertEqual(self._request("a@test.com").status_code, 200)
         self.assertEqual(self._request("a@test.com").status_code, 429)
 
-    def test_code_requests_are_limited_per_ip(self):
+    def test_link_requests_are_limited_per_ip(self):
         for i in range(5):
             self.assertEqual(self._request(f"user{i}@test.com").status_code, 200)
         self.assertEqual(self._request("user99@test.com").status_code, 429)
@@ -540,3 +613,162 @@ class DisableDeleteWithClaimsTests(APITestCase):
         entries = [a for a in self._logs() if a.startswith("Released")]
         self.assertEqual(len(entries), 2)
         self.assertTrue(all(len(a) <= 255 for a in entries))
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class ChangePasswordRulesTests(APITestCase):
+    """Change Password enforces the same character-class rules as Sign Up."""
+
+    url = "/api/auth/change-password/"
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="maria", email="maria@test.com", password=GOOD_PASSWORD, is_verified=True
+        )
+        self.client.force_authenticate(self.user)
+
+    def _change(self, new_password):
+        return self.client.post(
+            self.url, {"current_password": GOOD_PASSWORD, "new_password": new_password}, format="json"
+        )
+
+    def test_password_missing_character_classes_is_rejected(self):
+        for weak in ["qwertzuiop", "QWERTZUIOP1", "Qwertzuiop1"]:
+            response = self._change(weak)
+            self.assertEqual(response.status_code, 400, weak)
+            self.assertIn("new_password", response.data)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(GOOD_PASSWORD))
+
+    def test_password_meeting_every_rule_is_accepted(self):
+        self.assertEqual(self._change("An0ther!Pass#2027y").status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("An0ther!Pass#2027y"))
+
+
+RESET_LINK_RE = re.compile(r"new-password\.html#uid=([\w-]+)&(?:amp;)?token=([\w-]+)")
+
+
+@override_settings(PASSWORD_HASHERS=FAST_HASHER)
+class AdminAccountLinkButtonTests(APITestCase):
+    """Manage Accounts' Resend Setup Link and Reset Password buttons."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="adm2", email="adm2@test.com", password=GOOD_PASSWORD, role=User.Role.ADMIN, is_verified=True
+        )
+        self.staff = User.objects.create_user(
+            username="inv", email="inv@test.com", password=GOOD_PASSWORD, role=User.Role.STAFF,
+            position="Investigator", is_verified=True, first_name="Ivan",
+        )
+        self.citizen = User.objects.create_user(
+            username="cit", email="cit@test.com", password=GOOD_PASSWORD, is_verified=True
+        )
+        self.pending = User(username="new@test.com", email="new@test.com", role=User.Role.STAFF,
+                            position="Investigator", is_verified=True)
+        self.pending.set_unusable_password()
+        self.pending.save()
+
+    def _as_admin(self, method_path):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(method_path, format="json")
+        self.client.force_authenticate(None)
+        return response
+
+    def _resend(self, user):
+        return self._as_admin(f"/api/auth/admin/users/{user.pk}/resend-setup-link/")
+
+    def _reset(self, user):
+        return self._as_admin(f"/api/auth/admin/users/{user.pk}/reset-password/")
+
+    def _reset_link(self):
+        return RESET_LINK_RE.search(mail.outbox[-1].body).groups()
+
+    def _confirm(self, uid, token, password="Brand!New#Pass2029"):
+        return self.client.post(
+            "/api/auth/password-link/", {"uid": uid, "token": token, "password": password}, format="json"
+        )
+
+    def _login(self, email, password):
+        return self.client.post(LOGIN_URL, {"email": email, "password": password, "portal": "staff"}, format="json")
+
+    # --- Resend Setup Link ---
+
+    def test_resend_setup_link_works_while_pending(self):
+        self.assertEqual(self._resend(self.pending).status_code, 200)
+        self.assertEqual(mail.outbox[-1].to, ["new@test.com"])
+        self.assertIn("account-setup.html#uid=", mail.outbox[-1].body)
+
+    def test_resend_setup_link_is_refused_once_set_up(self):
+        response = self._resend(self.staff)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.check_password(GOOD_PASSWORD))
+
+    def test_only_admins_can_resend(self):
+        self.client.force_authenticate(self.staff)
+        response = self.client.post(f"/api/auth/admin/users/{self.pending.pk}/resend-setup-link/")
+        self.assertEqual(response.status_code, 403)
+
+    # --- Reset Password ---
+
+    def test_reset_password_emails_a_link_and_never_returns_a_token(self):
+        response = self._reset(self.staff)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("token", response.data)
+        self.assertEqual(mail.outbox[-1].to, ["inv@test.com"])
+        # Current password still works until the link is used.
+        self.assertEqual(self._login("inv@test.com", GOOD_PASSWORD).status_code, 200)
+
+    def test_full_reset_flow(self):
+        self._reset(self.staff)
+        uid, token = self._reset_link()
+        check = self.client.post("/api/auth/password-link/check/", {"uid": uid, "token": token}, format="json")
+        self.assertEqual(check.status_code, 200)
+        self.assertEqual(check.data["email"], "inv@test.com")
+        self.assertEqual(self._confirm(uid, token).status_code, 200)
+        self.assertEqual(self._login("inv@test.com", "Brand!New#Pass2029").status_code, 200)
+        self.assertEqual(self._login("inv@test.com", GOOD_PASSWORD).status_code, 401)
+
+    def test_reset_link_is_single_use(self):
+        self._reset(self.staff)
+        uid, token = self._reset_link()
+        self.assertEqual(self._confirm(uid, token).status_code, 200)
+        self.assertEqual(self._confirm(uid, token, "Hijack!Pass#2030q").status_code, 400)
+
+    def test_reset_link_expires_after_its_own_shorter_window(self):
+        self._reset(self.staff)
+        uid, token = self._reset_link()
+        later = datetime.now() + timedelta(hours=RESET_LINK_TTL_HOURS + 1)
+        with mock.patch.object(reset_token_generator, "_now", return_value=later):
+            self.assertEqual(self._confirm(uid, token).status_code, 400)
+
+    def test_reset_and_setup_tokens_are_not_interchangeable(self):
+        self._reset(self.staff)
+        uid, token = self._reset_link()
+        response = self.client.post(
+            "/api/auth/account-setup/", {"uid": uid, "token": token, **DETAILS}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_new_password_must_meet_rules_and_differ_from_current(self):
+        self._reset(self.staff)
+        uid, token = self._reset_link()
+        self.assertEqual(self._confirm(uid, token, "qwertzuiop").status_code, 400)
+        self.assertEqual(self._confirm(uid, token, GOOD_PASSWORD).status_code, 400)
+
+    def test_reset_password_is_refused_for_citizens(self):
+        self.assertEqual(self._reset(self.citizen).status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reset_password_is_refused_for_pending_accounts(self):
+        self.assertEqual(self._reset(self.pending).status_code, 400)
+
+    def test_reset_password_is_refused_for_yourself(self):
+        self.assertEqual(self._reset(self.admin).status_code, 400)
+
+    def test_reset_password_is_refused_for_disabled_accounts(self):
+        self.staff.is_active = False
+        self.staff.save()
+        self.assertEqual(self._reset(self.staff).status_code, 400)

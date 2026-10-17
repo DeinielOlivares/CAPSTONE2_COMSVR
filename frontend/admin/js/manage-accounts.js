@@ -147,6 +147,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const editDisableBtn = document.getElementById("editDisableBtn");
   const editTypeBtn = document.getElementById("editTypeBtn");
   const editDeleteBtn = document.getElementById("editDeleteBtn");
+  const editResetBtn = document.getElementById("editResetBtn");
+  const RESET_ICON = `<svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.8"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg>`;
+  const RESEND_ICON = `<svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.8"/><path d="M4 7l8 6 8-6"/></svg>`;
 
   let activeAccount = null;
 
@@ -190,6 +193,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     editTypeBtn.hidden = isCitizen;
     editTypeBtn.disabled = isSelf;
     editTypeBtn.title = isSelf ? "You can't change your own role." : "";
+
+    // One button, two jobs. While the account is Setup Pending (any type) it
+    // resends the one-time setup link; once set up it's gone for citizens
+    // (they have Forgot Password) and becomes Reset Password for Barangay
+    // Staff/Administrator accounts — see AdminResendSetupLinkView /
+    // AdminResetPasswordView, which enforce the same rules.
+    if (account.setupPending) {
+      editResetBtn.hidden = false;
+      editResetBtn.innerHTML = `${RESEND_ICON} Resend Setup Link`;
+      editResetBtn.disabled = !account.active;
+      editResetBtn.title = account.active ? "" : "Enable this account first.";
+    } else {
+      editResetBtn.hidden = isCitizen;
+      editResetBtn.innerHTML = `${RESET_ICON} Reset Password`;
+      editResetBtn.disabled = isSelf || !account.active;
+      editResetBtn.title = isSelf
+        ? "Change your own password from My Profile."
+        : account.active ? "" : "Enable this account first.";
+    }
   }
 
   tbody.addEventListener("click", (e) => {
@@ -443,9 +465,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Reset Password is disabled for now (see editResetBtn's `disabled`
-  // attribute in manage-accounts.html) — no email service is wired up yet
-  // to actually deliver a reset link, so there's nothing useful for it to do.
+  // Resend Setup Link / Reset Password (see populateEditModal for which one
+  // shows). Both just email the account owner a one-time link — the admin
+  // never sees or chooses a password.
+  editResetBtn.addEventListener("click", async () => {
+    if (!activeAccount) return;
+    const account = activeAccount;
+    const pending = account.setupPending;
+    const question = pending
+      ? `Email ${account.email} a new setup link? Any earlier setup link will stop working.`
+      : `Email ${account.owner} a link to reset their password? Their current password keeps working until they use it.`;
+    if (!await siteConfirm(question)) return;
+
+    const previousLabel = editResetBtn.innerHTML;
+    editResetBtn.disabled = true;
+    editResetBtn.textContent = "Sending...";
+    try {
+      const result = pending ? await resendSetupLink(account.id) : await resetAccountPassword(account.id);
+      siteAlert(result.detail);
+    } catch (err) {
+      siteAlert(err.message);
+    } finally {
+      editResetBtn.innerHTML = previousLabel;
+      editResetBtn.disabled = false;
+    }
+  });
 
   // Delete Account: permanently removes the account. Guarded the same way
   // as disabling/retyping (can't target yourself), plus the last-remaining-

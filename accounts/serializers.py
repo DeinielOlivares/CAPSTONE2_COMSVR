@@ -1,10 +1,9 @@
 import re
-import secrets
-import string
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
@@ -81,20 +80,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     voter_id_image = serializers.ImageField(write_only=True)
 
-    def validate_password(self, value):
-        # Mirrors the Sign Up page's requirement list (see getPasswordRuleStatus
-        # in frontend/citizen/js/main.js); length is MinimumLengthValidator's job.
-        missing = []
-        if not re.search(r"[a-z]", value):
-            missing.append("At least 1 lowercase character")
-        if not re.search(r"[A-Z]", value):
-            missing.append("At least 1 uppercase character")
-        if not re.search(r"[^A-Za-z0-9]", value):
-            missing.append("At least 1 special character")
-        if missing:
-            raise serializers.ValidationError(missing)
-        return value
-
     class Meta:
         model = User
         fields = [
@@ -170,14 +155,11 @@ def validate_staff_role_uniqueness(staff_role, exclude_user=None):
 class AdminCreateUserSerializer(serializers.ModelSerializer):
     """
     Used by Administrators to create a Barangay Staff (or Administrator)
-    account — just an email and a role. No name or phone yet — the staff
-    member fills those in later themselves (My Profile → Edit Account
-    Information) — but the account is usable immediately, with a random
-    password generated here and emailed to them along with their email as
-    the login (see send_account_created_email), the same pattern
-    StaffCreateCitizenSerializer uses for a directly-created citizen
-    account. Pre-verified immediately either way — no voter's ID review
-    needed, since an admin is vetting/entering it directly rather than the
+    account — just an email and a role. Created with no usable password:
+    the staff member gets a one-time setup link by email and supplies their
+    own name, phone and password from it (see accounts/setup_links.py and
+    StaffAccountSetupSerializer). Pre-verified immediately — no voter's ID
+    review needed, since an admin is vetting it directly rather than the
     person self-registering.
     """
 
@@ -203,13 +185,9 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         validated_data["role"] = STAFF_ROLE_TO_ROLE_FIELD[staff_role]
         validated_data["position"] = staff_role
         validated_data["is_verified"] = True
-        password = generate_temp_password()
         user = User(**validated_data)
-        user.set_password(password)
+        user.set_unusable_password()
         user.save()
-        # Not a model field — stashed on the instance so the view (which
-        # only gets the saved user back, not the plaintext) can email it.
-        user.generated_password = password
         return user
 
 
@@ -236,36 +214,16 @@ class CitizenInviteSerializer(serializers.Serializer):
         return user
 
 
-def generate_temp_password(length=12):
-    """
-    A random password that always satisfies both AUTH_PASSWORD_VALIDATORS
-    (settings.py) and RegisterSerializer.validate_password's extra
-    character-class rules, for accounts a staff member creates with the
-    password itself emailed to the citizen rather than chosen by anyone —
-    see StaffCreateCitizenSerializer.
-    """
-    alphabet = string.ascii_lowercase + string.ascii_uppercase + string.digits + "!@#%&*?"
-    while True:
-        password = "".join(secrets.choice(alphabet) for _ in range(length))
-        if (
-            any(c.islower() for c in password)
-            and any(c.isupper() for c in password)
-            and any(c.isdigit() for c in password)
-            and any(not c.isalnum() for c in password)
-        ):
-            return password
-
-
 class StaffCreateCitizenSerializer(serializers.ModelSerializer):
     """
     Administrator creates a Barangay Citizen account with the full details
     entered directly (name, email, phone, address) — unlike
     CitizenInviteSerializer, where the citizen fills those in themselves
     later. Pre-verified immediately, same as an invited citizen (staff is
-    vouching for them in person) — the only thing the citizen doesn't
-    supply is the password, which is generated here and emailed to them
-    along with their email as the login the staff member just created
-    (see send_account_created_email).
+    vouching for them in person). Created with no usable password, like
+    every account someone else creates: the citizen gets a one-time setup
+    link where they confirm these details and choose their own password
+    (see accounts/setup_links.py and CitizenSetupSerializer).
     """
 
     first_name = serializers.CharField(required=True)
@@ -294,17 +252,47 @@ class StaffCreateCitizenSerializer(serializers.ModelSerializer):
         validated_data["username"] = validated_data["email"]
         validated_data["role"] = User.Role.CITIZEN
         validated_data["is_verified"] = True
-        password = generate_temp_password()
         user = User(**validated_data)
-        user.set_password(password)
+        user.set_unusable_password()
         user.save()
-        # Not a model field — stashed on the instance so the view (which
-        # only gets the saved user back, not the plaintext) can email it.
-        user.generated_password = password
         return user
 
 
-class CitizenSetupSerializer(serializers.ModelSerializer):
+class AccountSetupPasswordMixin(serializers.Serializer):
+    """
+    The password half of first-login setup, shared by CitizenSetupSerializer
+    and StaffAccountSetupSerializer. The password is checked in validate()
+    rather than as a field validator so UserAttributeSimilarityValidator can
+    compare it against the name being submitted in the same form — the
+    account has no name on file yet for a Staff or invited citizen account.
+    """
+
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        candidate = User(
+            username=self.instance.username,
+            email=self.instance.email,
+            first_name=attrs.get("first_name", self.instance.first_name),
+            last_name=attrs.get("last_name", self.instance.last_name),
+        )
+        try:
+            validate_password(attrs["password"], user=candidate)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+        return attrs
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password")
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.set_password(password)
+        instance.save()
+        return instance
+
+
+class CitizenSetupSerializer(AccountSetupPasswordMixin, serializers.ModelSerializer):
     """The citizen's own setup step — the same details as sign-up, minus the voter's ID."""
 
     first_name = serializers.CharField(required=True)
@@ -312,7 +300,6 @@ class CitizenSetupSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(required=True)
     contact_number = serializers.CharField(required=True)
     address = serializers.CharField(required=True)
-    password = serializers.CharField(write_only=True, validators=[validate_password])
 
     class Meta:
         model = User
@@ -324,23 +311,16 @@ class CitizenSetupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("An account with this phone number already exists.")
         return value
 
-    def update(self, instance, validated_data):
-        password = validated_data.pop("password")
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        instance.set_password(password)
-        instance.save()
-        return instance
 
 
-class StaffAccountSetupSerializer(serializers.ModelSerializer):
+class StaffAccountSetupSerializer(AccountSetupPasswordMixin, serializers.ModelSerializer):
     """
     Completes a Barangay Staff/Administrator account an admin created with
     just an email+role (see AdminCreateUserSerializer above) — the staff
     member supplies their own name, phone, and password on first login.
-    Only ever called on an account that still has no usable password (see
-    StaffAccountSetupView) — role/position/email are set already and stay
-    untouched here.
+    Only ever called on an account that still has no usable password, via a
+    valid setup link (see AccountSetupView) — role/position/email are set
+    already and stay untouched here.
     """
 
     # first_name/last_name/contact_number are blank=True at the model level
@@ -351,7 +331,6 @@ class StaffAccountSetupSerializer(serializers.ModelSerializer):
     middle_initial = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=True)
     contact_number = serializers.CharField(required=True)
-    password = serializers.CharField(write_only=True, validators=[validate_password])
 
     class Meta:
         model = User
@@ -363,13 +342,6 @@ class StaffAccountSetupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("An account with this phone number already exists.")
         return value
 
-    def update(self, instance, validated_data):
-        password = validated_data.pop("password")
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        instance.set_password(password)
-        instance.save()
-        return instance
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -458,6 +430,23 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
         return user
+
+
+class LinkPasswordSerializer(serializers.Serializer):
+    """
+    The new password chosen from an Administrator-sent reset link (see
+    PasswordLinkConfirmView). context["user"] is the link's account, so the
+    "too similar to your name or email" rule is checked against it.
+    """
+
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        user = self.context["user"]
+        validate_password(value, user=user)
+        if user.check_password(value):
+            raise serializers.ValidationError("Choose a password different from your current one.")
+        return value
 
 
 class DeleteAccountSerializer(serializers.Serializer):
@@ -585,6 +574,12 @@ def _locked_message(minutes):
     )
 
 
+SETUP_PENDING_MESSAGE = (
+    "This account hasn't been set up yet. Open the setup link we emailed you, "
+    "or choose \"First time here? Set up your account\" below to get a new one."
+)
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     # Which portal the login came from. Citizens and Barangay Officials each
     # have their own login page; the other kind is refused there, after the
@@ -636,6 +631,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             remaining = lockout_minutes_remaining(account)
             if remaining:
                 raise AuthenticationFailed(_locked_message(remaining), code="account_locked")
+
+        # An account someone else created that hasn't been set up yet has no
+        # password to check — point the person at their setup link instead of
+        # reporting a wrong password. Skipped where the portal would refuse
+        # that role anyway, so the citizen login can't reveal staff emails.
+        portal_refuses = attrs.get("portal") in self.WRONG_PORTAL and account and (
+            account.role in self.WRONG_PORTAL[attrs["portal"]][0]
+        )
+        if account and not account.has_usable_password() and not portal_refuses:
+            raise AuthenticationFailed(SETUP_PENDING_MESSAGE, code="setup_pending")
 
         try:
             data = super().validate(attrs)

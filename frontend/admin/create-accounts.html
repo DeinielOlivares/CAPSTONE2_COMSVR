@@ -78,16 +78,15 @@
         <div class="create-account-center">
           <h1 class="admin-page-title">Create Account</h1>
 
-          <!-- Barangay Staff/Administrator: just an email + role — usable right
-               away, with an auto-generated password emailed to them. They fill in
-               their own name/phone later via My Profile. -->
+          <!-- Barangay Staff/Administrator: just an email + role. They get a
+               one-time setup link by email and fill in their own name, phone and
+               password from it (see accounts/setup_links.py). -->
           <form id="createStaffAccountForm" class="create-account-grid create-account-grid--single" novalidate>
             <div class="create-account-card">
               <p class="create-account-card__intro">
                 Create a Barangay Staff account with just an email and a role.
-                We'll email them their login — their email and an auto-generated
-                password. They can fill in their name and phone number later from
-                My Profile.
+                We'll email them a one-time setup link, where they fill in their
+                name and phone number and choose their own password.
               </p>
               <div class="create-account-type-field field" id="caAccountTypeField">
                 <label for="caAccountType">Account Type</label>
@@ -116,12 +115,12 @@
             </div>
           </form>
 
-          <!-- Barangay Citizen: full details entered directly. The account is created
-               and usable right away — its login (email + an auto-generated password)
-               is emailed to the citizen. -->
+          <!-- Barangay Citizen: full details entered directly. The citizen gets a
+               one-time setup link by email, where they confirm these details and
+               choose their own password. -->
           <form id="createCitizenAccountForm" class="create-account-grid create-account-grid--single" novalidate hidden>
             <div class="create-account-card">
-              <p class="create-account-card__intro">Enter the citizen's details below. Once created, we'll email them their login — their email and an auto-generated password.</p>
+              <p class="create-account-card__intro">Enter the citizen's details below. Once created, we'll email them a one-time setup link, where they confirm these details and choose their own password.</p>
               <div class="form-row form-row--with-mi">
                 <div class="field">
                   <label for="ccFirstName">Given Name</label>

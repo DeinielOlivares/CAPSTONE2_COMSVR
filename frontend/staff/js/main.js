@@ -81,7 +81,7 @@ const STAFF_POSITION_HOME = {
   Investigator: "/staff/investigator-dashboard.html",
 };
 
-// Works out where to send someone right after apiLogin/apiCompleteStaffSetup
+// Works out where to send someone right after apiLogin/apiCompleteAccountSetup
 // resolves — reads the just-stored user (see storeAuthSession) rather than
 // needing role/position passed around separately.
 function loginHome(role) {
@@ -337,7 +337,7 @@ async function refreshAccessToken() {
   }
 }
 
-// Shared by apiLogin and apiCompleteStaffSetup below — both endpoints
+// Shared by apiLogin and apiCompleteAccountSetup below — both endpoints
 // return the same {access, refresh, user} shape, so both just hand their
 // response here to actually persist the session.
 // remember: "Stay signed in" checkbox — false/omitted means the session
@@ -404,42 +404,63 @@ async function apiLogin(email, password, remember) {
   return storeAuthSession(await response.json(), remember);
 }
 
-// Staff account setup (Barangay Staff/Administrator accounts an admin
-// created with just an email + role — see accounts/serializers.py's
-// AdminCreateUserSerializer) — frontend/staff/account-setup.html's flow.
+// Account setup — the first-login screen for every account someone else
+// created (Barangay Staff/Administrator accounts an Administrator made, and
+// Barangay Citizen accounts made by an Administrator or the Secretary). The
+// account has no password until its owner finishes setup from the one-time
+// link emailed to them — see accounts/setup_links.py.
 
-// Step 1: emails a code to an account still waiting on setup. The answer is the
-// same whether or not the email matches one — the backend deliberately doesn't
-// reveal which staff emails exist — so the UI just tells the person to check
-// their inbox. The code is then checked with apiVerifyPasswordResetCode.
-async function apiRequestStaffSetupCode(email) {
+// Opening the link: checks it's still valid and returns the account's
+// details to pre-fill (blank for staff/invited citizens). Throws with the
+// backend's "expired or already used" message otherwise.
+async function apiCheckSetupLink(uid, token) {
   let response;
   try {
-    response = await fetch(`${API_BASE}/staff-setup/request-code/`, {
+    response = await fetch(`${API_BASE}/account-setup/check/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ uid, token }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "This setup link isn't valid.");
+  return data;
+}
+
+// Emails a fresh link (killing older ones), by { email } typed on the page or
+// { uid } from an expired link. The answer is the same whether or not
+// anything was sent — the backend deliberately doesn't reveal which emails
+// have accounts — so the UI just tells the person to check their inbox.
+async function apiRequestSetupLink(body) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/account-setup/request-link/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
   } catch {
     throw new Error("Could not reach the server. Check your connection and try again.");
   }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.detail || "Could not send a setup code. Please try again.");
+    throw new Error(data.detail || "Could not send a setup link. Please try again.");
   }
   return response.json();
 }
 
-// Step 2: supplies name/phone/password, and logs the account straight in —
+// Submits the details + chosen password and logs the account straight in —
 // same session-storing behavior as apiLogin, since the response is shaped
-// identically (see StaffAccountSetupView).
-async function apiCompleteStaffSetup(email, code, details) {
+// identically (see AccountSetupView).
+async function apiCompleteAccountSetup(uid, token, details) {
   let response;
   try {
-    response = await fetch(`${API_BASE}/staff-setup/`, {
+    response = await fetch(`${API_BASE}/account-setup/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code, ...details }),
+      body: JSON.stringify({ uid, token, ...details }),
     });
   } catch {
     throw new Error("Could not reach the server. Check your connection and try again.");
@@ -452,6 +473,47 @@ async function apiCompleteStaffSetup(email, code, details) {
     throw err;
   }
   return storeAuthSession(await response.json(), false);
+}
+
+// Administrator-sent password reset link (Manage Accounts → Reset Password,
+// Barangay Staff/Administrator accounts only) — new-password.html's flow.
+// Checks the link and returns the account's email/name, or throws with the
+// backend's "expired or already used" message.
+async function apiCheckResetLink(uid, token) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/password-link/check/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, token }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "This reset link isn't valid.");
+  return data;
+}
+
+// Sets the new password. Doesn't log in — new-password.html sends the person
+// on to reset-success.html, same as the end of Forgot Password.
+async function apiConfirmResetLink(uid, token, password) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/password-link/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, token, password }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    throw new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not reset your password."));
+  }
+  return response.json();
 }
 
 // Public citizen self-registration. Takes a FormData (text fields + the
@@ -638,6 +700,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
   });
   return {
     length: pw.length >= 8,
+    lowercase: /[a-z]/.test(pw),
+    uppercase: /[A-Z]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw),
     numeric: pw.length > 0 && !/^\d+$/.test(pw),
     common: pw.length > 0 && !COMMON_PASSWORDS.has(lowerPw),
     similar: pw.length > 0 && !tooSimilar,
@@ -650,6 +715,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
 function getPasswordRequirementError(pw, attrs = {}) {
   const status = getPasswordRuleStatus(pw, attrs);
   if (!status.length) return "Password must be at least 8 characters.";
+  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
+  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
+  if (!status.special) return "Password needs at least 1 special character.";
   if (!status.numeric) return "Password can't be entirely numbers.";
   if (!status.common) return "That password is too common. Please choose a less predictable one.";
   if (!status.similar) return "Password is too similar to your name or email.";
@@ -746,6 +814,7 @@ const PUBLIC_PORTAL_PAGES = [
   "reset-password.html",
   "reset-success.html",
   "account-setup.html",
+  "new-password.html",
 ];
 
 function enforcePortalAccess() {
@@ -1036,104 +1105,117 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ---- Staff account setup (frontend/staff/account-setup.html) ----
-  // Step 1: email -> a code is emailed (if the email has an account waiting on
-  // setup; the page can't tell, by design). Step 2: enter the code. Step 3:
-  // name/phone/password, then logs the account straight in. Guarded on the
-  // forms existing since this only ever runs on account-setup.html.
-  const staffSetupEmailForm = document.getElementById("staffSetupEmailForm");
-  const staffSetupCodeForm = document.getElementById("staffSetupCodeForm");
-  const staffSetupDetailsForm = document.getElementById("staffSetupDetailsForm");
-  if (staffSetupEmailForm && staffSetupCodeForm && staffSetupDetailsForm) {
+  // ---- Account setup / first-login screen (account-setup.html) ----
+  // Opened from the emailed link (#uid=...&token=...): checks the link, then
+  // shows the details form — pre-filled for a citizen an Administrator
+  // created with their details — plus the new password. Opened without a
+  // link (the login page's "First time here?"), or with an expired one, it
+  // offers to email a new link instead. Guarded on the forms existing since
+  // this only ever runs on account-setup.html.
+  const setupRequestForm = document.getElementById("setupRequestForm");
+  const setupDetailsForm = document.getElementById("setupDetailsForm");
+  if (setupRequestForm && setupDetailsForm) {
+    const setupLoading = document.getElementById("setupLoading");
+    const setupSent = document.getElementById("setupSent");
+    const setupInvalid = document.getElementById("setupInvalid");
+    const linkParams = new URLSearchParams(window.location.hash.slice(1));
+    const uid = linkParams.get("uid");
+    const token = linkParams.get("token");
     let setupEmail = "";
-    let setupCode = "";
-    const setupEmailField = document.getElementById("setupEmail");
-    const setupCodeField = document.getElementById("setupCode");
 
-    async function sendCodeAndAdvance(email) {
-      const submitBtn = staffSetupEmailForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupEmailForm);
+    // Take the token out of the address bar and history right away, so it
+    // isn't left behind in the browser or caught in a screenshot.
+    if (uid || token) history.replaceState(null, "", window.location.pathname + window.location.search);
+
+    function showSetupStep(step) {
+      [setupLoading, setupRequestForm, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
+        el.hidden = el !== step;
+      });
+    }
+
+    function fillSetupDetails(details) {
+      setupEmail = details.email;
+      document.getElementById("setupAccountEmail").textContent = details.email;
+      document.getElementById("setupHintEmail").value = details.email;
+      document.getElementById("setupFirstName").value = details.first_name || "";
+      document.getElementById("setupMiddleInitial").value = details.middle_initial || "";
+      document.getElementById("setupLastName").value = details.last_name || "";
+      document.getElementById("setupPhone").value = details.contact_number || "";
+      // Citizen address is stored as sign-up formats it: "Block, Lot, Street".
+      const streetField = document.getElementById("setupStreet");
+      if (streetField && details.address) {
+        const split = details.address.lastIndexOf(", ");
+        const street = split === -1 ? "" : details.address.slice(split + 2);
+        if (STREETS.includes(street)) {
+          streetField.value = street;
+          document.getElementById("setupBlockLot").value = details.address.slice(0, split);
+        } else {
+          document.getElementById("setupBlockLot").value = details.address;
+        }
+      }
+    }
+
+    // The citizen street list loads asynchronously; wait for it before
+    // splitting a pre-filled address into street + block/lot.
+    const streetsReady =
+      typeof ensureStreetsLoaded === "function" ? ensureStreetsLoaded().catch(() => {}) : Promise.resolve();
+
+    if (uid && token) {
+      showSetupStep(setupLoading);
+      apiCheckSetupLink(uid, token)
+        .then((details) => streetsReady.then(() => details))
+        .then((details) => {
+          fillSetupDetails(details);
+          showSetupStep(setupDetailsForm);
+          document.getElementById("setupLastName").focus();
+        })
+        .catch((err) => {
+          document.getElementById("setupInvalidMessage").textContent = err.message;
+          showSetupStep(setupInvalid);
+        });
+    } else {
+      const emailFromQuery = new URLSearchParams(window.location.search).get("email");
+      if (emailFromQuery) document.getElementById("setupEmail").value = emailFromQuery;
+      showSetupStep(setupRequestForm);
+    }
+
+    setupRequestForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("setupEmail").value.trim();
+      const submitBtn = setupRequestForm.querySelector('button[type="submit"]');
+      clearFormError(setupRequestForm);
       if (!email) {
-        showFormError(staffSetupEmailForm, "Enter the email your account was created with.");
+        showFormError(setupRequestForm, "Enter the email your account was created with.");
         return;
       }
-
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
       try {
-        await apiRequestStaffSetupCode(email);
-        setupEmail = email;
-        document.getElementById("setupCodeEmail").textContent = email;
-        staffSetupEmailForm.hidden = true;
-        staffSetupCodeForm.hidden = false;
-        setupCodeField.focus();
+        await apiRequestSetupLink({ email });
+        showSetupStep(setupSent);
       } catch (err) {
-        showFormError(staffSetupEmailForm, err.message);
+        showFormError(setupRequestForm, err.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Send Code";
-      }
-    }
-
-    // Coming from the Staff Portal's own login form (Password left blank —
-    // see main.js's login handler above) skips retyping the email: it's
-    // passed along in the URL. The code is only sent once they confirm here,
-    // not automatically, so following a link can't trigger emails.
-    const emailFromQuery = new URLSearchParams(window.location.search).get("email");
-    if (emailFromQuery) setupEmailField.value = emailFromQuery;
-    // The link in the account-creation email already has a code sent, so go
-    // straight to the code step rather than sending another (which would
-    // invalidate the one in the email).
-    if (emailFromQuery && new URLSearchParams(window.location.search).get("sent")) {
-      setupEmail = emailFromQuery;
-      document.getElementById("setupCodeEmail").textContent = emailFromQuery;
-      staffSetupEmailForm.hidden = true;
-      staffSetupCodeForm.hidden = false;
-      setupCodeField.focus();
-    }
-
-    staffSetupEmailForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      sendCodeAndAdvance(setupEmailField.value.trim());
-    });
-
-    document.getElementById("setupResendCode").addEventListener("click", async (e) => {
-      e.preventDefault();
-      clearFormError(staffSetupCodeForm);
-      try {
-        await apiRequestStaffSetupCode(setupEmail);
-        showFormError(staffSetupCodeForm, "A new code has been sent. Only the newest one works.");
-      } catch (err) {
-        showFormError(staffSetupCodeForm, err.message);
+        submitBtn.textContent = "Email Me a Setup Link";
       }
     });
 
-    staffSetupCodeForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const submitBtn = staffSetupCodeForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupCodeForm);
-      const code = setupCodeField.value.trim();
-      if (code.length !== 6) {
-        showFormError(staffSetupCodeForm, "Enter the 6-digit code from the email.");
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Checking...";
+    document.getElementById("setupNewLinkBtn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
       try {
-        await apiVerifyPasswordResetCode(setupEmail, code);
-        setupCode = code;
-        staffSetupCodeForm.hidden = true;
-        staffSetupDetailsForm.hidden = false;
+        // The expired link still says whose it was, so no need to retype the email.
+        await apiRequestSetupLink(uid ? { uid } : { email: setupEmail });
+        showSetupStep(setupSent);
       } catch (err) {
-        showFormError(staffSetupCodeForm, err.message);
+        document.getElementById("setupInvalidMessage").textContent = err.message;
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Verify Code";
+        btn.disabled = false;
       }
     });
 
-    staffSetupDetailsForm.addEventListener("submit", async (e) => {
+    setupDetailsForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const lastName = document.getElementById("setupLastName");
       const firstName = document.getElementById("setupFirstName");
@@ -1141,12 +1223,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const phone = document.getElementById("setupPhone");
       const password = document.getElementById("setupPassword");
       const confirmPassword = document.getElementById("setupConfirmPassword");
-      const submitBtn = staffSetupDetailsForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupDetailsForm);
+      const submitBtn = setupDetailsForm.querySelector('button[type="submit"]');
+      clearFormError(setupDetailsForm);
       clearFieldInvalid(phone);
 
       if (password.value !== confirmPassword.value) {
-        showFormError(staffSetupDetailsForm, "Passwords do not match.");
+        showFormError(setupDetailsForm, "Passwords do not match.");
         return;
       }
       const passwordError = getPasswordRequirementError(password.value, {
@@ -1155,29 +1237,112 @@ document.addEventListener("DOMContentLoaded", () => {
         email: setupEmail,
       });
       if (passwordError) {
-        showFormError(staffSetupDetailsForm, passwordError);
+        showFormError(setupDetailsForm, passwordError);
         return;
+      }
+
+      // Citizen setup also asks for the address (sign-up's format: "Block, Lot, Street").
+      const streetField = document.getElementById("setupStreet");
+      let address;
+      if (streetField) {
+        clearFieldInvalid(streetField);
+        const street = streetField.value.trim();
+        if (!STREETS.includes(street)) {
+          markFieldInvalid(streetField, "Please select a street from the list.");
+          return;
+        }
+        address = `${document.getElementById("setupBlockLot").value.trim()}, ${street}`;
       }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Setting up...";
       try {
-        const role = await apiCompleteStaffSetup(setupEmail, setupCode, {
+        const role = await apiCompleteAccountSetup(uid, token, {
           first_name: firstName.value.trim(),
           middle_initial: middleInitial.value.trim(),
           last_name: lastName.value.trim(),
           contact_number: phone.value.trim(),
           password: password.value,
+          address,
         });
         window.location.href = loginHome(role) || "index.html";
       } catch (err) {
         if (err.fields && err.fields.contact_number) {
           markFieldInvalid(phone, err.fields.contact_number[0]);
         } else {
-          showFormError(staffSetupDetailsForm, err.message);
+          showFormError(setupDetailsForm, err.message);
         }
         submitBtn.disabled = false;
         submitBtn.textContent = "Complete Setup";
+      }
+    });
+  }
+
+  // ---- Administrator-sent password reset link (new-password.html) ----
+  const resetLinkForm = document.getElementById("resetLinkForm");
+  if (resetLinkForm) {
+    const resetLoading = document.getElementById("resetLinkLoading");
+    const resetInvalid = document.getElementById("resetLinkInvalid");
+    const resetParams = new URLSearchParams(window.location.hash.slice(1));
+    const resetUid = resetParams.get("uid");
+    const resetToken = resetParams.get("token");
+    let resetAccount = {};
+    // Same as account setup: get the token out of the address bar and history.
+    if (resetUid || resetToken) history.replaceState(null, "", window.location.pathname);
+
+    const showResetInvalid = (message) => {
+      document.getElementById("resetLinkInvalidMessage").textContent = message;
+      resetLoading.hidden = true;
+      resetInvalid.hidden = false;
+    };
+
+    if (!resetUid || !resetToken) {
+      showResetInvalid("This page only works from the reset link in your email.");
+    } else {
+      apiCheckResetLink(resetUid, resetToken)
+        .then((account) => {
+          resetAccount = account;
+          document.getElementById("resetLinkEmail").textContent = account.email;
+          document.getElementById("resetHintEmail").value = account.email;
+          document.getElementById("resetHintFirstName").value = account.first_name || "";
+          document.getElementById("resetHintLastName").value = account.last_name || "";
+          resetLoading.hidden = true;
+          resetLinkForm.hidden = false;
+          document.getElementById("resetNewPassword").focus();
+        })
+        .catch((err) => showResetInvalid(err.message));
+    }
+
+    resetLinkForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = document.getElementById("resetNewPassword");
+      const confirmPassword = document.getElementById("resetConfirmPassword");
+      const submitBtn = resetLinkForm.querySelector('button[type="submit"]');
+      clearFormError(resetLinkForm);
+
+      if (password.value !== confirmPassword.value) {
+        showFormError(resetLinkForm, "Passwords do not match.");
+        return;
+      }
+      const passwordError = getPasswordRequirementError(password.value, {
+        firstName: resetAccount.first_name,
+        lastName: resetAccount.last_name,
+        email: resetAccount.email,
+      });
+      if (passwordError) {
+        showFormError(resetLinkForm, passwordError);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving...";
+      try {
+        await apiConfirmResetLink(resetUid, resetToken, password.value);
+        window.location.href = "reset-success.html";
+      } catch (err) {
+        showFormError(resetLinkForm, err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Save New Password";
       }
     });
   }

@@ -1,8 +1,8 @@
 // Barangay Platero OVRMS — Create Account: Account Type picks which form shows —
 // "Barangay Staff" (just an email + role, see AdminCreateUserSerializer)
 // or "Barangay Citizen" (full details entered directly, created and
-// pre-verified right away with an auto-generated password emailed to them,
-// see StaffCreateCitizenSerializer). Citizens can still self-register
+// pre-verified right away, see StaffCreateCitizenSerializer). Either way the
+// person gets a one-time setup link by email and chooses their own password. Citizens can still self-register
 // through the Citizen portal's own Sign Up flow too — this is just the
 // admin-direct path for either.
 
@@ -54,6 +54,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
   });
   return {
     length: pw.length >= 8,
+    lowercase: /[a-z]/.test(pw),
+    uppercase: /[A-Z]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw),
     numeric: pw.length > 0 && !/^\d+$/.test(pw),
     common: pw.length > 0 && !COMMON_PASSWORDS.has(lowerPw),
     similar: pw.length > 0 && !tooSimilar,
@@ -63,6 +66,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
 function getPasswordRequirementError(pw, attrs = {}) {
   const status = getPasswordRuleStatus(pw, attrs);
   if (!status.length) return "Password must be at least 8 characters.";
+  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
+  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
+  if (!status.special) return "Password needs at least 1 special character.";
   if (!status.numeric) return "Password can't be entirely numbers.";
   if (!status.common) return "That password is too common. Please choose a less predictable one.";
   if (!status.similar) return "Password is too similar to the account's name or email.";
@@ -130,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       addAdminNotification(`New account created: ${created.email} (${role.value})`, "manage-accounts.html");
 
-      createdMessage.textContent = "We've emailed them their login — their email and an auto-generated password.";
+      createdMessage.textContent = "We've emailed them a one-time setup link to finish their account and choose their own password.";
       createdModal.hidden = false;
       staffForm.reset();
       syncFormVisibility();
@@ -215,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const created = await createCitizenAccount(payload);
       addAdminNotification(`New account created: ${created.email} (Barangay Citizen)`, "manage-accounts.html");
-      createdMessage.textContent = "We've emailed them their login — their email and an auto-generated password.";
+      createdMessage.textContent = "We've emailed them a one-time setup link to finish their account and choose their own password.";
       createdModal.hidden = false;
       citizenForm.reset();
     } catch (err) {

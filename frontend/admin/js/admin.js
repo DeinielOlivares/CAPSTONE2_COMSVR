@@ -422,6 +422,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
   });
   return {
     length: pw.length >= 8,
+    lowercase: /[a-z]/.test(pw),
+    uppercase: /[A-Z]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw),
     numeric: pw.length > 0 && !/^\d+$/.test(pw),
     common: pw.length > 0 && !ADMIN_COMMON_PASSWORDS.has(lowerPw),
     similar: pw.length > 0 && !tooSimilar,
@@ -431,6 +434,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
 function getPasswordRequirementError(pw, attrs = {}) {
   const status = getPasswordRuleStatus(pw, attrs);
   if (!status.length) return "Password must be at least 8 characters.";
+  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
+  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
+  if (!status.special) return "Password needs at least 1 special character.";
   if (!status.numeric) return "Password can't be entirely numbers.";
   if (!status.common) return "That password is too common. Please choose a less predictable one.";
   if (!status.similar) return "Password is too similar to your name or email.";

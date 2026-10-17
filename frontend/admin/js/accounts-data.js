@@ -35,17 +35,32 @@ async function updateAccount(id, changes) {
   return response.json();
 }
 
-// Backs the (currently disabled — no email service to actually deliver a
-// reset link yet) "Reset Password" button. Left here, unused, for when
-// that's wired up.
+// Backs the "Reset Password" button (Barangay Staff/Administrator accounts
+// that are already set up): emails the owner a one-time link to choose a
+// new password — see AdminResetPasswordView. The admin never sees it.
 async function resetAccountPassword(id) {
   const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/reset-password/`, {
     method: "POST",
   });
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error("Could not reset this account's password.");
+    throw new Error(data.detail || "Could not reset this account's password.");
   }
-  return response.json();
+  return data;
+}
+
+// Backs the "Resend Setup Link" button (any account still Setup Pending):
+// emails a fresh one-time setup link and kills older ones — see
+// AdminResendSetupLinkView.
+async function resendSetupLink(id) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/resend-setup-link/`, {
+    method: "POST",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Could not resend the setup link.");
+  }
+  return data;
 }
 
 // Disable an account, optionally freeing every report it has claimed in the
@@ -86,9 +101,8 @@ async function createAccount({ email, staffRole }) {
 
 // Used by the Create Account form's "Barangay Citizen" account type — the
 // admin enters the citizen's full details directly (see
-// StaffCreateCitizenSerializer); the account is created and usable right
-// away, with its login (email + an auto-generated password) emailed to the
-// citizen. Throws with field errors attached (err.fields) so the caller can
+// StaffCreateCitizenSerializer); the citizen gets a one-time setup link by
+// email to confirm them and choose their own password. Throws with field errors attached (err.fields) so the caller can
 // highlight the specific email/contact_number field, same pattern as
 // citizen Sign Up's apiCheckAvailability.
 async function createCitizenAccount(details) {
