@@ -957,8 +957,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         investigator: r.assignedInvestigator || "Unclaimed",
       }));
 
+    // Used server-side only to name the downloaded file (see
+    // StaffReportDashboardPdfView) — the PDF's own content still shows
+    // top_period_label, the human-readable version.
+    const topRange = periodDateRange(topPeriod);
+
     return {
       top_period_label: labelForPeriodValue(topPeriod),
+      top_period_range: { from: toDateInputValue(topRange.start), to: toDateInputValue(topRange.end) },
       stats: { current: curStats, previous: prevStats, delta_suffix: periodDeltaSuffix(topPeriod) },
       category: { period_label: labelForPeriodValue(categoryPeriod), slices: categorySlices },
       status: { period_label: labelForPeriodValue(statusPeriod), stats: statusStats },
@@ -987,7 +993,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "reports-summary.pdf";
+        link.download = filenameFromResponse(response, "reports-summary.pdf");
         document.body.appendChild(link);
         link.click();
         link.remove();

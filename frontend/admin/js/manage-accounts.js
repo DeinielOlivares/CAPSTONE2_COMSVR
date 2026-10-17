@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tbody = document.getElementById("accountsTableBody");
   const sortSelect = document.getElementById("sortSelect");
   const typeFilter = document.getElementById("typeFilter");
+  const statusFilter = document.getElementById("statusFilter");
   const pagination = document.getElementById("accountsPagination");
   const pageSizeSelect = document.getElementById("accountsPageSize");
 
@@ -28,8 +29,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterValue = typeFilter.value;
     let rows = accounts.filter((a) => filterValue === "all" || accountTypeGroup(a.type) === filterValue);
 
+    const statusValue = statusFilter.value;
+    if (statusValue !== "all") {
+      rows = rows.filter((a) => (statusValue === "active" ? a.active : !a.active));
+    }
+
     const sortValue = sortSelect.value;
-    rows = rows.slice().sort((a, b) => {
+    function compareBySort(a, b) {
       if (sortValue === "owner") return a.owner.localeCompare(b.owner);
       if (sortValue === "owner_desc") return b.owner.localeCompare(a.owner);
       // Lower activityMinutes = less time since last activity = more recent.
@@ -39,7 +45,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       // sort by join date instead of trying to compare IDs numerically.
       if (sortValue === "id_asc") return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    });
+    }
+    rows = rows.slice().sort(
+      statusValue === "all"
+        // Filter is "All": group active accounts ahead of disabled ones,
+        // applying the chosen sort within each group — so a backlog of
+        // disabled accounts doesn't bury who's actually active.
+        ? (a, b) => Number(b.active) - Number(a.active) || compareBySort(a, b)
+        : compareBySort
+    );
 
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
@@ -84,6 +98,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     render();
   });
   typeFilter.addEventListener("change", () => {
+    page = 1;
+    render();
+  });
+  statusFilter.addEventListener("change", () => {
     page = 1;
     render();
   });

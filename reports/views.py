@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import timedelta
 
@@ -333,8 +334,9 @@ class StaffReportPdfView(APIView):
             return Response({"detail": "This report hasn't been resolved yet."}, status=400)
 
         pdf_bytes = build_report_pdf(report)
+        resolved_on = timezone.localtime(report.updated_at).strftime("%Y-%m-%d")
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="report-{report.id}.pdf"'
+        response["Content-Disposition"] = f'attachment; filename="report-{resolved_on}-{report.id}.pdf"'
         return response
 
 
@@ -374,8 +376,15 @@ class StaffReportBulkPdfView(APIView):
             return Response({"detail": "None of the matching reports have been resolved yet."}, status=400)
 
         pdf_bytes = build_reports_pdf(reports)
+        # The date(s) resolved, not today's download date — a range when the
+        # bundle spans more than one day, else just that one day.
+        resolved_dates = sorted(timezone.localtime(r.updated_at).date() for r in reports)
+        if resolved_dates[0] == resolved_dates[-1]:
+            date_part = resolved_dates[0].isoformat()
+        else:
+            date_part = f"{resolved_dates[0].isoformat()}_to_{resolved_dates[-1].isoformat()}"
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="resolved-reports.pdf"'
+        response["Content-Disposition"] = f'attachment; filename="resolved-reports-{date_part}.pdf"'
         return response
 
 
@@ -396,12 +405,28 @@ class StaffReportDashboardPdfView(APIView):
     permission_classes = [IsStaffOrAdmin]
 
     def post(self, request):
+        payload = request.data or {}
         try:
-            pdf_bytes = build_dashboard_pdf(request.data or {})
+            pdf_bytes = build_dashboard_pdf(payload)
         except (KeyError, TypeError, ValueError):
             return Response({"detail": "Could not build the summary from the given data."}, status=400)
+
+        # The dashboard's own top-filter range (reports-dashboard.js's
+        # gatherDashboardSummary sends it alongside the human-readable
+        # label already used inside the PDF) — not re-derived here, since
+        # this view never touches the Report queryset at all. Falls back to
+        # today's date if it's missing or malformed rather than failing the
+        # download over a filename.
+        date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        period_range = payload.get("top_period_range") or {}
+        start, end = period_range.get("from"), period_range.get("to")
+        if date_re.match(start or "") and date_re.match(end or ""):
+            date_part = start if start == end else f"{start}_to_{end}"
+        else:
+            date_part = timezone.localtime(timezone.now()).date().isoformat()
+
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="reports-summary.pdf"'
+        response["Content-Disposition"] = f'attachment; filename="reports-summary-{date_part}.pdf"'
         return response
 
 

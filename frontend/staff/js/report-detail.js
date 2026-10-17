@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `report-${report.id}.pdf`;
+      link.download = filenameFromResponse(response, `report-${report.id}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();

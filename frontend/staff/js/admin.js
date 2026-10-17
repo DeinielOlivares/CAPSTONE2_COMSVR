@@ -242,6 +242,19 @@ async function authFetch(path, options = {}) {
   return response;
 }
 
+// The server names downloaded files with a date (or date range) baked in —
+// see reports/views.py's PDF-download views — but a blob: URL (what every
+// "download via fetch" flow here uses) ignores Content-Disposition for
+// naming; only the <a download> attribute controls the saved filename. So
+// that name is read back out of the header here instead of being
+// hardcoded a second time on the frontend, which would drift out of sync
+// with whatever the backend actually names it.
+function filenameFromResponse(response, fallback) {
+  const header = response.headers.get("Content-Disposition") || "";
+  const match = header.match(/filename="?([^";]+)"?/i);
+  return match ? match[1] : fallback;
+}
+
 // Shows/clears an inline error message below a form. Same pattern as main.js.
 function showFormError(form, message) {
   let errEl = form.querySelector(".form-error");
