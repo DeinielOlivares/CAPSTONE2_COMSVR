@@ -102,14 +102,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate_email(self, value):
-<<<<<<< HEAD
         # The column's own uniqueness is case-sensitive, so "Juan@x.com" would
         # get past it while "juan@x.com" exists — and login matches email
         # ignoring case, so the two accounts would then collide there.
-=======
-        # ModelSerializer would otherwise raise DRF's generic "user with this
-        # email already exists" — same wording as the rest of this file.
->>>>>>> d25722c750c6948bb66bdf7d2601e4a0234cc036
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return value
