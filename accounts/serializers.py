@@ -1,4 +1,6 @@
 import re
+import secrets
+import string
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -168,12 +170,15 @@ def validate_staff_role_uniqueness(staff_role, exclude_user=None):
 class AdminCreateUserSerializer(serializers.ModelSerializer):
     """
     Used by Administrators to create a Barangay Staff (or Administrator)
-    account — just an email and a role. No name, phone, or password yet:
-    the account starts with no usable password (see
-    StaffAccountSetupView) until the staff member finishes setting it up
-    themselves on their first login. Pre-verified immediately either way —
-    no voter's ID review needed, since an admin is vetting/entering it
-    directly rather than the person self-registering.
+    account — just an email and a role. No name or phone yet — the staff
+    member fills those in later themselves (My Profile → Edit Account
+    Information) — but the account is usable immediately, with a random
+    password generated here and emailed to them along with their email as
+    the login (see send_account_created_email), the same pattern
+    StaffCreateCitizenSerializer uses for a directly-created citizen
+    account. Pre-verified immediately either way — no voter's ID review
+    needed, since an admin is vetting/entering it directly rather than the
+    person self-registering.
     """
 
     staff_role = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES, write_only=True)
@@ -198,9 +203,13 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         validated_data["role"] = STAFF_ROLE_TO_ROLE_FIELD[staff_role]
         validated_data["position"] = staff_role
         validated_data["is_verified"] = True
+        password = generate_temp_password()
         user = User(**validated_data)
-        user.set_unusable_password()
+        user.set_password(password)
         user.save()
+        # Not a model field — stashed on the instance so the view (which
+        # only gets the saved user back, not the plaintext) can email it.
+        user.generated_password = password
         return user
 
 
@@ -224,6 +233,74 @@ class CitizenInviteSerializer(serializers.Serializer):
         user = User(email=email, username=email, role=User.Role.CITIZEN, is_verified=True)
         user.set_unusable_password()
         user.save()
+        return user
+
+
+def generate_temp_password(length=12):
+    """
+    A random password that always satisfies both AUTH_PASSWORD_VALIDATORS
+    (settings.py) and RegisterSerializer.validate_password's extra
+    character-class rules, for accounts a staff member creates with the
+    password itself emailed to the citizen rather than chosen by anyone —
+    see StaffCreateCitizenSerializer.
+    """
+    alphabet = string.ascii_lowercase + string.ascii_uppercase + string.digits + "!@#%&*?"
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if (
+            any(c.islower() for c in password)
+            and any(c.isupper() for c in password)
+            and any(c.isdigit() for c in password)
+            and any(not c.isalnum() for c in password)
+        ):
+            return password
+
+
+class StaffCreateCitizenSerializer(serializers.ModelSerializer):
+    """
+    Administrator creates a Barangay Citizen account with the full details
+    entered directly (name, email, phone, address) — unlike
+    CitizenInviteSerializer, where the citizen fills those in themselves
+    later. Pre-verified immediately, same as an invited citizen (staff is
+    vouching for them in person) — the only thing the citizen doesn't
+    supply is the password, which is generated here and emailed to them
+    along with their email as the login the staff member just created
+    (see send_account_created_email).
+    """
+
+    first_name = serializers.CharField(required=True)
+    middle_initial = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=True)
+    contact_number = serializers.CharField(required=True)
+    address = serializers.CharField(required=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "middle_initial", "last_name", "contact_number", "address"]
+        read_only_fields = ["id"]
+
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
+    def validate_contact_number(self, value):
+        value = clean_ph_mobile(value)
+        if phone_already_used(value):
+            raise serializers.ValidationError("An account with this phone number already exists.")
+        return value
+
+    def create(self, validated_data):
+        validated_data["username"] = validated_data["email"]
+        validated_data["role"] = User.Role.CITIZEN
+        validated_data["is_verified"] = True
+        password = generate_temp_password()
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        # Not a model field — stashed on the instance so the view (which
+        # only gets the saved user back, not the plaintext) can email it.
+        user.generated_password = password
         return user
 
 

@@ -94,6 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const remarksInput = document.getElementById("remarksInput");
   const saveBtn = document.getElementById("saveChangesBtn");
   const timelineItems = document.getElementById("timelineItems");
+  const downloadPdfBtn = document.getElementById("downloadPdfBtn");
   const backToReportsBtn = document.getElementById("backToReportsBtn");
   const saveConfirmModal = document.getElementById("saveConfirmModal");
   const saveConfirmOk = document.getElementById("saveConfirmOk");
@@ -208,8 +209,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
+  // Only once Resolved — a "final verdict" to hand out doesn't exist before
+  // then (enforced server-side too, see StaffReportPdfView).
+  function renderDownloadButton() {
+    downloadPdfBtn.hidden = currentStatus !== "Resolved";
+  }
+
+  downloadPdfBtn.addEventListener("click", async () => {
+    downloadPdfBtn.disabled = true;
+    downloadPdfBtn.textContent = "Preparing...";
+    try {
+      const response = await authFetch(`/api/reports/staff/${report.id}/pdf/`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Could not download the PDF.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filenameFromResponse(response, `report-${report.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      siteAlert(err.message);
+    } finally {
+      downloadPdfBtn.disabled = false;
+      downloadPdfBtn.textContent = "Download PDF";
+    }
+  });
+
   applyPill(currentStatus);
   renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
+  renderDownloadButton();
 
   statusEditBtn.addEventListener("click", () => {
     statusSelect.value = currentStatus;
@@ -247,6 +281,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       statusPill.hidden = false;
       statusSelect.hidden = true;
       renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
+      renderDownloadButton();
       return true;
     } catch (err) {
       siteAlert(err.message);

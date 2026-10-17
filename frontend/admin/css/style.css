@@ -3450,6 +3450,11 @@ button {
   margin: 6px 0 0;
 }
 
+.field input.field-invalid,
+.field select.field-invalid {
+  border-color: #c0392b;
+}
+
 /* Barangay Staff only ever collects an email + role (see
    frontend/admin/js/create-accounts.js) — a single narrower card reads
    better than the 2-column layout the Citizen form still uses. */

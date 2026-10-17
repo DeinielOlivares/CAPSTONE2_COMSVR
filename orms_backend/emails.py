@@ -21,6 +21,11 @@ below:
     - the Secretary or Barangay Captain posts a new Announcement (every
       citizen gets this one — see announcements/views.py)
   Any account (citizen, staff, or admin) gets emailed when...
+    - it's created directly with its full details already on file — a
+      citizen by the Secretary/an Administrator (StaffCreateCitizenSerializer),
+      or a Staff/Administrator account by an Administrator
+      (AdminCreateUserSerializer) — with its login (email + an
+      auto-generated password), see send_account_created_email
     - an Administrator disables or deletes it (accounts/views.py's
       AdminAccountDetailView)
     - they (or anyone with access to their account) change their email,
@@ -207,6 +212,26 @@ def send_staff_setup_code_email(user, code, expires_minutes, with_setup_link=Fal
         subject="Your account setup code",
         template_name="staff_setup_code",
         context={"user": user, "code": code, "expires_minutes": expires_minutes, "setup_url": setup_url},
+    )
+
+
+def send_account_created_email(user, password):
+    # The account was created directly with the person's full details (a
+    # citizen via StaffCreateCitizenSerializer, or a Barangay Staff/
+    # Administrator via AdminCreateUserSerializer) rather than by inviting
+    # them to set themselves up — the account is usable immediately, so
+    # this carries the login itself (email + the password generated for
+    # them) rather than a setup code.
+    login_url = (
+        f"{settings.FRONTEND_BASE_URL}/citizen/login.html"
+        if user.role == user.Role.CITIZEN
+        else f"{settings.FRONTEND_BASE_URL}/staff/index.html"
+    )
+    send_templated_email(
+        to=user.email,
+        subject="Barangay Platero OVRMS — Your account has been created",
+        template_name="account_created",
+        context={"user": user, "password": password, "login_url": login_url},
     )
 
 

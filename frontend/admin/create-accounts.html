@@ -78,15 +78,16 @@
         <div class="create-account-center">
           <h1 class="admin-page-title">Create Account</h1>
 
-          <!-- Barangay Staff/Administrator: just an email + role — the staff
-               member finishes setting up their own name/phone/password on
-               first login (see frontend/staff/account-setup.html). -->
+          <!-- Barangay Staff/Administrator: just an email + role — usable right
+               away, with an auto-generated password emailed to them. They fill in
+               their own name/phone later via My Profile. -->
           <form id="createStaffAccountForm" class="create-account-grid create-account-grid--single" novalidate>
             <div class="create-account-card">
               <p class="create-account-card__intro">
-                Create a Barangay Staff account with just an email and a role. The
-                staff member finishes setting up their own name, phone number, and
-                password the first time they log in.
+                Create a Barangay Staff account with just an email and a role.
+                We'll email them their login — their email and an auto-generated
+                password. They can fill in their name and phone number later from
+                My Profile.
               </p>
               <div class="create-account-type-field field" id="caAccountTypeField">
                 <label for="caAccountType">Account Type</label>
@@ -115,15 +116,48 @@
             </div>
           </form>
 
-          <!-- Barangay Citizen: email only. They finish setting up the account from the emailed link. -->
+          <!-- Barangay Citizen: full details entered directly. The account is created
+               and usable right away — its login (email + an auto-generated password)
+               is emailed to the citizen. -->
           <form id="createCitizenAccountForm" class="create-account-grid create-account-grid--single" novalidate hidden>
             <div class="create-account-card">
-              <p class="create-account-card__intro">We'll email a setup code and a link to this address. The citizen adds their name, phone, address, and password themselves.</p>
+              <p class="create-account-card__intro">Enter the citizen's details below. Once created, we'll email them their login — their email and an auto-generated password.</p>
+              <div class="form-row form-row--with-mi">
+                <div class="field">
+                  <label for="ccFirstName">Given Name</label>
+                  <input type="text" id="ccFirstName" placeholder="given name" required />
+                </div>
+                <div class="field">
+                  <label for="ccMiddleInitial">M.I.</label>
+                  <input type="text" id="ccMiddleInitial" maxlength="10" />
+                </div>
+                <div class="field">
+                  <label for="ccLastName">Last Name</label>
+                  <input type="text" id="ccLastName" placeholder="last name" required />
+                </div>
+              </div>
               <div class="field">
                 <label for="ccEmail">Email</label>
                 <input type="email" id="ccEmail" placeholder="name@example.com" required />
               </div>
-              <button type="submit" class="btn">Send Invite</button>
+              <div class="field">
+                <label for="ccPhone">Mobile Number</label>
+                <input type="tel" id="ccPhone" placeholder="09XXXXXXXXX" required />
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label for="ccStreet">Street</label>
+                  <div class="combobox" id="ccStreetCombobox">
+                    <input type="text" id="ccStreet" placeholder="Type to search streets..." autocomplete="off" required />
+                    <ul class="combobox__list" id="ccStreetList" hidden></ul>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ccBlockLot">Block, Lot, etc.</label>
+                  <input type="text" id="ccBlockLot" placeholder="e.g. Block 1, Lot 2" required />
+                </div>
+              </div>
+              <button type="submit" class="btn">Create Account</button>
             </div>
           </form>
         </div>

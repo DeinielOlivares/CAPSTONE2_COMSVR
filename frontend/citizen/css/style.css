@@ -230,6 +230,43 @@ button {
   display: none;
 }
 
+/* A logged-in citizen's dropdown leads with the logo + brand name (see
+   navbar--authed in main.js) — desktop-hidden like the pair above, for the
+   same reason. */
+.navbar__links-brand {
+  display: none;
+}
+
+.navbar__links-brand .navbar__logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+/* A logged-in citizen's dropdown also ends with Logout (see navbar--authed
+   in main.js) — desktop-hidden like the pair above, for the same reason. */
+.navbar__links-logout {
+  display: none;
+}
+
+.navbar__links-logout a {
+  opacity: 0.75;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin-top: 4px;
+}
+
+.navbar__links-logout a:hover {
+  opacity: 1;
+}
+
+/* The dropdown has room for the subtitle that .navbar__brand-text small
+   hides below 1100px up in the cramped top row — shown again here
+   regardless of width (specificity alone beats that rule; this is already
+   display: none outside the dropdown's own mobile-only context anyway). */
+.navbar__links-brand .navbar__brand-text small {
+  display: block;
+}
+
 /* Same collapsed-into-hamburger treatment as the mobile media query further
    down, but triggered by actual overflow (see syncNavCompact in main.js)
    instead of a fixed viewport width — above the mobile breakpoint the links
@@ -244,24 +281,37 @@ button {
 }
 
 .navbar--compact .navbar__links {
-  display: none;
-  order: 4;
-  width: 100%;
+  display: flex;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  margin: 10px 0 4px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  background: var(--navy);
+  box-shadow: var(--shadow);
+  border-top: 0 solid rgba(255, 255, 255, 0.15);
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
 }
 
 .navbar--compact .navbar__links.is-open {
-  display: flex;
+  max-height: 600px;
+  opacity: 1;
+  padding: 10px 0;
+  border-top-width: 1px;
 }
 
 .navbar--compact .navbar__links a {
   display: block;
-  padding: 10px 4px;
+  /* The dropdown now spans edge-to-edge (position: absolute, no longer
+     inset by .navbar's own 28px side padding) — matched here so link text
+     still lines up under the brand/hamburger above it. */
+  padding: 10px 28px;
 }
 
 .navbar--compact .navbar__links-signup {
@@ -272,10 +322,39 @@ button {
   display: block;
 }
 
+.navbar--compact .navbar__links-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 28px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.navbar--compact .navbar__links-logout {
+  display: block;
+}
+
 /* Login (and, for a guest, the inline Sign Up next to it) move into the
    dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
 .navbar--compact .navbar__profile--login {
   display: none;
+}
+
+/* Logged-in citizen: no Login/Sign Up to show, so the brand makes way for
+   the hamburger on the left (leaving just notifications + account on the
+   right) — it reappears inside the dropdown instead, see
+   .navbar__links-brand below and navbar--authed in main.js. */
+.navbar--compact.navbar--authed .navbar__brand {
+  display: none;
+}
+
+.navbar--compact.navbar--authed .navbar__hamburger {
+  margin-left: 0;
+}
+
+.navbar--compact.navbar--authed .navbar__bell {
+  margin-left: auto;
 }
 
 /* Inverted chip: navbar itself is navy, so the bell's own background flips
@@ -2834,28 +2913,44 @@ label.geo-toggle {
     display: block;
   }
 
-  /* Collapsed into a dropdown panel under the top row (brand/hamburger/
-     bell/profile), opened by .navbar__hamburger toggling .is-open — see
-     the mobile nav block in main.js. */
+  /* Overlays the page content below instead of pushing it down — position:
+     absolute (anchored to .navbar, which is position: sticky) takes it out
+     of the flex flow, so the navbar itself stays single-row height while
+     this floats over whatever's underneath it. Always display: flex
+     (rather than none/flex) so max-height/opacity can actually transition
+     — display itself can't be animated. */
   .navbar__links {
-    display: none;
-    order: 4;
-    width: 100%;
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
-    margin: 10px 0 4px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    background: var(--navy);
+    box-shadow: var(--shadow);
+    border-top: 0 solid rgba(255, 255, 255, 0.15);
+    transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
   }
 
   .navbar__links.is-open {
-    display: flex;
+    max-height: 600px;
+    opacity: 1;
+    padding: 10px 0;
+    border-top-width: 1px;
   }
 
   .navbar__links a {
     display: block;
-    padding: 10px 4px;
+    /* The dropdown now spans edge-to-edge (position: absolute, no longer
+       inset by .navbar's own 28px side padding) — matched here so link
+       text still lines up under the brand/hamburger above it. */
+    padding: 10px 28px;
   }
 
   .navbar__links-signup {
@@ -2866,10 +2961,39 @@ label.geo-toggle {
     display: block;
   }
 
+  .navbar__links-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 28px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    margin-bottom: 4px;
+  }
+
+  .navbar__links-logout {
+    display: block;
+  }
+
   /* Login (and, for a guest, the inline Sign Up next to it) move into the
      dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
   .navbar__profile--login {
     display: none;
+  }
+
+  /* Logged-in citizen: no Login/Sign Up to show, so the brand makes way
+     for the hamburger on the left (leaving just notifications + account
+     on the right) — it reappears inside the dropdown instead, see
+     .navbar__links-brand below and navbar--authed in main.js. */
+  .navbar--authed .navbar__brand {
+    display: none;
+  }
+
+  .navbar--authed .navbar__hamburger {
+    margin-left: 0;
+  }
+
+  .navbar--authed .navbar__bell {
+    margin-left: auto;
   }
 
   .info-grid {
@@ -2961,7 +3085,11 @@ label.geo-toggle {
 
   .notif-dropdown {
     width: 260px;
-    right: -60px;
+    /* Flush with the bell instead of shifted further right (the previous
+       -60px pushed it past the viewport edge, clipping "Clear All" and the
+       right side of the panel — see max-width below, which only caps the
+       panel's own size, not how far right this offset shoves it). */
+    right: 0;
   }
 
   .profile-layout {

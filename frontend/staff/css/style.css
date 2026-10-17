@@ -351,6 +351,53 @@ button {
   max-width: 140px;
 }
 
+.combobox {
+  position: relative;
+}
+
+.combobox__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.combobox__list[hidden] {
+  display: none;
+}
+
+.combobox__list li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.combobox__list li:hover,
+.combobox__list li:focus {
+  background: #f6f4ef;
+}
+
+.combobox__list li.combobox__empty {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.combobox__list li.combobox__empty:hover {
+  background: none;
+}
+
 .field label {
   display: block;
   font-size: 0.82rem;
@@ -1905,15 +1952,6 @@ button {
    not just horizontally — approximates the viewport height minus the
    topbar and .admin-content's own padding, scoped to this page only so it
    doesn't touch the shared .admin-content layout every other page uses. ---------- */
-
-.create-citizen-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 140px);
-  text-align: center;
-}
 
 /* ---------- My Concerns/Suggestions list ---------- */
 
@@ -4874,6 +4912,12 @@ button {
   flex: 1;
   min-width: 0;
   margin-bottom: 0;
+}
+
+.reports-controls > #downloadResolvedBtn {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 @media (max-width: 860px) {

@@ -14,6 +14,7 @@ from orms_backend.codes import CODE_EXHAUSTED, CODE_OK, check_code, generate_cod
 from orms_backend.emails import (
     send_account_approved_email,
     send_account_created_admin_emails,
+    send_account_created_email,
     send_account_deactivated_email,
     send_account_deleted_email,
     send_account_rejected_email,
@@ -50,6 +51,7 @@ from .serializers import (
     STAFF_ROLE_CHOICES,
     STAFF_ROLE_TO_ROLE_FIELD,
     StaffAccountSetupSerializer,
+    StaffCreateCitizenSerializer,
     UserSerializer,
     validate_staff_role_uniqueness,
 )
@@ -460,8 +462,10 @@ class AdminCreateUserView(generics.CreateAPIView):
     """
     POST /api/auth/admin/create-user/ — Administrator-only endpoint for
     creating a Barangay Staff (or Administrator) account with just an
-    email + role, pending the staff member's own first-login setup (see
-    StaffAccountSetupView).
+    email + role. Usable immediately — an auto-generated password is
+    emailed to the account along with its email (see
+    AdminCreateUserSerializer / send_account_created_email); the staff
+    member fills in their own name/phone later via My Profile.
     """
     queryset = User.objects.all()
     serializer_class = AdminCreateUserSerializer
@@ -469,7 +473,7 @@ class AdminCreateUserView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        _send_setup_code(user, with_setup_link=True)
+        send_account_created_email(user, user.generated_password)
         log_action(self.request.user, f"Created a {user.position} account for {user.email}")
 
 
@@ -487,6 +491,25 @@ class AdminInviteCitizenView(generics.CreateAPIView):
         user = serializer.save()
         _send_setup_code(user, with_setup_link=True)
         log_action(self.request.user, f"Invited a Barangay Citizen account for {user.email}")
+
+
+class StaffCreateCitizenView(generics.CreateAPIView):
+    """
+    POST /api/auth/admin/create-citizen-direct/ — Administrator creates a
+    Barangay Citizen account with the full details entered directly (see
+    StaffCreateCitizenSerializer), rather than just inviting by email
+    (AdminInviteCitizenView above). The account is usable immediately; its
+    auto-generated password is emailed to the citizen. Admin-only — the
+    Barangay Secretary used to have this too, but that's been removed.
+    """
+    queryset = User.objects.all()
+    serializer_class = StaffCreateCitizenSerializer
+    permission_classes = [IsAdmin]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        send_account_created_email(user, user.generated_password)
+        log_action(self.request.user, f"Created a Barangay Citizen account for {user.email}")
 
 
 class AdminListUsersView(generics.ListAPIView):

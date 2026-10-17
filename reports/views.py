@@ -1,6 +1,8 @@
+import re
 import uuid
 from datetime import timedelta
 
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -23,6 +25,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
+from .pdf import build_dashboard_pdf, build_report_pdf, build_reports_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -311,6 +314,120 @@ class StaffReportDetailView(APIView):
             send_report_resolved_email(report)
 
         return Response(StaffReportSerializer(report, context={"request": request}).data)
+
+
+class StaffReportPdfView(APIView):
+    """
+    GET /api/reports/staff/<id>/pdf/ — downloads a Resolved report as a PDF
+    (see reports/pdf.py). Same viewing access as StaffReportDetailView.get
+    (every Staff role, not just the Investigator who worked it) — if you can
+    see the report, you can export it. Only available once Resolved; a
+    report still in progress has no "final verdict" yet to hand out.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request, pk):
+        report = get_object_or_404(
+            Report.objects.select_related("citizen", "assigned_investigator"), pk=pk
+        )
+        if report.status != Report.Status.RESOLVED:
+            return Response({"detail": "This report hasn't been resolved yet."}, status=400)
+
+        pdf_bytes = build_report_pdf(report)
+        resolved_on = timezone.localtime(report.updated_at).strftime("%Y-%m-%d")
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="report-{resolved_on}-{report.id}.pdf"'
+        return response
+
+
+class StaffReportBulkPdfView(APIView):
+    """
+    POST /api/reports/staff/pdf-bulk/ — downloads one combined PDF (see
+    reports/pdf.py's build_reports_pdf, one page per report) of whichever
+    reports the Reports page's filters currently match — computed
+    client-side (reports-list.js's getFiltered()) and posted here as
+    {"ids": [...]}, rather than re-implementing that filtering server-side.
+    Same "Resolved only" rule as the single-report download: ids that
+    aren't Resolved are silently left out of the bundle instead of failing
+    the whole request, since the filtered set on screen is usually a mix of
+    statuses and the button itself says only Resolved ones are included.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        raw_ids = request.data.get("ids")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            return Response({"detail": "No reports to download."}, status=400)
+        # Malformed ids are dropped rather than failing the request — same
+        # "just skip what doesn't qualify" handling as a non-Resolved id.
+        valid_ids = []
+        for raw_id in raw_ids:
+            try:
+                valid_ids.append(uuid.UUID(str(raw_id)))
+            except (ValueError, AttributeError, TypeError):
+                continue
+
+        reports = list(
+            Report.objects.select_related("citizen", "assigned_investigator")
+            .filter(id__in=valid_ids, status=Report.Status.RESOLVED)
+            .order_by("-created_at")
+        )
+        if not reports:
+            return Response({"detail": "None of the matching reports have been resolved yet."}, status=400)
+
+        pdf_bytes = build_reports_pdf(reports)
+        # The date(s) resolved, not today's download date — a range when the
+        # bundle spans more than one day, else just that one day.
+        resolved_dates = sorted(timezone.localtime(r.updated_at).date() for r in reports)
+        if resolved_dates[0] == resolved_dates[-1]:
+            date_part = resolved_dates[0].isoformat()
+        else:
+            date_part = f"{resolved_dates[0].isoformat()}_to_{resolved_dates[-1].isoformat()}"
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="resolved-reports-{date_part}.pdf"'
+        return response
+
+
+class StaffReportDashboardPdfView(APIView):
+    """
+    POST /api/reports/staff/dashboard-pdf/ — downloads the Reports
+    Dashboard's current stats/graphs/open-reports as one PDF (see
+    reports/pdf.py's build_dashboard_pdf). Unlike the two views above, this
+    doesn't touch the Report queryset at all: every number is already
+    computed client-side (reports-dashboard.js's gatherDashboardSummary,
+    the same functions the live dashboard renders with) and posted here as
+    plain JSON — this view just lays it out, rather than re-implementing
+    the dashboard's date-range/per-graph filtering a second time in Python.
+    Same viewing access as the dashboard page itself (every Staff role);
+    only Barangay Captain's nav actually links to that page, but there's
+    nothing here a Secretary/Investigator/Admin couldn't already see live.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        payload = request.data or {}
+        try:
+            pdf_bytes = build_dashboard_pdf(payload)
+        except (KeyError, TypeError, ValueError):
+            return Response({"detail": "Could not build the summary from the given data."}, status=400)
+
+        # The dashboard's own top-filter range (reports-dashboard.js's
+        # gatherDashboardSummary sends it alongside the human-readable
+        # label already used inside the PDF) — not re-derived here, since
+        # this view never touches the Report queryset at all. Falls back to
+        # today's date if it's missing or malformed rather than failing the
+        # download over a filename.
+        date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        period_range = payload.get("top_period_range") or {}
+        start, end = period_range.get("from"), period_range.get("to")
+        if date_re.match(start or "") and date_re.match(end or ""):
+            date_part = start if start == end else f"{start}_to_{end}"
+        else:
+            date_part = timezone.localtime(timezone.now()).date().isoformat()
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="reports-summary-{date_part}.pdf"'
+        return response
 
 
 class StaffReportClaimView(APIView):

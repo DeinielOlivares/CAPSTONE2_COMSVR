@@ -925,7 +925,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".navbar__brand").forEach((brand) => {
     brand.style.cursor = "pointer";
     brand.addEventListener("click", () => {
-      window.location.href = "/citizen/home.html";
+      window.location.href = "/citizen/about.html";
     });
   });
   expireStaleSession();
@@ -1765,6 +1765,47 @@ document.addEventListener("DOMContentLoaded", () => {
   if (profileBtn && profileModal) {
     if (loggedIn && user) {
       renderAvatar(profileBtn, user);
+      // Mobile: with no Login/Sign Up to show, the brand/logo makes way for
+      // the hamburger so the right side is just notifications + account —
+      // see .navbar--authed in style.css (both the real mobile breakpoint
+      // and the .navbar--compact fallback). It reappears as the first row
+      // of the hamburger dropdown instead, cloned from the real brand
+      // element so it stays in sync with it.
+      const navbarEl = profileBtn.closest(".navbar");
+      if (navbarEl) {
+        navbarEl.classList.add("navbar--authed");
+        const brand = navbarEl.querySelector(".navbar__brand");
+        if (navLinks && brand) {
+          const brandItem = document.createElement("li");
+          brandItem.className = "navbar__links-brand";
+          brandItem.style.cursor = "pointer";
+          brandItem.innerHTML = brand.innerHTML;
+          // Same destination as the top-row brand's own click handler
+          // (set up earlier in this same DOMContentLoaded handler) — that
+          // one only targets .navbar__brand, not this clone.
+          brandItem.addEventListener("click", () => {
+            window.location.href = "/citizen/about.html";
+          });
+          navLinks.insertBefore(brandItem, navLinks.firstChild);
+        }
+        // Logout, after My Concerns/Suggestions — same confirmation modal
+        // as the profile popup's own Log Out button (#logoutBtn), just
+        // reachable from the dropdown too.
+        if (navLinks) {
+          const logoutItem = document.createElement("li");
+          logoutItem.className = "navbar__links-logout";
+          const logoutLink = document.createElement("a");
+          logoutLink.href = "#";
+          logoutLink.innerHTML = "&#8618; Logout";
+          logoutLink.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            const confirmModal = document.getElementById("logoutConfirmModal");
+            if (confirmModal) confirmModal.hidden = false;
+          });
+          logoutItem.appendChild(logoutLink);
+          navLinks.appendChild(logoutItem);
+        }
+      }
     } else {
       const loginActive = window.location.pathname.startsWith("/citizen/login");
       const signUpActive = window.location.pathname.endsWith("/signup.html");
