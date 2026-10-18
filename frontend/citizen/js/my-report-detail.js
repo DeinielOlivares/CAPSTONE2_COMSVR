@@ -2,9 +2,9 @@
 
 const REPORT_TIMELINE_STEPS = [
   { label: "Submitted", description: "Your report has been submitted successfully." },
-  { label: "Under Review", description: "Your report is being reviewed" },
+  { label: "Under Review", description: "Your report is being reviewed." },
   { label: "In Action", description: "Appropriate actions are being taken." },
-  { label: "Final Verdict", description: "Report is finished and closed." },
+  { label: "Resolved", description: "Your report is finished and closed." },
 ];
 
 // How many of the 4 steps count as "done" for a given backend status. There's

@@ -169,9 +169,11 @@ async function claimReport(id) {
 
 // Claims are permanent for Investigators (only an Administrator can release
 // one — see StaffReportForfeitView), so both Claim buttons (reports-list.js,
-// report-detail.js) confirm first with this message.
+// report-detail.js) confirm first with this message — which says so, rather
+// than a bare "Claim this report?" that hides the fact it can't be undone.
 const CLAIM_CONFIRM_MESSAGE =
-  "Claim this report?";
+  "You'll be the only one who can update its status and remarks. Only an Administrator can release it later.";
+const CLAIM_CONFIRM_OPTIONS = { title: "Claim this report?", confirmText: "Claim Report" };
 
 // ---- Date/period helpers — kept from the old mock generator, since
 // filtering real created_at timestamps by week/month is still legitimate,

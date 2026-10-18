@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderClaim();
 
   claimBtn.addEventListener("click", async () => {
-    if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE)) return;
+    if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE, CLAIM_CONFIRM_OPTIONS)) return;
     claimBtn.disabled = true;
     try {
       report = await claimReport(report.id);
@@ -173,12 +173,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderTimeline(status, dateSubmitted, dateUpdated) {
-    const steps = [
-      { label: "Submitted", description: "The report was submitted." },
-      { label: "Under Review", description: "The report is being reviewed" },
-      { label: "In Action", description: "Appropriate actions are being taken." },
-      { label: "Final Verdict", description: "Report is finished and closed." },
+    // Labels come straight from STATUSES_ORDERED so the timeline always uses
+    // the same names as the Status dropdown and pill.
+    const descriptions = [
+      "The report was submitted.",
+      "The report is being reviewed.",
+      "Appropriate actions are being taken.",
+      "The report is finished and closed.",
     ];
+    const steps = STATUSES_ORDERED.map((label, i) => ({ label, description: descriptions[i] }));
     // Status is one of STATUSES_ORDERED, in the same order as these 4
     // stages, so "how many steps are done" is just that status's position.
     const completedSteps = STATUSES_ORDERED.indexOf(status) + 1;

@@ -1966,6 +1966,22 @@ button {
   margin-bottom: 24px;
 }
 
+/* Reports page: the three claim lists share one card, split by a divider. */
+.reports-group {
+  padding: 18px 0 4px;
+}
+
+.reports-group + .reports-group {
+  border-top: 2px solid var(--border);
+}
+
+.reports-group__title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
 .reports-section__title {
   font-size: 1.1rem;
   font-weight: 700;

@@ -1165,6 +1165,13 @@ label.geo-toggle {
   gap: 14px;
 }
 
+/* My Reports / My Concerns put the Order button at the right end of the
+   heading row, so the panel opens leftward instead of running off-screen. */
+.reports-toolbar .filters-dropdown__panel {
+  left: auto;
+  right: 0;
+}
+
 .filters-dropdown__panel[hidden] {
   display: none;
 }

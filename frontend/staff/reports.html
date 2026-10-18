@@ -129,8 +129,8 @@
               <label class="filters-dropdown__field">
                 <span class="filters-dropdown__label">Filter</span>
                 <select id="statusFilter">
-                  <option value="all">All</option>
-                  <option value="New Submission" selected>New Submission</option>
+                  <option value="all" selected>All</option>
+                  <option value="New Submission">New Submission</option>
                   <option value="Under Review">Under Review</option>
                   <option value="In Action">In Action</option>
                   <option value="Resolved">Resolved</option>
@@ -177,19 +177,20 @@
         <button type="button" class="btn btn-muted" id="downloadResolvedBtn" title="Only Resolved reports among whatever the current filters show are included.">Download Resolved Reports (PDF)</button>
         </div>
 
-        <div class="reports-section" id="reportsSectionMine">
-          <h2 class="reports-section__title">Claimed by Me</h2>
-          <div class="concerns-card" id="reportsListMine"></div>
-        </div>
-
-        <div class="reports-section">
-          <h2 class="reports-section__title" id="reportsSectionOthersTitle">Claimed by Other Investigators</h2>
-          <div class="concerns-card" id="reportsListOthers"></div>
-        </div>
-
-        <div class="reports-section">
-          <h2 class="reports-section__title">Unclaimed Reports</h2>
-          <div class="concerns-card" id="reportsListUnclaimed"></div>
+        <!-- One card, three lists inside it, in this order. -->
+        <div class="reports-section concerns-card">
+          <div class="reports-group" id="reportsGroupMine">
+            <h2 class="reports-group__title">Claimed by Me</h2>
+            <div id="reportsListMine"></div>
+          </div>
+          <div class="reports-group">
+            <h2 class="reports-group__title">Unclaimed Reports</h2>
+            <div id="reportsListUnclaimed"></div>
+          </div>
+          <div class="reports-group">
+            <h2 class="reports-group__title" id="reportsGroupOthersTitle">Claimed by Other Investigators</h2>
+            <div id="reportsListOthers"></div>
+          </div>
         </div>
 
         <div class="pagination-bar dash-pagination reports-pagination-bar">
