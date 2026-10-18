@@ -121,13 +121,13 @@
             </button>
             <div class="filters-dropdown__panel" id="filtersPanel" hidden>
               <label class="filters-dropdown__field">
-                <span class="filters-dropdown__label">Filter</span>
+                <span class="filters-dropdown__label">Ordinance</span>
                 <select id="typeFilter">
-                  <option value="all">Type</option>
+                  <option value="all">All</option>
                 </select>
               </label>
               <label class="filters-dropdown__field">
-                <span class="filters-dropdown__label">Filter</span>
+                <span class="filters-dropdown__label">Status</span>
                 <select id="statusFilter">
                   <option value="all" selected>All</option>
                   <option value="New Submission">New Submission</option>
@@ -147,25 +147,6 @@
                   <option value="all">All</option>
                 </select>
               </label>
-            <!-- Hotel booking-style range picker (two calendars) — reports are
-                 filtered to fall within [dateFrom, dateTo]. Left empty by
-                 default, in which case reports-list.js shows today's reports
-                 plus any still-unresolved older ones instead of a plain "all". -->
-            <div class="filters-dropdown__field">
-              <span class="filters-dropdown__label">Date Range</span>
-            <div class="date-range-picker" id="dateRangePicker">
-              <label class="date-range-picker__field">
-                <span class="date-range-picker__label">Date From</span>
-                <input type="date" id="dateFrom" />
-              </label>
-              <span class="date-range-picker__arrow" aria-hidden="true">&#8594;</span>
-              <label class="date-range-picker__field">
-                <span class="date-range-picker__label">Date To</span>
-                <input type="date" id="dateTo" />
-              </label>
-              <button type="button" class="date-range-picker__clear" id="dateRangeClear" title="Clear dates" aria-label="Clear dates">&times;</button>
-            </div>
-            </div>
               <button type="button" class="filters-dropdown__clear">Clear</button>
             </div>
           </div>

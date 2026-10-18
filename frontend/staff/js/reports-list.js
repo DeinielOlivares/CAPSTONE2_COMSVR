@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — Reports Management: search + filter (type/date/status) +
+// Barangay Platero OVRMS — Reports Management: search + filter (ordinance/status) +
 // paginate across real reports from reports-data.js (GET /api/reports/staff/).
 // Reports is the Investigator's claimable work queue — see reports-data.js's
 // claimReport. Claims are permanent (no forfeiting), so claiming confirms first.
@@ -15,13 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const searchForm = document.getElementById("reportSearchForm");
   const searchInput = document.getElementById("reportSearchInput");
   const typeFilter = document.getElementById("typeFilter");
-  const dateFrom = document.getElementById("dateFrom");
-  const dateTo = document.getElementById("dateTo");
-  // Reports can't be filtered into a future that hasn't happened yet.
-  const todayStr = new Date().toLocaleDateString("en-CA");
-  dateFrom.max = todayStr;
-  dateTo.max = todayStr;
-  const dateRangeClear = document.getElementById("dateRangeClear");
   const statusFilter = document.getElementById("statusFilter");
   const listMine = document.getElementById("reportsListMine");
   const listUnclaimed = document.getElementById("reportsListUnclaimed");
@@ -71,8 +64,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       sessionStorage.setItem(filtersKey, JSON.stringify({
         type: typeFilter.value,
         status: statusFilter.value,
-        dateFrom: dateFrom.value,
-        dateTo: dateTo.value,
         pageSize: pageSizeSelect ? pageSizeSelect.value : null,
         query: appliedQuery,
         page,
@@ -99,8 +90,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     setIfOption(statusFilter, saved.status);
     setIfOption(pageSizeSelect, saved.pageSize);
     if (pageSizeSelect) pageSize = pageSizeSelect.value === "all" ? null : Number(pageSizeSelect.value);
-    if (saved.dateFrom && saved.dateFrom <= todayStr) dateFrom.value = saved.dateFrom;
-    if (saved.dateTo && saved.dateTo <= todayStr) dateTo.value = saved.dateTo;
     appliedQuery = saved.query || "";
     searchInput.value = appliedQuery;
     page = Number(saved.page) || 1;
@@ -115,19 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   function getFiltered() {
-    let rows;
-    if (!dateFrom.value && !dateTo.value) {
-      // No check-in/check-out picked: no date restriction either — with the
-      // Status filter defaulting to "all" (see reports.html), that's just
-      // every report, ordered by the priority sort below.
-      rows = liveReports();
-    } else {
-      rows = liveReports().filter((r) => {
-        if (dateFrom.value && r.dateSubmitted < new Date(`${dateFrom.value}T00:00:00`)) return false;
-        if (dateTo.value && r.dateSubmitted > new Date(`${dateTo.value}T23:59:59`)) return false;
-        return true;
-      });
-    }
+    let rows = liveReports();
 
     if (typeFilter.value !== "all") {
       rows = rows.filter((r) => r.incidentType === typeFilter.value);
@@ -265,24 +242,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     render();
   });
   typeFilter.addEventListener("change", () => {
-    page = 1;
-    render();
-  });
-  dateFrom.addEventListener("change", () => {
-    // Check-in can't land after check-out — keep the range sane instead of
-    // silently returning zero results.
-    if (dateTo.value && dateFrom.value > dateTo.value) dateTo.value = dateFrom.value;
-    page = 1;
-    render();
-  });
-  dateTo.addEventListener("change", () => {
-    if (dateFrom.value && dateTo.value < dateFrom.value) dateFrom.value = dateTo.value;
-    page = 1;
-    render();
-  });
-  dateRangeClear.addEventListener("click", () => {
-    dateFrom.value = "";
-    dateTo.value = "";
     page = 1;
     render();
   });
