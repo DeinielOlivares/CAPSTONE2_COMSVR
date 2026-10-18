@@ -95,31 +95,19 @@ OCR_TIMEOUT_SECONDS = 90
 
 
 def read_first_page(pdf_bytes):
-    """Returns the text of page 1, as one string with a line per text row."""
-    import pymupdf
-
-    document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-    try:
-        if len(document) == 0:
-            return ""
-        text_layer = document[0].get_text().strip()
-        if len(text_layer) >= MIN_TEXT_LAYER_CHARS:
-            return text_layer
-    finally:
-        document.close()
-    return _ocr_in_child_process(pdf_bytes)
-
-
-def _ocr_in_child_process(pdf_bytes):
     """
-    OCR on page 1 peaks around 250-300MB, and the memory never goes back to the
-    OS afterwards — the web worker sat ~80MB higher after one run, and repeated
-    runs crept upward until a 512MB Render instance was OOM-killed (twice, on
-    an ordinary 11in scan). Running it in a throwaway process means the model,
-    the rendered page and all that scratch memory are handed back the moment
-    it exits; the web worker never loads the model at all. Costs ~1s per
-    request to reload the model.
+    Returns the text of page 1, as one string with a line per text row.
+
+    All of the work — even opening the PDF — happens in a throwaway child
+    process. OCR on page 1 peaks around 250-300MB, and the memory never goes
+    back to the OS afterwards — the web worker sat ~80MB higher after one run,
+    and repeated runs crept upward until a 512MB Render instance was
+    OOM-killed (twice, on an ordinary 11in scan). In a child, the model, the
+    rendered page and all that scratch memory are handed back the moment it
+    exits, and the web worker never loads PyMuPDF (~26MB) or the OCR model at
+    all. Costs ~1s per request to reload the model.
     """
+    import gc
     import multiprocessing
 
     # fork on Linux (Render): starts instantly and shares the worker's
@@ -129,7 +117,16 @@ def _ocr_in_child_process(pdf_bytes):
     context = multiprocessing.get_context(method)
     receiver, sender = context.Pipe(duplex=False)
     process = context.Process(target=_ocr_worker, args=(pdf_bytes, sender), daemon=True)
-    process.start()
+    # A forked child shares the worker's memory only until it writes to it,
+    # and the garbage collector writes to every object it scans — one
+    # collection in the child would quietly copy most of the worker's ~200MB.
+    # Freezing moves everything that exists now out of the collector's reach
+    # (in both processes); the worker unfreezes straight after the fork.
+    gc.freeze()
+    try:
+        process.start()
+    finally:
+        gc.unfreeze()
     sender.close()  # Only the child writes; closing ours lets recv() see EOF if it dies.
     try:
         if not receiver.poll(OCR_TIMEOUT_SECONDS):
@@ -152,7 +149,11 @@ def _ocr_in_child_process(pdf_bytes):
 
 
 def _ocr_worker(pdf_bytes, sender):
-    """Runs in the child process: renders page 1, OCRs it, sends back ("ok", text) or ("error", message)."""
+    """
+    Runs in the child process: reads page 1's text layer, or renders and OCRs
+    the page if it has none (the usual case — the ordinances are scans).
+    Sends back ("ok", text) or ("error", message).
+    """
     try:
         # If memory still runs out, have the kernel kill this process rather
         # than the web worker, so the site stays up and only the prefill fails.
@@ -162,19 +163,27 @@ def _ocr_worker(pdf_bytes, sender):
     except OSError:
         pass
     try:
-        import numpy as np
         import pymupdf
-        from rapidocr_onnxruntime import RapidOCR
 
         document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
         try:
+            if len(document) == 0:
+                sender.send(("ok", ""))
+                return
             page = document[0]
+            text_layer = page.get_text().strip()
+            if len(text_layer) >= MIN_TEXT_LAYER_CHARS:
+                sender.send(("ok", text_layer))
+                return
             longest_side_inches = max(page.rect.width, page.rect.height) / 72
             # PyMuPDF only accepts a whole-number dpi.
             dpi = min(OCR_DPI, int(MAX_OCR_SIDE_PX / longest_side_inches))
             pixmap = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csRGB)
         finally:
             document.close()
+        import numpy as np
+        from rapidocr_onnxruntime import RapidOCR
+
         image = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(pixmap.height, pixmap.width, 3)
         result, _ = RapidOCR()(image)
         sender.send(("ok", "\n".join(row[1] for row in (result or []))))

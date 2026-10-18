@@ -172,7 +172,7 @@ async function claimReport(id) {
 // report-detail.js) confirm first with this message — which says so, rather
 // than a bare "Claim this report?" that hides the fact it can't be undone.
 const CLAIM_CONFIRM_MESSAGE =
-  "You'll be the only one who can update its status and remarks. Only an Administrator can release it later.";
+  "You'll be the only one who can update its status and remarks.";
 const CLAIM_CONFIRM_OPTIONS = { title: "Claim this report?", confirmText: "Claim Report" };
 
 // ---- Date/period helpers — kept from the old mock generator, since

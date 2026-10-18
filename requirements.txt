@@ -12,7 +12,6 @@ cryptography==50.0.2
 pillow==12.3.0
 cloudinary==1.46.0
 django-cloudinary-storage==0.3.0
-scikit-learn==1.9.0
 pymupdf==1.28.2
 reportlab==5.0.1
 rapidocr-onnxruntime==1.2.3

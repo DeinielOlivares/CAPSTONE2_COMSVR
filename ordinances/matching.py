@@ -1,5 +1,16 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import math
+import re
+from collections import Counter
+
+from .stop_words import ENGLISH_STOP_WORDS
+
+# Same tokenizer as scikit-learn's TfidfVectorizer default: lowercase words of
+# 2+ word characters.
+_TOKEN = re.compile(r"(?u)\b\w\w+\b")
+
+
+def _tokens(text):
+    return [t for t in _TOKEN.findall(text.lower()) if t not in ENGLISH_STOP_WORDS]
 
 
 def suggest_ordinances(query_text, ordinances, limit=3, min_score=0.05):
@@ -14,24 +25,37 @@ def suggest_ordinances(query_text, ordinances, limit=3, min_score=0.05):
     fewer than 2 ordinances (TF-IDF's idf term is degenerate with 0-1
     documents) or if nothing clears min_score.
 
-    Not caching/persisting the fitted vectorizer — the ordinance corpus is
-    barangay-scale (tens, not thousands) and changes rarely, so refitting
-    per request is a few milliseconds and avoids any stale-cache-after-edit
-    bugs.
+    Plain Python reproducing TfidfVectorizer(stop_words="english")'s defaults
+    exactly (raw term counts, smoothed idf = ln((1+n)/(1+df)) + 1, L2-normalised
+    rows) instead of importing scikit-learn: it and SciPy cost ~75MB in every
+    web worker, which a 512MB Render instance can't spare alongside the OCR
+    prefill. The corpus is barangay-scale (tens of ordinances), so this is
+    still a few milliseconds per request — no caching, so no stale-cache-
+    after-edit bugs.
     """
     ordinances = list(ordinances)
     if len(ordinances) < 2 or not query_text.strip():
         return []
 
-    corpus = [f"{o.title} {o.category} {o.description}" for o in ordinances]
-    corpus.append(query_text)
-
-    try:
-        matrix = TfidfVectorizer(stop_words="english").fit_transform(corpus)
-    except ValueError:
-        # Empty vocabulary after stopword removal (e.g. query is all stopwords/punctuation).
+    documents = [_tokens(f"{o.title} {o.category} {o.description}") for o in ordinances]
+    documents.append(_tokens(query_text))
+    if not any(documents):
+        # Empty vocabulary after stopword removal (e.g. all stopwords/punctuation).
         return []
 
-    scores = cosine_similarity(matrix[-1], matrix[:-1])[0]
+    n = len(documents)
+    document_frequency = Counter(term for doc in documents for term in set(doc))
+    idf = {term: math.log((1 + n) / (1 + df)) + 1 for term, df in document_frequency.items()}
+
+    def unit_vector(doc):
+        weights = {term: count * idf[term] for term, count in Counter(doc).items()}
+        norm = math.sqrt(sum(w * w for w in weights.values()))
+        return {term: w / norm for term, w in weights.items()} if norm else {}
+
+    query = unit_vector(documents[-1])
+    scores = [
+        sum(weight * query.get(term, 0.0) for term, weight in unit_vector(doc).items())
+        for doc in documents[:-1]
+    ]
     ranked = sorted(zip(ordinances, scores), key=lambda pair: pair[1], reverse=True)
-    return [(o, float(s)) for o, s in ranked if s >= min_score][:limit]
+    return [(o, s) for o, s in ranked if s >= min_score][:limit]

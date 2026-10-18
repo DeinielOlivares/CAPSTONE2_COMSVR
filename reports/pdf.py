@@ -23,7 +23,6 @@ import io
 import os
 import tempfile
 
-import pymupdf
 from django.utils import timezone
 from orms_backend.encrypted_storage import EncryptedStorage, is_encrypted_name
 from PIL import Image as PILImage
@@ -114,6 +113,11 @@ def _attachment_bytes(attachment):
 
 
 def _page_count(pdf_bytes):
+    # Imported here, not at module level: PyMuPDF costs ~26MB, and this module
+    # is imported by reports/views.py at startup — no reason for every web
+    # worker to carry it until someone actually downloads a report PDF.
+    import pymupdf
+
     with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
         return doc.page_count
 
