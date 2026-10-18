@@ -133,8 +133,8 @@ class OrdinanceCategory(models.Model):
     list (accounts.views.IsAdmin) rather than it being fixed in code, so a
     new category doesn't need a developer/redeploy — see migration
     0006_ordinancecategory's data migration for the built-in starting set
-    (the same 10 extraction.py's OCR guesser already keys off of, plus
-    "Other"), which is a starting point, not a permanent list.
+    (10 common categories plus "Other"), which is a starting point, not a
+    permanent list.
 
     Like OrdinanceAuthor, an ordinance stores the category name as plain text
     at upload time (Ordinance.category), not a live FK — renaming or

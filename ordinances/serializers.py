@@ -9,6 +9,11 @@ from .models import Ordinance, OrdinanceAuthor, OrdinanceCategory
 
 LATEST_NEW_DAYS = 15
 
+# Same limit the Upload/Edit Ordinance page checks before sending (see
+# MAX_ORDINANCE_PDF_MB in frontend/staff/js/ordinances-data.js).
+MAX_ORDINANCE_PDF_BYTES = 20 * 1024 * 1024
+ORDINANCE_FILE_ERROR = "Could not upload file, check the file type and file size."
+
 
 class OrdinanceSerializer(serializers.ModelSerializer):
     """
@@ -144,6 +149,17 @@ class _ValidateCategoryMixin:
     def validate_category(self, value):
         if not OrdinanceCategory.objects.filter(name=value, is_active=True).exists():
             raise serializers.ValidationError("Select a category from the list.")
+        return value
+
+    # The page's file picker only hints at PDFs, so the type and size are
+    # checked here too: a non-empty .pdf whose contents really are a PDF.
+    def validate_pdf_file(self, value):
+        if not value.name.lower().endswith(".pdf") or not 0 < value.size <= MAX_ORDINANCE_PDF_BYTES:
+            raise serializers.ValidationError(ORDINANCE_FILE_ERROR)
+        header = value.read(5)
+        value.seek(0)
+        if header != b"%PDF-":
+            raise serializers.ValidationError(ORDINANCE_FILE_ERROR)
         return value
 
 

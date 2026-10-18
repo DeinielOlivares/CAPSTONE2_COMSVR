@@ -37,6 +37,10 @@ class ReportSerializer(serializers.ModelSerializer):
     )
     attachments = serializers.SerializerMethodField(read_only=True)
     claimed_by = serializers.SerializerMethodField(read_only=True)
+    # The citizen's own name/contact, for the downloadable report form (see
+    # frontend/citizen/js/report-form-download.js) — it's their own report.
+    reporter = serializers.SerializerMethodField(read_only=True)
+    contact_number = serializers.CharField(source="citizen.contact_number", read_only=True)
 
     class Meta:
         model = Report
@@ -44,6 +48,7 @@ class ReportSerializer(serializers.ModelSerializer):
             "id", "location", "latitude", "longitude", "ordinance", "incident_date", "incident_time",
             "nature_of_violation", "status", "remarks", "created_at", "updated_at",
             "files", "attachments", "claimed_by", "investigator_last_viewed_at",
+            "reporter", "contact_number", "report_number",
         ]
         read_only_fields = [
             "id", "status", "remarks", "created_at", "updated_at", "investigator_last_viewed_at",
@@ -51,6 +56,9 @@ class ReportSerializer(serializers.ModelSerializer):
 
     def validate_files(self, files):
         return validate_attachment_files(files)
+
+    def get_reporter(self, obj):
+        return obj.citizen.get_full_name() or obj.citizen.username
 
     def get_claimed_by(self, obj):
         if not obj.assigned_investigator:
@@ -143,7 +151,7 @@ class StaffReportSerializer(serializers.ModelSerializer):
             "id", "reporter", "reporterId", "contact_number", "location", "latitude", "longitude", "ordinance",
             "incident_date", "incident_time", "nature_of_violation",
             "status", "remarks", "created_at", "updated_at", "attachments",
-            "assignedInvestigator", "assignedInvestigatorId",
+            "assignedInvestigator", "assignedInvestigatorId", "report_number",
         ]
 
     def get_reporter(self, obj):

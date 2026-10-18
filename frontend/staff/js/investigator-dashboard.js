@@ -21,10 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function statusPillClass(status) {
-    if (status === "Resolved") return "status-pill--resolved";
-    if (status === "Under Review") return "status-pill--in-process";
-    if (status === "In Action") return "status-pill--remarks";
-    return "status-pill--new";
+    return REPORT_STATUS_PILL_CLASS[status] || "status-pill--new";
   }
 
   // Report Timeline age coloring: 0-5 days green, 6-10 yellow, 11-15 orange, 16+ red.
@@ -41,14 +38,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const myId = currentUser && currentUser.id;
   const myReports = () => liveReports().filter((r) => r.assignedInvestigatorId === myId);
-  const unclaimedReports = () => liveReports().filter((r) => !r.assignedInvestigatorId && r.status !== "Resolved");
+  const unclaimedReports = () => liveReports().filter((r) => !r.assignedInvestigatorId && !isReportClosed(r.status));
 
   // ---- Stat cards ----
 
   function renderStats() {
     const mine = myReports();
-    const active = mine.filter((r) => r.status !== "Resolved");
-    const resolved = mine.filter((r) => r.status === "Resolved");
+    const active = mine.filter((r) => !isReportClosed(r.status));
+    // Closed cases — Resolved or With Remarks.
+    const resolved = mine.filter((r) => isReportClosed(r.status));
 
     document.getElementById("statMyActive").textContent = active.length;
     document.getElementById("statMyResolved").textContent = resolved.length;
@@ -67,6 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     { label: "Under Review", modifier: "process" },
     { label: "In Action", modifier: "remarks" },
     { label: "Resolved", modifier: "resolved" },
+    { label: "With Remarks", modifier: "remarked" },
   ];
 
   function renderStatusChart() {
@@ -77,7 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const counts = { "New Submission": 0, "Under Review": 0, "In Action": 0, Resolved: 0 };
+    const counts = { "New Submission": 0, "Under Review": 0, "In Action": 0, Resolved: 0, "With Remarks": 0 };
     mine.forEach((r) => {
       if (counts[r.status] !== undefined) counts[r.status]++;
     });
@@ -101,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const body = document.getElementById("myAgingReportsBody");
     const now = new Date();
     const open = myReports()
-      .filter((r) => r.status !== "Resolved")
+      .filter((r) => !isReportClosed(r.status))
       .slice()
       .sort((a, b) => a.dateSubmitted - b.dateSubmitted)
       .slice(0, AGING_LIST_LIMIT);

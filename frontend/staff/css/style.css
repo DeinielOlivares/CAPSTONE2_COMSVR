@@ -2232,6 +2232,14 @@ button {
   color: #7a6f1e;
 }
 
+/* With Remarks — blue (closed, with the Investigator's remarks). Not the
+   same as .status-badge--with-remarks above, which is In Action's color. */
+.status-badge--remarked {
+  background: #dbe7f6;
+  border: 1px solid #9db8de;
+  color: #2b4f80;
+}
+
 /* ---------- My Reports list ---------- */
 
 .reports-toolbar {
@@ -2890,6 +2898,58 @@ button {
   border-left-color: var(--accent);
 }
 
+/* ---------- Sidebar groups (Reports) — collapsible dropdowns, same as the
+   Admin Portal's. The group containing the current page starts expanded
+   (see the server-rendered aria-expanded/hidden state on each page);
+   toggling after that is handled in admin.js. ---------- */
+
+.admin-sidebar__group-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 13px 20px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-sidebar__group-toggle:hover {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-sidebar__group:has(a.active) > .admin-sidebar__group-toggle {
+  color: var(--white);
+}
+
+.admin-sidebar__chevron {
+  margin-left: auto;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.admin-sidebar__group-toggle[aria-expanded="true"] .admin-sidebar__chevron {
+  transform: rotate(180deg);
+}
+
+.admin-sidebar__subnav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-sidebar__subnav a {
+  padding-left: 46px;
+}
+
 .admin-sidebar__logout {
   display: flex;
   align-items: center;
@@ -3531,6 +3591,13 @@ button {
   color: #56671c;
 }
 
+/* With Remarks — blue */
+.status-pill--remarked {
+  background: #dbe7f6;
+  border-color: #9db8de;
+  color: #2b4f80;
+}
+
 /* Report Timeline "Days Open" age pills — 0-5/6-10/11-15/16+ days */
 .aging-pill--green {
   background: #d3ecd9;
@@ -3662,6 +3729,10 @@ button {
 
 .stat-card__icon--remarks {
   background: #e2e2e2;
+}
+
+.stat-card__icon--remarked {
+  background: #dbe7f6;
 }
 
 .stat-card__body {
@@ -4276,6 +4347,10 @@ button {
 
 .status-bar-chart__bar--resolved {
   background: #4caf7d;
+}
+
+.status-bar-chart__bar--remarked {
+  background: #5b8fd1;
 }
 
 .status-bar-chart__label {
@@ -4991,6 +5066,11 @@ button {
   display: block;
 }
 
+/* Download Report (Investigator only) sits above Back to Reports. */
+#downloadReportBtn {
+  margin-bottom: 10px;
+}
+
 @media (max-width: 860px) {
   .report-detail-layout {
     grid-template-columns: 1fr;
@@ -5225,9 +5305,14 @@ button {
   }
 
   .admin-sidebar__nav a,
+  .admin-sidebar__group-toggle,
   .admin-sidebar__logout {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .admin-sidebar__subnav a {
+    padding-left: 38px;
   }
 
   .admin-table thead th,
@@ -5622,6 +5707,43 @@ button {
   .cd-bars__row {
     grid-template-columns: minmax(80px, 38%) minmax(0, 1fr) 26px 40px;
     gap: 8px;
+  }
+}
+
+/* ---------- New/Edit Announcement popup ---------- */
+/* Wider than the default 360px .modal-card, so the title, a roomy
+   description box and the picture row all fit comfortably. */
+.announcement-form-modal {
+  max-width: 640px;
+  padding: 36px 44px 32px;
+}
+
+.announcement-form-modal textarea {
+  min-height: 180px;
+}
+
+/* "Picture (optional)" matches the Title/Description labels above it. */
+.announcement-form-modal .field__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+/* The "Choose picture" button is a <label>, so `.field label` (block,
+   dark text) would otherwise win over its button look. */
+.announcement-form-modal .field label.announcement-picture__pick {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  color: var(--white);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 560px) {
+  .announcement-form-modal {
+    padding: 30px 22px 24px;
   }
 }
 

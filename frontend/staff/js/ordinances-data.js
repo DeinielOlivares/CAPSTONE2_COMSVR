@@ -18,6 +18,45 @@ function isDocumentManager(user) {
 // message instead of a network round trip that ends in a generic 400.
 const MAX_ORDINANCE_PDF_MB = 20;
 
+// What the Secretary sees when an upload fails — never a status code or
+// other technical detail. A bad file (wrong type, too large, empty) gets
+// the file message; a server/network problem gets the general one.
+const ORDINANCE_FILE_ERROR = "Could not upload file, check the file type and file size.";
+const ORDINANCE_GENERAL_ERROR = "Could not save the ordinance right now. Please try again in a few minutes.";
+
+// True when the picked file is something the server will accept: a
+// non-empty PDF no bigger than MAX_ORDINANCE_PDF_MB.
+function isAcceptableOrdinancePdf(file) {
+  if (!file) return false;
+  const looksLikePdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  return looksLikePdf && file.size > 0 && file.size <= MAX_ORDINANCE_PDF_MB * 1024 * 1024;
+}
+
+// Turns a failed create/update response into one of the two messages
+// above. Field-validation messages about what was typed (e.g. "Select a
+// category from the list.") are kept, since they say what to fix.
+async function throwOrdinanceSaveError(response) {
+  if (response.status === 413) throw new Error(ORDINANCE_FILE_ERROR);
+  const data = await response.json().catch(() => null);
+  if (response.status === 400 && data && typeof data === "object") {
+    if (data.pdf_file) throw new Error(ORDINANCE_FILE_ERROR);
+    const firstError = Object.values(data)[0];
+    if (Array.isArray(firstError) && typeof firstError[0] === "string") throw new Error(firstError[0]);
+    if (typeof firstError === "string") throw new Error(firstError);
+  }
+  throw new Error(ORDINANCE_GENERAL_ERROR);
+}
+
+// authFetch for create/update: a dropped connection rejects with a raw
+// browser error ("Failed to fetch"), so that's swapped for the general message.
+async function ordinanceSaveFetch(path, options) {
+  try {
+    return await authFetch(path, options);
+  } catch {
+    throw new Error(ORDINANCE_GENERAL_ERROR);
+  }
+}
+
 function mapOrdinance(o) {
   const numberMatch = o.number.match(/\d+/);
   return {
@@ -184,30 +223,11 @@ async function createOrdinance(fields) {
   formData.append("description", fields.description);
   formData.append("pdf_file", fields.pdfFile);
 
-  const response = await authFetch("/api/ordinances/", { method: "POST", body: formData });
-  if (!response.ok) await readFirstError(response, "Could not upload this ordinance.");
+  const response = await ordinanceSaveFetch("/api/ordinances/", { method: "POST", body: formData });
+  if (!response.ok) await throwOrdinanceSaveError(response);
   const created = mapOrdinance(await response.json());
   if (_ordinancesCache) _ordinancesCache.unshift(created);
   return created;
-}
-
-// OCRs page 1 of the scanned PDF server-side and returns best-guess form values
-// ({ number, title, author, category, dateApproved, description } — "" for
-// anything it couldn't read). Suggestions only; nothing is saved.
-async function extractOrdinanceFields(pdfFile) {
-  const formData = new FormData();
-  formData.append("pdf_file", pdfFile);
-  const response = await authFetch("/api/ordinances/extract/", { method: "POST", body: formData });
-  if (!response.ok) await readFirstError(response, "Could not read this PDF.");
-  const data = await response.json();
-  return {
-    number: data.number,
-    title: data.title,
-    author: data.author,
-    category: data.category,
-    dateApproved: data.date_approved,
-    description: data.description,
-  };
 }
 
 // Same field shape as createOrdinance, but pdfFile is optional — omit it to keep the existing PDF.
@@ -221,8 +241,8 @@ async function updateOrdinanceById(id, fields) {
   if (fields.description !== undefined) formData.append("description", fields.description);
   if (fields.pdfFile) formData.append("pdf_file", fields.pdfFile);
 
-  const response = await authFetch(`/api/ordinances/${encodeURIComponent(id)}/`, { method: "PATCH", body: formData });
-  if (!response.ok) await readFirstError(response, "Could not update this ordinance.");
+  const response = await ordinanceSaveFetch(`/api/ordinances/${encodeURIComponent(id)}/`, { method: "PATCH", body: formData });
+  if (!response.ok) await throwOrdinanceSaveError(response);
   return refreshOrdinanceInCache(id);
 }
 

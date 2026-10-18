@@ -160,6 +160,12 @@ const STAFF_NAV_ACCESS = {
   // how they reach report-detail.html (report-detail.js's own role check
   // keeps them read-only there, same as Ordinances).
   "reports.html": ["Investigator", "Barangay Captain"],
+  // Sidebar-only entries for the Reports group's role-specific subpages
+  // (same page, filtered — see reports-list.js's REPORT_VIEWS); a subpage
+  // link without its own entry (Unclaimed Reports) falls under its page's.
+  "reports.html?view=mine": ["Investigator"],
+  "reports.html?view=others": ["Investigator"],
+  "reports.html?view=claimed": ["Barangay Captain"],
   "concerns-dashboard.html": ["Barangay Captain"],
   "secretary-dashboard.html": ["Secretary"],
   // Barangay Captain gets read-only Concerns/Suggestions too, same pattern
@@ -180,11 +186,16 @@ const STAFF_NAV_ACCESS = {
   );
 
   document.querySelectorAll(".admin-sidebar__nav a[href]").forEach((link) => {
-    const page = link.getAttribute("href");
+    let page = link.getAttribute("href");
+    if (!Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page)) page = page.split("?")[0];
     if (Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page) && !allowedPages.includes(page)) {
       const item = link.closest("li");
       if (item) item.hidden = true;
     }
+  });
+  // A sidebar group with none of its subpages left visible goes too.
+  document.querySelectorAll(".admin-sidebar__group").forEach((group) => {
+    if (!group.querySelector(".admin-sidebar__subnav li:not([hidden])")) group.hidden = true;
   });
 
   const currentPage = window.location.pathname.split("/").pop();
@@ -651,6 +662,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Sidebar groups (Reports) — a collapsible dropdown, same as the Admin
+  // Portal's. The group holding the current page is server-rendered already
+  // expanded; this just makes the toggle button clickable.
+  document.querySelectorAll(".admin-sidebar__group-toggle").forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const subnav = toggle.nextElementSibling;
+      if (!subnav) return;
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      subnav.hidden = expanded;
+    });
+  });
+
   const logoutConfirmModal = document.getElementById("logoutConfirmModal");
   const logoutYes = document.getElementById("logoutYes");
   const logoutNo = document.getElementById("logoutNo");
@@ -866,10 +890,14 @@ function openSiteDialog({ title, message, buttons }) {
       heading.textContent = title;
       card.appendChild(heading);
     }
-    const text = document.createElement("p");
-    text.className = "auth-card__subtitle";
-    text.textContent = message;
-    card.appendChild(text);
+    // No message just shows the title and buttons (e.g. the plain "Are you
+    // sure?" claim prompt — see reports-data.js's CLAIM_CONFIRM_MESSAGE).
+    if (message) {
+      const text = document.createElement("p");
+      text.className = "auth-card__subtitle";
+      text.textContent = message;
+      card.appendChild(text);
+    }
     const row = document.createElement("div");
     row.className = "btn-row";
     buttons.forEach((b) => {

@@ -44,6 +44,17 @@ class FailedLoginLockoutTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self._login(GOOD_PASSWORD).status_code, 200)
 
+    def test_wrong_password_and_unknown_email_get_the_same_message(self):
+        self.assertEqual(self._login("wrong-password").data["detail"], "Incorrect email or password.")
+        self.assertEqual(
+            self._login(GOOD_PASSWORD, email="nobody@test.com").data["detail"], "Incorrect email or password."
+        )
+
+    def test_phone_number_is_not_accepted_as_the_login(self):
+        self.user.contact_number = "09171234567"
+        self.user.save()
+        self.assertNotEqual(self._login(GOOD_PASSWORD, email="09171234567").status_code, 200)
+
     def test_successful_login_resets_the_counter(self):
         self._fail(MAX_FAILED_LOGINS - 1)
         self.assertEqual(self._login(GOOD_PASSWORD).status_code, 200)
@@ -587,11 +598,60 @@ class DisableDeleteWithClaimsTests(APITestCase):
         self.assertIn("Disabled Juan Cruz's account — 2 claimed reports released", logs)
         self.assertEqual(sum("Released Juan Cruz's claim" in a and "(account disabled)" in a for a in logs), 2)
 
-    def test_disable_keeping_claims_leaves_them_assigned_and_says_so(self):
+    def test_disable_without_releasing_active_claims_is_refused(self):
+        response = self.client.patch(self.url, {"active": False}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["active_claims"], 2)
+        self.inv.refresh_from_db()
+        self.assertTrue(self.inv.is_active)
+        self.assertEqual(self._claimed(), 2)
+
+    def test_closed_claims_stay_with_the_investigator_and_dont_block(self):
+        self.Report.objects.update(status=self.Report.Status.RESOLVED)
+        self.reports[1].status = self.Report.Status.WITH_REMARKS
+        self.reports[1].save()
         response = self.client.patch(self.url, {"active": False}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self._claimed(), 2)
-        self.assertIn("Disabled Juan Cruz's account — 2 claimed reports still assigned to them", self._logs())
+
+    def test_release_only_frees_active_claims(self):
+        self.reports[0].status = self.Report.Status.RESOLVED
+        self.reports[0].save()
+        response = self.client.patch(self.url, {"active": False, "release_claims": True}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.reports[0].refresh_from_db()
+        self.reports[1].refresh_from_db()
+        self.assertEqual(self.reports[0].assigned_investigator_id, self.inv.id)
+        self.assertIsNone(self.reports[1].assigned_investigator_id)
+        self.assertIn("Disabled Juan Cruz's account — 1 claimed report released", self._logs())
+
+    def test_role_change_without_releasing_active_claims_is_refused(self):
+        response = self.client.patch(self.url, {"staff_role": "Secretary"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.inv.refresh_from_db()
+        self.assertEqual(self.inv.position, "Investigator")
+        self.assertEqual(self._claimed(), 2)
+
+    def test_role_change_with_release_frees_claims_then_changes_role(self):
+        response = self.client.patch(self.url, {"staff_role": "Secretary", "release_claims": True}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.inv.refresh_from_db()
+        self.assertEqual(self.inv.position, "Secretary")
+        self.assertEqual(self._claimed(), 0)
+        logs = self._logs()
+        self.assertIn("Changed Juan Cruz's role to Secretary — 2 claimed reports released", logs)
+        self.assertEqual(sum("(role changed)" in a for a in logs), 2)
+
+    def test_resaving_the_same_role_needs_no_release(self):
+        response = self.client.patch(self.url, {"staff_role": "Investigator"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._claimed(), 2)
+
+    def test_refused_role_change_releases_nothing(self):
+        # Last-admin/uniqueness style refusals happen before any release.
+        response = self.client.patch(self.url, {"staff_role": "Not A Role", "release_claims": True}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self._claimed(), 2)
 
     def test_disabling_someone_with_no_claims_logs_plainly(self):
         self.Report.objects.update(assigned_investigator=None)

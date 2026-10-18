@@ -199,8 +199,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       editError.hidden = false;
       return false;
     }
-    if (fields.pdfFile && fields.pdfFile.size > MAX_ORDINANCE_PDF_MB * 1024 * 1024) {
-      editError.textContent = `That PDF is too large — please use one under ${MAX_ORDINANCE_PDF_MB}MB.`;
+    if (fields.pdfFile && !isAcceptableOrdinancePdf(fields.pdfFile)) {
+      editError.textContent = ORDINANCE_FILE_ERROR;
       editError.hidden = false;
       return false;
     }

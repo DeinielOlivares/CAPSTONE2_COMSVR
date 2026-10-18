@@ -22,4 +22,5 @@ const REPORT_STATUS_LABELS = {
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };

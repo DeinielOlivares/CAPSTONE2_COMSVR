@@ -77,16 +77,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const evidenceEl = document.getElementById("reportEvidence");
   if (evidenceEl) renderReportEvidence(evidenceEl, report.attachments);
 
-  // Ordered to exactly match the status timeline's 4 stages below — a
-  // status's completed-steps count is just its index here, no separate
-  // mapping to keep in sync.
-  const STATUSES_ORDERED = ["New Submission", "Under Review", "In Action", "Resolved"];
-  const STATUS_PILL_CLASS = {
-    "New Submission": "status-pill--new",
-    "Under Review": "status-pill--in-process",
-    "In Action": "status-pill--remarks",
-    Resolved: "status-pill--resolved",
-  };
+  // Every status, in timeline order (see reports-data.js) — Resolved and
+  // With Remarks are the two ways a report reaches the last stage.
+  const STATUSES_ORDERED = REPORT_STATUS_LABELS_ORDERED;
+  const STATUS_PILL_CLASS = REPORT_STATUS_PILL_CLASS;
 
   const statusPill = document.getElementById("statusPill");
   const statusSelect = document.getElementById("statusSelect");
@@ -94,7 +88,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const remarksInput = document.getElementById("remarksInput");
   const saveBtn = document.getElementById("saveChangesBtn");
   const timelineItems = document.getElementById("timelineItems");
-  const downloadPdfBtn = document.getElementById("downloadPdfBtn");
   const backToReportsBtn = document.getElementById("backToReportsBtn");
   const saveConfirmModal = document.getElementById("saveConfirmModal");
   const saveConfirmOk = document.getElementById("saveConfirmOk");
@@ -144,6 +137,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderClaim();
 
+  // ---- Download Report (Investigator only — the citizen gets the same
+  // form from My Report Detail; see /citizen/js/report-form-download.js) ----
+  const downloadBtn = document.getElementById("downloadReportBtn");
+  if (isInvestigator) {
+    downloadBtn.hidden = false;
+    downloadBtn.addEventListener("click", async () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = "Preparing download...";
+      try {
+        await downloadReportForm({
+          id: report.id,
+          reportNumber: report.reportNumber,
+          reporter: report.reporter,
+          contactNumber: report.contactNumber,
+          location: report.location,
+          latitude: report.latitude,
+          longitude: report.longitude,
+          ordinance: report.ordinance,
+          incidentDate: report.incidentDate,
+          incidentTime: report.incidentTimeRaw,
+          natureOfViolation: report.natureOfViolation,
+          dateFiled: report.dateSubmitted,
+          attachments: report.attachments,
+        });
+      } catch (err) {
+        siteAlert(err.message || "Could not download this report.");
+      } finally {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = "Download Report";
+      }
+    });
+  }
+
   claimBtn.addEventListener("click", async () => {
     if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE, CLAIM_CONFIRM_OPTIONS)) return;
     claimBtn.disabled = true;
@@ -173,18 +199,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderTimeline(status, dateSubmitted, dateUpdated) {
-    // Labels come straight from STATUSES_ORDERED so the timeline always uses
-    // the same names as the Status dropdown and pill.
-    const descriptions = [
-      "The report was submitted.",
-      "The report is being reviewed.",
-      "Appropriate actions are being taken.",
-      "The report is finished and closed.",
+    // Fixed labels rather than the Status dropdown's names: the timeline is
+    // the report's record, so its first stage reads "Submitted" (the
+    // dropdown's "New Submission"), and Resolved and With Remarks share the
+    // last one.
+    const steps = [
+      { label: "Submitted", description: "The report was submitted." },
+      { label: "Under Review", description: "The report is being reviewed." },
+      { label: "In Action", description: "Appropriate actions are being taken." },
+      { label: "Resolved/With Remarks", description: "The report is finished and closed." },
     ];
-    const steps = STATUSES_ORDERED.map((label, i) => ({ label, description: descriptions[i] }));
-    // Status is one of STATUSES_ORDERED, in the same order as these 4
-    // stages, so "how many steps are done" is just that status's position.
-    const completedSteps = STATUSES_ORDERED.indexOf(status) + 1;
+    // New Submission/Under Review/In Action are stages 1-3; Resolved and
+    // With Remarks both complete the 4th.
+    const completedSteps = isReportClosed(status) ? steps.length : STATUSES_ORDERED.indexOf(status) + 1;
 
     timelineItems.innerHTML = steps
       .map((step, i) => {
@@ -212,41 +239,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
-  // Only once Resolved — a "final verdict" to hand out doesn't exist before
-  // then (enforced server-side too, see StaffReportPdfView).
-  function renderDownloadButton() {
-    downloadPdfBtn.hidden = currentStatus !== "Resolved";
-  }
-
-  downloadPdfBtn.addEventListener("click", async () => {
-    downloadPdfBtn.disabled = true;
-    downloadPdfBtn.textContent = "Preparing...";
-    try {
-      const response = await authFetch(`/api/reports/staff/${report.id}/pdf/`);
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || "Could not download the PDF.");
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filenameFromResponse(response, `report-${report.id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      siteAlert(err.message);
-    } finally {
-      downloadPdfBtn.disabled = false;
-      downloadPdfBtn.textContent = "Download PDF";
-    }
-  });
-
   applyPill(currentStatus);
   renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
-  renderDownloadButton();
 
   statusEditBtn.addEventListener("click", () => {
     statusSelect.value = currentStatus;
@@ -284,8 +278,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       statusPill.hidden = false;
       statusSelect.hidden = true;
       renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
-      renderDownloadButton();
-      return true;
+          return true;
     } catch (err) {
       siteAlert(err.message);
       return false;
@@ -302,8 +295,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
+  // Back to whichever Reports subpage (Unclaimed/My Claimed/...) this
+  // report was opened from; anywhere else lands on Unclaimed Reports.
   function goToReports() {
-    window.location.href = "reports.html";
+    let target = "reports.html";
+    try {
+      const from = new URL(document.referrer);
+      if (from.origin === window.location.origin && from.pathname.endsWith("/staff/reports.html")) target = from.href;
+    } catch {
+      // No referrer (opened directly / from a bookmark).
+    }
+    window.location.href = target;
   }
 
   backToReportsBtn.addEventListener("click", () => {

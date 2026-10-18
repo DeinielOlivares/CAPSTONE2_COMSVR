@@ -27,8 +27,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const uploadConfirm = document.getElementById("uploadOrdinanceConfirm");
   const uploadError = document.getElementById("uploadOrdinanceError");
 
-  const extractStatus = document.getElementById("ordExtractStatus");
-
   // ---- Multi-author select ----
   // Picked from the Councilors/Kagawad/Barangay Captain roster (see
   // ordinances-data.js's fetchOrdinanceAuthors) via the checklist, or typed
@@ -181,73 +179,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderAuthorRoster();
 
-  // Picking a PDF triggers an OCR pass that prefills the form. It's a
-  // convenience only: it fills fields that are still empty (never overwrites
-  // anything the Secretary already typed), and any failure just leaves the
-  // form as it was — manual entry always works. A newer pick supersedes an
-  // in-flight one so a slow scan can't fill in the wrong document's details.
-  let extractRun = 0;
-
-  async function prefillFromPdf(file) {
-    const run = ++extractRun;
-    extractStatus.className = "field-hint";
-    extractStatus.textContent = "Reading the PDF to fill in the details... this can take up to a minute.";
-    extractStatus.hidden = false;
-    try {
-      const guesses = await extractOrdinanceFields(file);
-      if (run !== extractRun) return;
-
-      const simpleTargets = [
-        [numberInput, guesses.number],
-        [titleInput, guesses.title],
-        [dateInput, guesses.dateApproved],
-        [descriptionInput, guesses.description],
-      ];
-      let filled = 0;
-      for (const [input, value] of simpleTargets) {
-        if (value && !input.value.trim()) {
-          input.value = value;
-          filled++;
-        }
-      }
-      // Prefers the roster's own exact spelling/capitalization when the
-      // scanned name matches one; otherwise adds the scanned text as-is,
-      // same as any other typed author.
-      if (guesses.author && !authors.length) {
-        const match = authorRoster.find((a) => a.name.toLowerCase() === guesses.author.trim().toLowerCase());
-        addAuthor(match ? match.name : guesses.author);
-        filled++;
-      }
-
-      // Category's guess is one of the current dropdown's exact strings (see
-      // extraction.py's OCR-category test, checked against the *starting*
-      // list — an Administrator may since have renamed/removed one), so it's
-      // a direct <option> match rather than anything fuzzy.
-      if (guesses.category && !categoryInput.value) {
-        const hasOption = Array.from(categoryInput.options).some((o) => o.value === guesses.category);
-        if (hasOption) {
-          categoryInput.value = guesses.category;
-          filled++;
-        }
-      }
-
-      extractStatus.textContent = filled
-        ? `Filled in ${filled} field${filled === 1 ? "" : "s"} from the scan. Please check them against the document — scanned text can be misread.`
-        : "Couldn't read details from this scan — please fill them in manually.";
-    } catch (err) {
-      if (run !== extractRun) return;
-      extractStatus.textContent = "Couldn't read details from this scan — please fill them in manually.";
-    }
-  }
-
+  // The Secretary types every detail in by hand — picking the PDF only
+  // attaches it. A wrong type/oversize file is flagged right away, rather
+  // than only once Upload is pressed.
   pdfInput.addEventListener("change", () => {
     const file = pdfInput.files[0];
     pdfLabelText.textContent = file ? file.name : "Click to browse for the ordinance PDF";
-    if (!file) {
-      extractRun++;
-      extractStatus.hidden = true;
-    } else if (file.size <= MAX_ORDINANCE_PDF_MB * 1024 * 1024) {
-      prefillFromPdf(file);
+    if (file && !isAcceptableOrdinancePdf(file)) {
+      uploadError.textContent = ORDINANCE_FILE_ERROR;
+      uploadError.hidden = false;
+    } else if (uploadError.textContent === ORDINANCE_FILE_ERROR) {
+      uploadError.hidden = true;
     }
   });
 
@@ -279,8 +221,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       uploadError.hidden = false;
       return;
     }
-    if (fields.pdfFile.size > MAX_ORDINANCE_PDF_MB * 1024 * 1024) {
-      uploadError.textContent = `That PDF is too large — please use one under ${MAX_ORDINANCE_PDF_MB}MB.`;
+    if (!isAcceptableOrdinancePdf(fields.pdfFile)) {
+      uploadError.textContent = ORDINANCE_FILE_ERROR;
       uploadError.hidden = false;
       return;
     }

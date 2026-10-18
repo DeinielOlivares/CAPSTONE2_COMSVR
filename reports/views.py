@@ -25,7 +25,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
-from .pdf import build_dashboard_pdf, build_report_pdf, build_reports_pdf
+from .pdf import build_dashboard_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -213,7 +213,8 @@ class StaffReportListView(generics.ListAPIView):
     GET /api/reports/staff/ — every citizen's filed reports (Staff/Admin Reports Dashboard).
     ?assigned_to=<user id> narrows it to the reports that user has claimed —
     what Manage Accounts uses to list an Investigator's claims for release
-    (see StaffReportForfeitView).
+    (see StaffReportForfeitView) — and ?active=1 further to the ones still
+    being worked (not Resolved/With Remarks).
     """
     serializer_class = StaffReportSerializer
     permission_classes = [IsStaffOrAdmin]
@@ -226,6 +227,8 @@ class StaffReportListView(generics.ListAPIView):
                 queryset = queryset.filter(assigned_investigator_id=uuid.UUID(assigned_to))
             except ValueError:
                 return queryset.none()
+        if self.request.query_params.get("active") == "1":
+            queryset = queryset.exclude(status__in=Report.CLOSED_STATUSES)
         return queryset
 
     def get_serializer_context(self):
@@ -305,87 +308,15 @@ class StaffReportDetailView(APIView):
         if "remarks" in request.data:
             log_action(request.user, "Updated a report's remarks")
 
-        # Only on the transition INTO Resolved (the status timeline's "Final
-        # Verdict" stage), not every save while already resolved — otherwise
-        # re-saving the same status would re-notify every time. Remarks, if
-        # any were left, are included in this same email rather than a
-        # separate one (see report_resolved.html).
-        if report.status == Report.Status.RESOLVED and previous_status != Report.Status.RESOLVED:
+        # Only on the transition INTO Resolved or With Remarks (the status
+        # timeline's last, "Resolved/With Remarks" stage), not every save
+        # while already there — otherwise re-saving the same status would
+        # re-notify every time. Remarks, if any were left, are included in
+        # this same email rather than a separate one (see report_resolved.html).
+        if report.status in Report.CLOSED_STATUSES and report.status != previous_status:
             send_report_resolved_email(report)
 
         return Response(StaffReportSerializer(report, context={"request": request}).data)
-
-
-class StaffReportPdfView(APIView):
-    """
-    GET /api/reports/staff/<id>/pdf/ — downloads a Resolved report as a PDF
-    (see reports/pdf.py). Same viewing access as StaffReportDetailView.get
-    (every Staff role, not just the Investigator who worked it) — if you can
-    see the report, you can export it. Only available once Resolved; a
-    report still in progress has no "final verdict" yet to hand out.
-    """
-    permission_classes = [IsStaffOrAdmin]
-
-    def get(self, request, pk):
-        report = get_object_or_404(
-            Report.objects.select_related("citizen", "assigned_investigator"), pk=pk
-        )
-        if report.status != Report.Status.RESOLVED:
-            return Response({"detail": "This report hasn't been resolved yet."}, status=400)
-
-        pdf_bytes = build_report_pdf(report)
-        resolved_on = timezone.localtime(report.updated_at).strftime("%Y-%m-%d")
-        response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="report-{resolved_on}-{report.id}.pdf"'
-        return response
-
-
-class StaffReportBulkPdfView(APIView):
-    """
-    POST /api/reports/staff/pdf-bulk/ — downloads one combined PDF (see
-    reports/pdf.py's build_reports_pdf, one page per report) of whichever
-    reports the Reports page's filters currently match — computed
-    client-side (reports-list.js's getFiltered()) and posted here as
-    {"ids": [...]}, rather than re-implementing that filtering server-side.
-    Same "Resolved only" rule as the single-report download: ids that
-    aren't Resolved are silently left out of the bundle instead of failing
-    the whole request, since the filtered set on screen is usually a mix of
-    statuses and the button itself says only Resolved ones are included.
-    """
-    permission_classes = [IsStaffOrAdmin]
-
-    def post(self, request):
-        raw_ids = request.data.get("ids")
-        if not isinstance(raw_ids, list) or not raw_ids:
-            return Response({"detail": "No reports to download."}, status=400)
-        # Malformed ids are dropped rather than failing the request — same
-        # "just skip what doesn't qualify" handling as a non-Resolved id.
-        valid_ids = []
-        for raw_id in raw_ids:
-            try:
-                valid_ids.append(uuid.UUID(str(raw_id)))
-            except (ValueError, AttributeError, TypeError):
-                continue
-
-        reports = list(
-            Report.objects.select_related("citizen", "assigned_investigator")
-            .filter(id__in=valid_ids, status=Report.Status.RESOLVED)
-            .order_by("-created_at")
-        )
-        if not reports:
-            return Response({"detail": "None of the matching reports have been resolved yet."}, status=400)
-
-        pdf_bytes = build_reports_pdf(reports)
-        # The date(s) resolved, not today's download date — a range when the
-        # bundle spans more than one day, else just that one day.
-        resolved_dates = sorted(timezone.localtime(r.updated_at).date() for r in reports)
-        if resolved_dates[0] == resolved_dates[-1]:
-            date_part = resolved_dates[0].isoformat()
-        else:
-            date_part = f"{resolved_dates[0].isoformat()}_to_{resolved_dates[-1].isoformat()}"
-        response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="resolved-reports-{date_part}.pdf"'
-        return response
 
 
 class StaffReportDashboardPdfView(APIView):

@@ -586,6 +586,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     # password is checked (so a wrong guess still counts toward the lockout).
     portal = serializers.ChoiceField(choices=["citizen", "staff"], required=False, write_only=True)
 
+    # A wrong password and an email with no account get the same message, so
+    # the login form can't be used to check whether an email is registered.
+    default_error_messages = {"no_active_account": "Incorrect email or password."}
+
     WRONG_PORTAL = {
         # Citizen-portal side is deliberately indistinguishable from a wrong
         # password — a descriptive "that's a staff/admin account" message
@@ -595,7 +599,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # same way), so it keeps the more helpful message.
         "citizen": (
             {User.Role.STAFF, User.Role.ADMIN},
-            "No active account found with the given credentials",
+            "Incorrect email or password.",
             "no_active_account",
         ),
         "staff": (
@@ -647,12 +651,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         except AuthenticationFailed:
             if account and record_failed_login(account):
                 raise AuthenticationFailed(_locked_message(LOCKOUT_MINUTES), code="account_locked")
-            # A real account with that email exists (and is active) but the
-            # password didn't match — say so specifically instead of
-            # SimpleJWT's generic "no active account" message, which reads
-            # as if the email itself wasn't found.
-            if account and not account.check_password(attrs.get("password") or ""):
-                raise AuthenticationFailed("Incorrect password.", code="incorrect_password")
+            # A wrong password on a real account and an email with no account
+            # both end here with the same "Incorrect email or password."
+            # (default_error_messages above), so the message never tells
+            # which of the two was wrong.
             raise
         if account:
             clear_failed_logins(account)

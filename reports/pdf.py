@@ -1,20 +1,21 @@
 """
-Barangay Platero OVRMS — builds the "Download PDF" an Investigator (or any
-Staff/Admin) gets from a Resolved report's detail page (see
-StaffReportPdfView in reports/views.py), and the combined, multi-report PDF
-the Reports page's bulk download button gets instead (see
-StaffReportBulkPdfView) — whatever reports currently match its filters,
-computed client-side (reports-list.js's getFiltered()) and posted here as a
-list of ids. Only ever called on report(s) already Resolved — the views
-enforce that before either of these run.
+Barangay Platero OVRMS — PDF builders. build_dashboard_pdf (further down)
+backs the Captain's Reports Dashboard "Download Summary (PDF)" (see
+StaffReportDashboardPdfView in reports/views.py).
+
+build_report_pdf/build_reports_pdf are currently unused: their endpoints
+(a single Resolved report's "Download PDF", open to every Staff role, and
+the Reports page's bulk "Download Resolved Reports (PDF)") were removed in
+favor of the per-report Download Report PDF (a picture of the filled-in
+File a Report form, built in the browser) that only the citizen and the
+Investigator get — see frontend/citizen/js/report-form-download.js.
 
 Each report is meant to fit on one page, whether it's the only one in the
 PDF or one of several (separated by a page break). reportlab's flowable
 layout doesn't have a "shrink to fit" mode on its own, so each report's
 content is built at a few decreasing size scales (fonts, spacing, image
 thumbnails) and the first one that actually comes out to a single page is
-kept — counted with pymupdf (already a project dependency, see
-ordinances/extraction.py), rather than adding a new one just for this.
+kept — counted with pymupdf.
 Margins are one fixed size throughout, since a single shared document can't
 vary them per report the way the rest of the sizing can.
 """
@@ -414,6 +415,7 @@ def _dashboard_stats_rows(payload_stats):
         ("process", "Under Review"),
         ("remarks", "In Action"),
         ("resolved", "Resolved"),
+        ("withRemarks", "With Remarks"),
     ]
     rows = []
     for key, label in labels:
@@ -474,6 +476,7 @@ def build_dashboard_pdf(payload):
                 ("process", "Under Review"),
                 ("remarks", "In Action"),
                 ("resolved", "Resolved"),
+                ("withRemarks", "With Remarks"),
             ]
         ]
         if status_stats.get("total")

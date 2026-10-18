@@ -1120,7 +1120,7 @@ button {
 
 /* ---------- Investigator Workload (Reports — Unclaimed page): one stacked
    bar per active Investigator, Submitted/Under Review/In Action only —
-   Resolved reports drop off the moment they reach Final Verdict. ---------- */
+   Resolved/With Remarks reports drop off the moment they're closed. ---------- */
 
 .workload-heading {
   margin: 0 0 10px;
@@ -2061,6 +2061,14 @@ button {
   background: #fbf7c4;
   border: 1px solid #d8cf7a;
   color: #7a6f1e;
+}
+
+/* With Remarks — blue (closed, with the Investigator's remarks). Not the
+   same as .status-badge--with-remarks above, which is In Action's color. */
+.status-badge--remarked {
+  background: #dbe7f6;
+  border: 1px solid #9db8de;
+  color: #2b4f80;
 }
 
 /* ---------- My Reports list ---------- */

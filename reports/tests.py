@@ -178,6 +178,19 @@ class ReportStatusClaimGateTests(APITestCase):
         self.report.refresh_from_db()
         self.assertNotEqual(self.report.status, Report.Status.RESOLVED)
 
+    def test_with_remarks_closes_the_report_and_emails_the_citizen(self):
+        self.client.force_authenticate(self.investigator)
+        self.client.post(f"{self.url}claim/")
+        mail.outbox.clear()
+        response = self._patch(status="with_remarks", remarks="No violation found on inspection.")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "with_remarks")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("With Remarks", mail.outbox[0].subject)
+        # Re-saving the same status doesn't email again.
+        self._patch(status="with_remarks")
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_admin_can_still_update_on_someones_behalf(self):
         self.report.assigned_investigator = self.other_investigator
         self.report.save()
@@ -273,6 +286,79 @@ class ClaimedReportsFilterTests(APITestCase):
         response = self.client.get("/api/reports/staff/?assigned_to=not-a-uuid")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
+
+    def test_active_filter_leaves_out_closed_claims(self):
+        self.mine[0].status = Report.Status.RESOLVED
+        self.mine[0].save()
+        response = self.client.get(f"/api/reports/staff/?assigned_to={self.inv1.id}&active=1")
+        self.assertEqual({r["id"] for r in response.data}, {str(self.mine[1].id)})
+
+
+class ReportNumberTests(APITestCase):
+    """Each report gets "YYYYMMDD-N" — the Nth filed that day — for its Download Report file name."""
+
+    def setUp(self):
+        self.citizen = User.objects.create_user(username="cit", email="cit@test.com", password="x", is_verified=True)
+
+    def _make(self):
+        return Report.objects.create(
+            citizen=self.citizen, location="Block 1, Purok 1", ordinance="Anti-Littering",
+            incident_date="2026-09-01", nature_of_violation="Dumping garbage",
+        )
+
+    def test_numbers_count_up_within_a_day(self):
+        from django.utils import timezone
+
+        prefix = timezone.localdate().strftime("%Y%m%d")
+        self.assertEqual([self._make().report_number for _ in range(3)], [f"{prefix}-1", f"{prefix}-2", f"{prefix}-3"])
+
+    def test_number_is_kept_when_an_earlier_report_is_deleted(self):
+        first, second = self._make(), self._make()
+        number = second.report_number
+        first.delete()
+        second.status = Report.Status.UNDER_REVIEW
+        second.save()
+        second.refresh_from_db()
+        self.assertEqual(second.report_number, number)
+        self.assertNotEqual(self._make().report_number, number)
+
+    def test_each_day_starts_again_at_one(self):
+        import datetime
+        from unittest import mock
+
+        from django.utils import timezone
+
+        self._make()
+        with mock.patch.object(timezone, "localdate", return_value=datetime.date(2030, 1, 1)):
+            self.assertEqual(self._make().report_number, "20300101-1")
+
+    def test_a_clash_takes_the_next_number(self):
+        from unittest import mock
+
+        from . import models
+
+        taken = self._make().report_number
+        real_next = models.next_report_number
+        calls = []
+
+        def stale_then_real(day):
+            calls.append(day)
+            return taken if len(calls) == 1 else real_next(day)
+
+        with mock.patch.object(models, "next_report_number", side_effect=stale_then_real):
+            report = self._make()
+        self.assertNotEqual(report.report_number, taken)
+        self.assertTrue(report.report_number.endswith("-2"))
+
+    def test_shown_to_the_citizen_and_staff(self):
+        report = self._make()
+        self.client.force_authenticate(self.citizen)
+        self.assertEqual(self.client.get("/api/reports/").data[0]["report_number"], report.report_number)
+        staff = User.objects.create_user(
+            username="inv", email="inv@test.com", password="x", role=User.Role.STAFF, position="Investigator"
+        )
+        self.client.force_authenticate(staff)
+        self.assertEqual(self.client.get("/api/reports/staff/").data[0]["report_number"], report.report_number)
 
 
 class ConcernReviewedAtTests(APITestCase):

@@ -216,8 +216,8 @@
         <!-- Claimed reports: only an Administrator can release an Investigator's
              claim (e.g. they've left or gone inactive) — see manage-accounts.js. -->
         <section class="claimed-reports" id="claimedReports" hidden>
-          <h3 class="claimed-reports__title">Claimed Reports</h3>
-          <p class="claimed-reports__hint">Releasing a claim frees the report for another Investigator to claim.</p>
+          <h3 class="claimed-reports__title">Active Claimed Reports</h3>
+          <p class="claimed-reports__hint">Reports not yet Resolved or With Remarks. Releasing a claim frees the report for another Investigator to claim. All of them must be released before this account's role is changed, or it's disabled or deleted.</p>
           <ul class="claimed-reports__list" id="claimedReportsList"></ul>
           <button type="button" class="edit-account-btn edit-account-btn--release" id="releaseAllClaimsBtn" hidden>Release All Claims</button>
         </section>
@@ -225,8 +225,9 @@
     </div>
   </div>
 
-  <!-- Claimed-reports warning: shown before disabling/deleting an account that
-       still holds claimed reports — see manage-accounts.js's askAboutClaims. -->
+  <!-- Claimed-reports warning: shown before re-roling/disabling/deleting an
+       account that still holds active claimed reports — see
+       manage-accounts.js's askToReleaseClaims. -->
   <div class="modal-overlay" id="claimsWarningModal" hidden>
     <div class="modal-card claims-warning">
       <h2 id="claimsWarningTitle"></h2>

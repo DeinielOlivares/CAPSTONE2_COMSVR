@@ -63,10 +63,16 @@ async function resendSetupLink(id) {
   return data;
 }
 
-// Disable an account, optionally freeing every report it has claimed in the
-// same request (see AdminAccountDetailView.patch) — logged either way.
+// Disable an account. An account still holding active claimed reports must
+// have them released first — releaseClaims frees them in the same request
+// (see AdminAccountDetailView.patch, which refuses it otherwise).
 async function disableAccount(id, { releaseClaims = false } = {}) {
   return updateAccount(id, { active: false, release_claims: releaseClaims });
+}
+
+// Change a Barangay Staff account's role — same release rule as disabling.
+async function updateAccountRole(id, staffRole, { releaseClaims = false } = {}) {
+  return updateAccount(id, { staff_role: staffRole, release_claims: releaseClaims });
 }
 
 // Used by the "Delete Account" button.
@@ -130,10 +136,14 @@ const CLAIM_STATUS_LABELS = {
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 
+// Only the account's active claims — a Resolved/With Remarks report keeps
+// its Investigator's name as the record of who handled it, so it's never
+// listed for release (see accounts/views.py's _active_claims).
 async function getClaimedReports(userId) {
-  const response = await authFetch(`/api/reports/staff/?assigned_to=${encodeURIComponent(userId)}`);
+  const response = await authFetch(`/api/reports/staff/?assigned_to=${encodeURIComponent(userId)}&active=1`);
   if (!response.ok) {
     throw new Error("Could not load this account's claimed reports.");
   }
