@@ -23,9 +23,10 @@
         <li class="admin-sidebar__group">
           <button type="button" class="admin-sidebar__group-toggle" aria-expanded="false"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> Reports <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
           <ul class="admin-sidebar__subnav" hidden>
-            <li><a href="reports.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> All Reports</a></li>
             <li><a href="reports.html?view=unclaimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/></svg> Unclaimed Reports</a></li>
             <li><a href="reports.html?view=mine"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></svg> My Claimed Reports</a></li>
+            <li><a href="reports.html?view=others"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Other Claimed Reports</a></li>
+            <li><a href="reports.html?view=claimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Claimed Reports</a></li>
           </ul>
         </li>
         <li><a href="concerns-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12c0-4.4 3.9-8 8.5-8s8.5 3.6 8.5 8-3.9 8-8.5 8a10 10 0 01-2.9-.4L4 21l1.1-3.8A7.6 7.6 0 013.5 12z"/></svg> Concerns/Suggestions Dashboard</a></li>
@@ -46,6 +47,8 @@
             "reports-dashboard.html": ["Barangay Captain"],
             "reports.html": ["Investigator", "Barangay Captain"],
             "reports.html?view=mine": ["Investigator"],
+            "reports.html?view=others": ["Investigator"],
+            "reports.html?view=claimed": ["Barangay Captain"],
             "concerns-dashboard.html": ["Barangay Captain"],
             "secretary-dashboard.html": ["Secretary"],
             "concerns.html": ["Secretary", "Barangay Captain"],
@@ -151,7 +154,6 @@
                     <ul class="author-select__roster" id="ordAuthorRosterList"></ul>
                   </div>
                 </div>
-                <p class="field-hint">Pick from the current Councilors/Kagawad/Barangay Captain roster (Ordinance Setup, Admin Portal), or type any other name. Add as many authors as needed.</p>
               </div>
               <div class="field">
                 <label for="ordCategoryInput">Category</label>
@@ -175,7 +177,6 @@
                 </label>
                 <input type="file" id="ordPdfInput" accept="application/pdf" hidden />
               </div>
-              <p class="field-hint" id="ordExtractStatus" hidden></p>
               <p class="form-error" id="uploadOrdinanceError" hidden></p>
               <div class="btn-row">
                 <a class="btn btn-danger" href="ordinances.html">Cancel</a>

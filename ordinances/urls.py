@@ -4,7 +4,6 @@ from . import views
 
 urlpatterns = [
     path("ordinances/", views.OrdinanceListCreateView.as_view(), name="ordinance_list_create"),
-    path("ordinances/extract/", views.OrdinanceExtractView.as_view(), name="ordinance_extract"),
     path("ordinances/categories/", views.OrdinanceCategoryListCreateView.as_view(), name="ordinance_category_list_create"),
     path("ordinances/categories/<uuid:pk>/", views.OrdinanceCategoryDetailView.as_view(), name="ordinance_category_detail"),
     path("ordinances/authors/", views.OrdinanceAuthorListCreateView.as_view(), name="ordinance_author_list_create"),

@@ -48,7 +48,7 @@ class ReportSerializer(serializers.ModelSerializer):
             "id", "location", "latitude", "longitude", "ordinance", "incident_date", "incident_time",
             "nature_of_violation", "status", "remarks", "created_at", "updated_at",
             "files", "attachments", "claimed_by", "investigator_last_viewed_at",
-            "reporter", "contact_number",
+            "reporter", "contact_number", "report_number",
         ]
         read_only_fields = [
             "id", "status", "remarks", "created_at", "updated_at", "investigator_last_viewed_at",
@@ -151,7 +151,7 @@ class StaffReportSerializer(serializers.ModelSerializer):
             "id", "reporter", "reporterId", "contact_number", "location", "latitude", "longitude", "ordinance",
             "incident_date", "incident_time", "nature_of_violation",
             "status", "remarks", "created_at", "updated_at", "attachments",
-            "assignedInvestigator", "assignedInvestigatorId",
+            "assignedInvestigator", "assignedInvestigatorId", "report_number",
         ]
 
     def get_reporter(self, obj):

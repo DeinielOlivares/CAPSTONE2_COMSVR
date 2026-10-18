@@ -3,17 +3,19 @@
 // Reports is the Investigator's claimable work queue — see reports-data.js's
 // claimReport. Claims are permanent (no forfeiting), so claiming confirms first.
 // Split into subpages from the sidebar's Reports group (?view= — see
-// REPORT_VIEWS below): All Reports, Unclaimed Reports, My Claimed Reports.
+// REPORT_VIEWS below). Investigator: Unclaimed Reports, My Claimed Reports,
+// Other Claimed Reports. Barangay Captain: Unclaimed Reports, Claimed
+// Reports (with an extra filter by Investigator).
 
-// Each subpage is this same page showing some of its three lists (Claimed
-// by Me / Unclaimed / Claimed by Others). "mine" is Investigator-only
-// (hidden from the sidebar for anyone else, see admin.js's
-// STAFF_NAV_ACCESS) and falls back to "all" for other roles. `paginated` is
-// the list the page's pagination bar pages through.
+// Each subpage is this same page showing one of its three lists (Claimed
+// by Me / Unclaimed / Claimed by Others). `roles` must match the sidebar's
+// entries (admin.js's STAFF_NAV_ACCESS); a subpage the role can't see, or
+// no ?view= at all, falls back to Unclaimed Reports.
 const REPORT_VIEWS = {
-  all: { heading: "All Reports", groups: ["mine", "unclaimed", "others"], paginated: "unclaimed" },
-  unclaimed: { heading: "Unclaimed Reports", groups: ["unclaimed"], paginated: "unclaimed" },
-  mine: { heading: "My Claimed Reports", groups: ["mine"], paginated: "mine" },
+  unclaimed: { heading: "Unclaimed Reports", group: "unclaimed", roles: ["Investigator", "Barangay Captain"] },
+  mine: { heading: "My Claimed Reports", group: "mine", roles: ["Investigator"] },
+  others: { heading: "Other Claimed Reports", group: "others", roles: ["Investigator"] },
+  claimed: { heading: "Claimed Reports", group: "others", roles: ["Barangay Captain"], investigatorFilter: true },
 };
 
 function escapeReportHtml(str) {
@@ -29,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const searchInput = document.getElementById("reportSearchInput");
   const typeFilter = document.getElementById("typeFilter");
   const statusFilter = document.getElementById("statusFilter");
+  const investigatorFilter = document.getElementById("investigatorFilter");
   const listMine = document.getElementById("reportsListMine");
   const listUnclaimed = document.getElementById("reportsListUnclaimed");
   const listOthers = document.getElementById("reportsListOthers");
@@ -44,22 +47,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
   // page but only gets a read-only view of who's working what.
   const isInvestigator = !!currentUser && currentUser.position === "Investigator";
-  let viewKey = new URLSearchParams(window.location.search).get("view") || "all";
-  if (!REPORT_VIEWS[viewKey] || (viewKey === "mine" && !isInvestigator)) viewKey = "all";
+  let viewKey = new URLSearchParams(window.location.search).get("view") || "unclaimed";
+  if (!REPORT_VIEWS[viewKey] || !REPORT_VIEWS[viewKey].roles.includes(currentUser && currentUser.position)) {
+    viewKey = "unclaimed";
+  }
   const view = REPORT_VIEWS[viewKey];
 
   document.getElementById("reportsHeading").textContent = view.heading;
   document.title = `Barangay Platero OVRMS — ${view.heading}`;
   // Highlight this subpage in the sidebar's Reports group.
-  const activeHref = viewKey === "all" ? "reports.html" : `reports.html?view=${viewKey}`;
+  const activeHref = `reports.html?view=${viewKey}`;
   document.querySelectorAll(".admin-sidebar__subnav a").forEach((link) => {
     link.classList.toggle("active", link.getAttribute("href") === activeHref);
   });
 
-  const showMine = isInvestigator && view.groups.includes("mine");
-  groupMine.hidden = !showMine;
-  groupUnclaimed.hidden = !view.groups.includes("unclaimed");
-  groupOthers.hidden = !view.groups.includes("others");
+  groupMine.hidden = view.group !== "mine";
+  groupUnclaimed.hidden = view.group !== "unclaimed";
+  groupOthers.hidden = view.group !== "others";
+  groupOthersTitle.textContent = isInvestigator ? "Claimed by Other Investigators" : "Claimed Reports";
+  document.getElementById("investigatorFilterField").hidden = !view.investigatorFilter;
+  const listsByGroup = { mine: listMine, unclaimed: listUnclaimed, others: listOthers };
 
   let page = 1;
   // Only re-filters on Search (or pressing Enter in the field), not on every
@@ -73,9 +80,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();
   } catch (err) {
-    const target = showMine && !view.groups.includes("unclaimed") ? listMine : listUnclaimed;
     [listMine, listUnclaimed, listOthers].forEach((list) => (list.innerHTML = ""));
-    target.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    listsByGroup[view.group].innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
     return;
   }
 
@@ -90,6 +96,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeFilter.appendChild(opt);
     });
 
+  // Claimed Reports (Barangay Captain): every Investigator currently holding
+  // at least one claim, by name — filtered by id, since two people can
+  // share a name.
+  if (view.investigatorFilter) {
+    const investigators = new Map();
+    liveReports().forEach((r) => {
+      if (r.assignedInvestigatorId) investigators.set(r.assignedInvestigatorId, r.assignedInvestigator);
+    });
+    Array.from(investigators.entries())
+      .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+      .forEach(([id, name]) => investigatorFilter.appendChild(new Option(name, id)));
+  }
+
   // Filters, search, page size and page survive opening a report and coming
   // back, or visiting other pages, for the rest of this browser tab.
   // sessionStorage (not localStorage) so they reset with a fresh tab; keyed
@@ -102,6 +121,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sessionStorage.setItem(filtersKey, JSON.stringify({
         type: typeFilter.value,
         status: statusFilter.value,
+        investigator: investigatorFilter.value,
         pageSize: pageSizeSelect ? pageSizeSelect.value : null,
         query: appliedQuery,
         page,
@@ -126,6 +146,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
     setIfOption(typeFilter, saved.type);
     setIfOption(statusFilter, saved.status);
+    setIfOption(investigatorFilter, saved.investigator);
     setIfOption(pageSizeSelect, saved.pageSize);
     if (pageSizeSelect) pageSize = pageSizeSelect.value === "all" ? null : Number(pageSizeSelect.value);
     appliedQuery = saved.query || "";
@@ -141,6 +162,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (typeFilter.value !== "all") {
       rows = rows.filter((r) => r.incidentType === typeFilter.value);
+    }
+
+    if (view.investigatorFilter && investigatorFilter.value !== "all") {
+      rows = rows.filter((r) => r.assignedInvestigatorId === investigatorFilter.value);
     }
 
     if (statusFilter.value !== "all") {
@@ -212,9 +237,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   function render() {
     const rows = getFiltered();
 
-    // Three lists inside one card — the investigator's own claimed work,
-    // then the unclaimed queue, then other investigators' claims — so their
-    // own work doesn't get lost among everyone else's.
+    // Sorted into the three lists — unclaimed, claimed by the current user,
+    // claimed by anyone else — and this subpage shows (and pages through)
+    // just its own one.
     const groups = { mine: [], unclaimed: [], others: [] };
     rows.forEach((r) => {
       if (!r.assignedInvestigatorId) groups.unclaimed.push(r);
@@ -222,24 +247,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       else groups.others.push(r);
     });
 
-    // Only this subpage's main list is paginated (the Unclaimed queue on
-    // All Reports) — it's the one that can grow into an actual queue;
-    // claimed work shown alongside it is naturally bounded per person.
-    const { totalPages, pageRows } = paginate(groups[view.paginated]);
-    const shown = (key) => (key === view.paginated ? pageRows : groups[key]);
+    const { totalPages, pageRows } = paginate(groups[view.group]);
 
-    groupOthersTitle.textContent = isInvestigator ? "Claimed by Other Investigators" : "Claimed Reports";
-
-    if (showMine) {
-      renderGroup(listMine, shown("mine"), "You haven't claimed any reports that match.", (r) =>
+    if (view.group === "mine") {
+      renderGroup(listMine, pageRows, "You haven't claimed any reports that match.", (r) =>
         reportRow(r, { claimLabel: "Claimed by you", claimAction: "" })
       );
     }
 
-    if (!groupUnclaimed.hidden) {
+    if (view.group === "unclaimed") {
       renderGroup(
         listUnclaimed,
-        shown("unclaimed"),
+        pageRows,
         liveReports().length ? "No unclaimed reports match your search or filters." : "No reports submitted yet.",
         (r) =>
           reportRow(r, {
@@ -252,11 +271,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       wireClaimButtons(listUnclaimed);
     }
 
-    if (!groupOthers.hidden) {
+    if (view.group === "others") {
       renderGroup(
         listOthers,
-        shown("others"),
-        isInvestigator ? "No reports claimed by other investigators." : "No claimed reports.",
+        pageRows,
+        isInvestigator ? "No reports claimed by other investigators match." : "No claimed reports match.",
         (r) => reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" })
       );
     }
@@ -281,6 +300,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     render();
   });
   statusFilter.addEventListener("change", () => {
+    page = 1;
+    render();
+  });
+  investigatorFilter.addEventListener("change", () => {
     page = 1;
     render();
   });

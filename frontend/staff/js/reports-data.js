@@ -109,6 +109,8 @@ function mapReport(r) {
     // StaffReportClaimView/StaffReportForfeitView), null if unclaimed.
     assignedInvestigator: r.assignedInvestigator,
     assignedInvestigatorId: r.assignedInvestigatorId,
+    // "YYYYMMDD-N" — names the Download Report PDF (see Report.report_number).
+    reportNumber: r.report_number,
   };
 }
 

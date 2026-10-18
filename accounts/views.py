@@ -531,15 +531,28 @@ class AdminListUsersView(generics.ListAPIView):
     permission_classes = [IsAdmin]
 
 
+def _active_claims(holder):
+    """
+    The reports `holder` has claimed that are still being worked — anything
+    but Resolved/With Remarks (Report.CLOSED_STATUSES). A closed report keeps
+    its Investigator's name as the record of who handled it, so only these
+    ever need releasing.
+    """
+    from reports.models import Report
+
+    return holder.claimed_reports.exclude(status__in=Report.CLOSED_STATUSES)
+
+
 def _release_claims(actor, holder, reason):
     """
-    Frees every report `holder` has claimed (see Report.assigned_investigator)
-    so another Investigator can claim it, writing one audit log entry per
-    report under the Administrator who did it. Used when an account is
-    disabled with "release claims" or deleted. Returns how many were freed.
+    Frees every active report `holder` has claimed (see _active_claims) so
+    another Investigator can claim it, writing one audit log entry per
+    report under the Administrator who did it. Required before an account
+    holding active claims has its role changed, is disabled, or is deleted.
+    Returns how many were freed.
     """
     holder_name = holder.get_full_name() or holder.username
-    claimed = list(holder.claimed_reports.all())
+    claimed = list(_active_claims(holder))
     for report in claimed:
         report.assigned_investigator = None
         report.previous_investigator = holder
@@ -548,11 +561,25 @@ def _release_claims(actor, holder, reason):
     return len(claimed)
 
 
-def _claims_note(count, released):
+def _claims_note(count):
     if not count:
         return ""
     noun = "report" if count == 1 else "reports"
-    return f" — {count} claimed {noun} {'released' if released else 'still assigned to them'}"
+    return f" — {count} claimed {noun} released"
+
+
+def _claims_block_response(user, action):
+    """400 for a role change/disable sent without release_claims while `user` still holds active claims."""
+    count = _active_claims(user).count()
+    name = user.get_full_name() or user.username
+    noun = "report" if count == 1 else "reports"
+    return Response(
+        {
+            "detail": f"{name} still has {count} active claimed {noun}. Release them before {action}.",
+            "active_claims": count,
+        },
+        status=400,
+    )
 
 
 class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -562,11 +589,12 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
     changing account type (role/position), and deleting the account all go
     through here.
 
-    Claimed reports: disabling accepts `release_claims: true` to free every
-    report the account has claimed in the same request (otherwise they stay
-    assigned until released from Manage Accounts' Claimed Reports); deleting
-    always frees them (Report.assigned_investigator is SET_NULL). Either way
-    the audit log records who did it and what happened to the claims.
+    Claimed reports: an account still holding active claims (see
+    _active_claims) can't be disabled or have its role changed until they're
+    released — the request must send `release_claims: true`, which frees
+    them first in the same transaction, or it's refused with a 400 naming
+    how many are left. Deleting always frees them first. Either way the
+    audit log records who did it and each released claim.
     """
     queryset = User.objects.all()
     serializer_class = AdminAccountSerializer
@@ -577,6 +605,9 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.get_object()
         is_self = user.id == request.user.id
         was_active = user.is_active
+        release_requested = bool(request.data.get("release_claims"))
+        has_active_claims = _active_claims(user).exists()
+        release_needed = False
 
         # Prevent an admin from disabling their own account — a simple
         # mis-click here would otherwise lock them out instantly (is_active
@@ -589,6 +620,10 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
                     {"detail": "You can't disable your own account."},
                     status=400,
                 )
+            if was_active and not new_active and has_active_claims:
+                if not release_requested:
+                    return _claims_block_response(user, "disabling this account")
+                release_needed = True
             user.is_active = new_active
 
         # Update Role — only ever offered for existing Barangay Staff/
@@ -622,8 +657,22 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
             except serializers.ValidationError as exc:
                 return Response({"detail": exc.detail[0]}, status=400)
 
+            # Re-saving the role they already have changes nothing, so it
+            # doesn't need their claims released.
+            if staff_role != user.position and has_active_claims:
+                if not release_requested:
+                    return _claims_block_response(user, "changing this account's role")
+                release_needed = True
+
             user.role = new_role
             user.position = staff_role
+
+        # Every check above has passed, so the claims are released only when
+        # the change itself is actually going through.
+        released = 0
+        if release_needed:
+            reason = "account disabled" if "active" in request.data and not user.is_active else "role changed"
+            released = _release_claims(request.user, user, reason)
 
         user.save()
 
@@ -632,14 +681,11 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
             if user.is_active:
                 log_action(request.user, f"Enabled {name}'s account")
             else:
-                claim_count = user.claimed_reports.count()
-                release = bool(request.data.get("release_claims")) and was_active
-                if release and claim_count:
-                    _release_claims(request.user, user, "account disabled")
-                log_action(request.user, f"Disabled {name}'s account{_claims_note(claim_count, release)}")
+                log_action(request.user, f"Disabled {name}'s account{_claims_note(released)}")
                 send_account_deactivated_email(user)
         if "staff_role" in request.data:
-            log_action(request.user, f"Changed {name}'s role to {user.position}")
+            role_note = "" if "active" in request.data else _claims_note(released)
+            log_action(request.user, f"Changed {name}'s role to {user.position}{role_note}")
 
         return Response(AdminAccountSerializer(user).data)
 
@@ -654,11 +700,12 @@ class AdminAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         name = user.get_full_name() or user.username
         email = user.email
-        # Released explicitly (rather than left to SET_NULL) so each freed
-        # report gets its own audit entry naming who deleted the account.
+        # Active claims are released first, explicitly (rather than left to
+        # SET_NULL), so each freed report gets its own audit entry naming who
+        # deleted the account.
         with transaction.atomic():
             claim_count = _release_claims(request.user, user, "account deleted")
-            log_action(request.user, f"Deleted {name}'s account{_claims_note(claim_count, True)}")
+            log_action(request.user, f"Deleted {name}'s account{_claims_note(claim_count)}")
             user.delete()
         send_account_deleted_email(name, email)
         return Response(status=204)

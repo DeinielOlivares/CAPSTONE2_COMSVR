@@ -214,8 +214,6 @@ REST_FRAMEWORK = {
         "report_send_code": "3/hour",
         "report_verify_code": "5/min",
         "profile_edit_code": "5/hour",
-        # Each OCR call uses several hundred MB of RAM.
-        "ordinance_extract": "5/min",
     },
     # How many proxies sit in front of the app. Without this DRF can't tell the
     # real client IP from X-Forwarded-For, which anyone can fake — so every

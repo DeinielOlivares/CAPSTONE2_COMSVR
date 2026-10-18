@@ -3,11 +3,12 @@ set -o errexit
 
 pip install -r requirements.txt
 
-# rapidocr-onnxruntime depends on the full opencv-python, which needs a system
-# libGL that hosts like Render don't have — importing cv2 fails at OCR time.
-# The headless build is the same cv2 module without the GUI dependency, so swap
-# it in (both packages install into the same cv2/ directory, hence the
-# uninstall-then-force-reinstall rather than just leaving both).
+# Only the headless OpenCV build should be present (reports/pdf.py uses cv2
+# for video thumbnails; the full opencv-python needs a system libGL that hosts
+# like Render don't have). Older builds pulled in the full package via the
+# since-removed OCR dependency, so it's cleared out in case a cached build
+# still has it — both share the same cv2/ directory, hence the
+# uninstall-then-force-reinstall.
 pip uninstall -y opencv-python
 pip install --force-reinstall --no-deps opencv-python-headless==5.0.0.93
 

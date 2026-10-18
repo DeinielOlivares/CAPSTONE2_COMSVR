@@ -160,10 +160,12 @@ const STAFF_NAV_ACCESS = {
   // how they reach report-detail.html (report-detail.js's own role check
   // keeps them read-only there, same as Ordinances).
   "reports.html": ["Investigator", "Barangay Captain"],
-  // Sidebar-only entry for the Reports group's "My Claimed Reports"
-  // subpage (same page, filtered — see reports-list.js's REPORT_VIEWS); a
-  // subpage link without its own entry falls under its page's.
+  // Sidebar-only entries for the Reports group's role-specific subpages
+  // (same page, filtered — see reports-list.js's REPORT_VIEWS); a subpage
+  // link without its own entry (Unclaimed Reports) falls under its page's.
   "reports.html?view=mine": ["Investigator"],
+  "reports.html?view=others": ["Investigator"],
+  "reports.html?view=claimed": ["Barangay Captain"],
   "concerns-dashboard.html": ["Barangay Captain"],
   "secretary-dashboard.html": ["Secretary"],
   // Barangay Captain gets read-only Concerns/Suggestions too, same pattern

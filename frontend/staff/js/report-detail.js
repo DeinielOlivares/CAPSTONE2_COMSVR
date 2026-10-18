@@ -148,16 +148,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         await downloadReportForm({
           id: report.id,
+          reportNumber: report.reportNumber,
           reporter: report.reporter,
           contactNumber: report.contactNumber,
           location: report.location,
+          latitude: report.latitude,
+          longitude: report.longitude,
           ordinance: report.ordinance,
           incidentDate: report.incidentDate,
           incidentTime: report.incidentTimeRaw,
           natureOfViolation: report.natureOfViolation,
-          status: report.status,
-          remarks: report.remarks,
-          investigator: report.assignedInvestigator,
           dateFiled: report.dateSubmitted,
           attachments: report.attachments,
         });
@@ -295,8 +295,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
+  // Back to whichever Reports subpage (Unclaimed/My Claimed/...) this
+  // report was opened from; anywhere else lands on Unclaimed Reports.
   function goToReports() {
-    window.location.href = "reports.html";
+    let target = "reports.html";
+    try {
+      const from = new URL(document.referrer);
+      if (from.origin === window.location.origin && from.pathname.endsWith("/staff/reports.html")) target = from.href;
+    } catch {
+      // No referrer (opened directly / from a bookmark).
+    }
+    window.location.href = target;
   }
 
   backToReportsBtn.addEventListener("click", () => {

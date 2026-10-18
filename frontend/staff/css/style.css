@@ -5710,6 +5710,43 @@ button {
   }
 }
 
+/* ---------- New/Edit Announcement popup ---------- */
+/* Wider than the default 360px .modal-card, so the title, a roomy
+   description box and the picture row all fit comfortably. */
+.announcement-form-modal {
+  max-width: 640px;
+  padding: 36px 44px 32px;
+}
+
+.announcement-form-modal textarea {
+  min-height: 180px;
+}
+
+/* "Picture (optional)" matches the Title/Description labels above it. */
+.announcement-form-modal .field__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+/* The "Choose picture" button is a <label>, so `.field label` (block,
+   dark text) would otherwise win over its button look. */
+.announcement-form-modal .field label.announcement-picture__pick {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  color: var(--white);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 560px) {
+  .announcement-form-modal {
+    padding: 30px 22px 24px;
+  }
+}
+
 /* ---------- Announcement picture picker (New Announcement) ---------- */
 .announcement-picture {
   margin-bottom: 18px;

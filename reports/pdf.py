@@ -6,17 +6,16 @@ StaffReportDashboardPdfView in reports/views.py).
 build_report_pdf/build_reports_pdf are currently unused: their endpoints
 (a single Resolved report's "Download PDF", open to every Staff role, and
 the Reports page's bulk "Download Resolved Reports (PDF)") were removed in
-favor of the per-report Download Report image that only the citizen and
-the Investigator get (frontend/citizen/js/report-form-download.js). Kept so
-switching that download over to PDF later is just a matter of a view.
+favor of the per-report Download Report PDF (a picture of the filled-in
+File a Report form, built in the browser) that only the citizen and the
+Investigator get — see frontend/citizen/js/report-form-download.js.
 
 Each report is meant to fit on one page, whether it's the only one in the
 PDF or one of several (separated by a page break). reportlab's flowable
 layout doesn't have a "shrink to fit" mode on its own, so each report's
 content is built at a few decreasing size scales (fonts, spacing, image
 thumbnails) and the first one that actually comes out to a single page is
-kept — counted with pymupdf (already a project dependency, see
-ordinances/extraction.py), rather than adding a new one just for this.
+kept — counted with pymupdf.
 Margins are one fixed size throughout, since a single shared document can't
 vary them per report the way the rest of the sizing can.
 """

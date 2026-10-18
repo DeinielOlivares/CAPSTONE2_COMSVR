@@ -235,9 +235,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Claimed Reports: an Investigator can't give up a report once they've
   // claimed it, so if they leave or go inactive the Administrator releases
   // their claims here (POST .../forfeit/, Admin-only — see
-  // StaffReportForfeitView). Shown for any Staff account holding claims
-  // (e.g. someone re-roled away from Investigator), and always for
-  // Investigators so "no claims" is visible too.
+  // StaffReportForfeitView). Only active claims are listed (anything but
+  // Resolved/With Remarks — see getClaimedReports). Shown for any Staff
+  // account holding them, and always for Investigators so "no claims" is
+  // visible too. They must all be released before the account's role is
+  // changed, or it's disabled or deleted (see askToReleaseClaims below).
   const claimedSection = document.getElementById("claimedReports");
   const claimedList = document.getElementById("claimedReportsList");
   const releaseAllBtn = document.getElementById("releaseAllClaimsBtn");
@@ -266,7 +268,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </li>`
           )
           .join("")
-      : `<li class="claimed-reports__empty">No claimed reports.</li>`;
+      : `<li class="claimed-reports__empty">No active claimed reports.</li>`;
   }
 
   async function loadClaimedReports(account) {
@@ -287,9 +289,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Fresh count right before disabling/deleting — the popup's list may still
-  // be loading, or be stale if someone claimed something meanwhile. Citizens
-  // can't hold claims, so skip the request for them.
+  // Fresh count right before re-roling/disabling/deleting — the popup's
+  // list may still be loading, or be stale if someone claimed something
+  // meanwhile. Citizens can't hold claims, so skip the request for them.
   async function countClaims(account) {
     if (account.type === "Barangay Citizen") return 0;
     try {
@@ -334,6 +336,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       claimsCancel.addEventListener("click", onCancel);
       claimsModal.addEventListener("click", onBackdrop);
     });
+  }
+
+  // Before a role change, disable or delete: if the account still holds
+  // active claims, they have to be released for the change to go through.
+  // Resolves true to go ahead (with release_claims, when there were any),
+  // false if the Administrator cancelled.
+  async function askToReleaseClaims(account, { title, action, primary, note = "" }) {
+    const count = await countClaims(account);
+    if (!count) return { proceed: true, release: false };
+    const noun = count === 1 ? "report" : "reports";
+    const choice = await askAboutClaims({
+      title,
+      text: `${account.owner} still has ${count} active claimed ${noun}. ${count === 1 ? "It" : "They"} must be released before ${action}, so another Investigator can take over.${note ? ` ${note}` : ""}`,
+      primary,
+    });
+    return { proceed: !!choice, release: !!choice };
   }
 
   async function releaseClaims(ids) {
@@ -383,23 +401,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!activeAccount) return;
     const account = activeAccount;
 
-    // Disabling someone who still holds claimed reports would leave those
-    // reports stuck (they can't log in to work them, and nobody else can
-    // while they're claimed) — so ask whether to release them first.
+    // Disabling someone who still holds active claimed reports would leave
+    // those reports stuck (they can't log in to work them, and nobody else
+    // can while they're claimed) — so they're released first.
     let shouldRelease = false;
     if (account.active) {
-      const count = await countClaims(account);
-      if (count) {
-        const noun = count === 1 ? "report" : "reports";
-        const choice = await askAboutClaims({
-          title: "Disable this account?",
-          text: `${account.owner} still has ${count} claimed ${noun}. Release ${count === 1 ? "it" : "them"} so another Investigator can take over, or keep ${count === 1 ? "it" : "them"} assigned (e.g. for a short leave)?`,
-          primary: "Release & Disable",
-          secondary: "Disable, Keep Claims",
-        });
-        if (!choice) return;
-        shouldRelease = choice === "primary";
-      }
+      const { proceed, release } = await askToReleaseClaims(account, {
+        title: "Disable this account?",
+        action: "the account can be disabled",
+        primary: "Release & Disable",
+      });
+      if (!proceed) return;
+      shouldRelease = release;
     }
 
     const previousLabel = editDisableBtn.innerHTML;
@@ -443,13 +456,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   updateTypeSave.addEventListener("click", async () => {
     if (!activeAccount) return;
+    const account = activeAccount;
+    const newRole = updateTypeSelect.value;
     updateTypeSave.disabled = true;
     try {
-      const updated = await updateAccount(activeAccount.id, { staff_role: updateTypeSelect.value });
-      Object.assign(activeAccount, updated);
+      // A real role change (not re-saving the same one) needs every active
+      // claim released first. The claims prompt sits behind this popup in
+      // the page, so this one steps aside while it's asked.
+      let shouldRelease = false;
+      if (newRole !== account.position) {
+        updateTypeModal.hidden = true;
+        const { proceed, release } = await askToReleaseClaims(account, {
+          title: "Update this account's role?",
+          action: "the role can be changed",
+          primary: "Release & Update Role",
+        });
+        updateTypeModal.hidden = false;
+        if (!proceed) return;
+        shouldRelease = release;
+      }
+      const updated = await updateAccountRole(account.id, newRole, { releaseClaims: shouldRelease });
+      Object.assign(account, updated);
       updateTypeModal.hidden = true;
-      populateEditModal(activeAccount);
+      populateEditModal(account);
       editModal.hidden = false;
+      if (shouldRelease) loadClaimedReports(account);
       render();
     } catch (err) {
       siteAlert(err.message);
@@ -497,16 +528,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Administrator check — see AdminAccountDetailView.delete.
   editDeleteBtn.addEventListener("click", async () => {
     if (!activeAccount) return;
-    const count = await countClaims(activeAccount);
-    if (count) {
-      const noun = count === 1 ? "report" : "reports";
-      const choice = await askAboutClaims({
-        title: "Delete this account?",
-        text: `${activeAccount.owner} still has ${count} claimed ${noun}. Deleting the account releases ${count === 1 ? "it" : "them"} so another Investigator can claim ${count === 1 ? "it" : "them"}. This can't be undone.`,
-        primary: "Release & Delete",
-      });
-      if (!choice) return;
-    } else if (!await siteConfirm(`Permanently delete ${activeAccount.owner}'s account? This can't be undone.`)) {
+    // Active claims are released first, then the account is deleted (the
+    // server does both together — see AdminAccountDetailView.delete).
+    const { proceed, release } = await askToReleaseClaims(activeAccount, {
+      title: "Delete this account?",
+      action: "the account can be deleted",
+      note: "This can't be undone.",
+      primary: "Release & Delete",
+    });
+    if (!proceed) return;
+    if (!release && !await siteConfirm(`Permanently delete ${activeAccount.owner}'s account? This can't be undone.`)) {
       return;
     }
 

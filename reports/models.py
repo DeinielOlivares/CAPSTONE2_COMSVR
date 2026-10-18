@@ -1,7 +1,7 @@
 import uuid
 
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models, transaction
 
 from orms_backend.encrypted_fields import EncryptedTextField
 from orms_backend.encrypted_storage import encrypted_storage
@@ -75,6 +75,11 @@ class Report(models.Model):
     previous_investigator = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    # "YYYYMMDD-N" — the Nth report filed that day (Philippine time), e.g.
+    # "20260101-5" for the fifth report on January 1, 2026. Given once when
+    # the report is filed and never renumbered (even if an earlier report is
+    # later deleted), so it can name the Download Report PDF.
+    report_number = models.CharField(max_length=20, unique=True, null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -83,6 +88,31 @@ class Report(models.Model):
 
     def __str__(self):
         return f"{self.ordinance} — {self.citizen} ({self.status})"
+
+    def save(self, *args, **kwargs):
+        if self.report_number or not self._state.adding:
+            return super().save(*args, **kwargs)
+        # Two reports filed at the same moment can both work out the same
+        # next number — the unique constraint stops the second one, which
+        # then just takes the number after it.
+        for attempt in range(5):
+            self.report_number = next_report_number(timezone.localdate())
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                clash = Report.objects.filter(report_number=self.report_number).exists()
+                self.report_number = None
+                if not clash or attempt == 4:
+                    raise
+
+
+def next_report_number(day):
+    """The next unused "YYYYMMDD-N" for `day` (see Report.report_number)."""
+    prefix = day.strftime("%Y%m%d") + "-"
+    taken = Report.objects.filter(report_number__startswith=prefix).values_list("report_number", flat=True)
+    highest = max((int(n[len(prefix):]) for n in taken if n[len(prefix):].isdigit()), default=0)
+    return f"{prefix}{highest + 1}"
 
 
 class ReportAttachment(models.Model):

@@ -213,7 +213,8 @@ class StaffReportListView(generics.ListAPIView):
     GET /api/reports/staff/ — every citizen's filed reports (Staff/Admin Reports Dashboard).
     ?assigned_to=<user id> narrows it to the reports that user has claimed —
     what Manage Accounts uses to list an Investigator's claims for release
-    (see StaffReportForfeitView).
+    (see StaffReportForfeitView) — and ?active=1 further to the ones still
+    being worked (not Resolved/With Remarks).
     """
     serializer_class = StaffReportSerializer
     permission_classes = [IsStaffOrAdmin]
@@ -226,6 +227,8 @@ class StaffReportListView(generics.ListAPIView):
                 queryset = queryset.filter(assigned_investigator_id=uuid.UUID(assigned_to))
             except ValueError:
                 return queryset.none()
+        if self.request.query_params.get("active") == "1":
+            queryset = queryset.exclude(status__in=Report.CLOSED_STATUSES)
         return queryset
 
     def get_serializer_context(self):

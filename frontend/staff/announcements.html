@@ -23,9 +23,10 @@
         <li class="admin-sidebar__group">
           <button type="button" class="admin-sidebar__group-toggle" aria-expanded="false"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> Reports <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
           <ul class="admin-sidebar__subnav" hidden>
-            <li><a href="reports.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> All Reports</a></li>
             <li><a href="reports.html?view=unclaimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/></svg> Unclaimed Reports</a></li>
             <li><a href="reports.html?view=mine"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></svg> My Claimed Reports</a></li>
+            <li><a href="reports.html?view=others"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Other Claimed Reports</a></li>
+            <li><a href="reports.html?view=claimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Claimed Reports</a></li>
           </ul>
         </li>
         <li><a href="concerns-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12c0-4.4 3.9-8 8.5-8s8.5 3.6 8.5 8-3.9 8-8.5 8a10 10 0 01-2.9-.4L4 21l1.1-3.8A7.6 7.6 0 013.5 12z"/></svg> Concerns/Suggestions Dashboard</a></li>
@@ -48,6 +49,8 @@
             "reports-dashboard.html": ["Barangay Captain"],
             "reports.html": ["Investigator", "Barangay Captain"],
             "reports.html?view=mine": ["Investigator"],
+            "reports.html?view=others": ["Investigator"],
+            "reports.html?view=claimed": ["Barangay Captain"],
             "concerns-dashboard.html": ["Barangay Captain"],
             "secretary-dashboard.html": ["Secretary"],
             "concerns.html": ["Secretary", "Barangay Captain"],
@@ -137,7 +140,7 @@
 
   <!-- New announcement / edit an existing one (see openForm in announcements.js) -->
   <div class="modal-overlay" id="announcementFormModal" data-modal-guarded hidden>
-    <div class="modal-card setup-modal">
+    <div class="modal-card setup-modal announcement-form-modal">
       <button type="button" class="modal-close" id="announcementX" aria-label="Close">&times;</button>
       <h2 id="announcementFormTitle">New Announcement</h2>
       <form id="announcementForm" novalidate>
@@ -153,7 +156,7 @@
           <span class="field__label">Picture (optional)</span>
           <label class="btn announcement-picture__pick" for="announcementImageInput">Choose picture</label>
           <input type="file" id="announcementImageInput" accept="image/jpeg,image/png,image/webp" hidden />
-          <p class="field-hint">JPG, PNG or WebP, up to 5 MB. A <strong>landscape</strong> picture around <strong>1200 &times; 800 px</strong> works best. Keep the main subject near the centre &mdash; the home page shows a small cropped thumbnail, and the full picture opens with "Read more".</p>
+          <p class="field-hint">.JPG, .PNG, .WEBP, up to 5 MB</p>
           <div class="announcement-picture__file" id="announcementFilePreview" hidden>
             <img id="announcementFileThumb" alt="" />
             <div class="announcement-picture__meta">

@@ -120,16 +120,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await downloadReportForm({
         id: report.id,
+        reportNumber: report.report_number,
         reporter: report.reporter,
         contactNumber: report.contact_number,
         location: report.location,
+        latitude: report.latitude,
+        longitude: report.longitude,
         ordinance: report.ordinance,
         incidentDate: report.incident_date,
         incidentTime: report.incident_time,
         natureOfViolation: report.nature_of_violation,
-        status: REPORT_STATUS_LABELS[report.status] || report.status,
-        remarks: report.remarks,
-        investigator: report.claimed_by,
         dateFiled: new Date(report.created_at),
         attachments: report.attachments,
       });
