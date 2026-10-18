@@ -13,16 +13,20 @@ class Report(models.Model):
 
     class Status(models.TextChoices):
         # Mirrors the 4 stages shown in the status timeline on the detail
-        # pages exactly (Submitted -> Under Review -> In Action -> Resolved,
-        # i.e. "Final Verdict" reached) — one status per stage, so which
-        # stage is "done" is just this status's position in the list, not a
-        # separate calculation. Remarks are a plain always-editable field
-        # (see StaffReportUpdateSerializer/report-detail.js) rather than a
-        # status of their own.
+        # pages (Submitted -> Under Review -> In Action -> Resolved/With
+        # Remarks). The last stage has two possible outcomes: Resolved, or
+        # With Remarks (closed, with the Investigator's remarks explaining
+        # the outcome) — either one completes the timeline. The remarks
+        # text itself is still a plain always-editable field (see
+        # StaffReportUpdateSerializer/report-detail.js).
         SUBMITTED = "submitted", "Submitted"
         UNDER_REVIEW = "under_review", "Under Review"
         IN_ACTION = "in_action", "In Action"
         RESOLVED = "resolved", "Resolved"
+        WITH_REMARKS = "with_remarks", "With Remarks"
+
+    # The two statuses that close a report (the timeline's last stage).
+    CLOSED_STATUSES = (Status.RESOLVED, Status.WITH_REMARKS)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports")

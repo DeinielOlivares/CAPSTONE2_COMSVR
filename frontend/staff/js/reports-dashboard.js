@@ -9,6 +9,9 @@
 // centroid in street-coordinates.js) — see js/heatmap.js; its full analysis
 // lives on its own page (geo-analysis.html).
 
+// What the top filter starts on, and what Clear Filters goes back to.
+const DASHBOARD_DEFAULT_PERIOD = "month0";
+
 document.addEventListener("DOMContentLoaded", async () => {
   const CATEGORY_COLOR_PALETTE = [
     "#5b7fd1", "#2fd6c4", "#d13ec4", "#e8a33d",
@@ -25,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // follow the top filter only (Report Timeline is actually independent of
   // every filter — see its own comment below).
   const state = {
-    topPeriod: "week",
+    topPeriod: DASHBOARD_DEFAULT_PERIOD,
     customRange: null, // {from: "YYYY-MM-DD", to: "YYYY-MM-DD"} once topPeriod === "custom"
     graphOverride: { heatmap: null, category: null, status: null, investigator: null, trend: null },
   };
@@ -50,6 +53,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
+  }
+
+  // The From/To a Custom range picker starts on — this month so far.
+  function defaultCustomRange() {
+    const { start } = getMonthRange(0);
+    return { from: toDateInputValue(start), to: toDateInputValue(new Date()) };
   }
 
   function labelForPeriodValue(value) {
@@ -94,8 +103,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   }
 
+  // This dashboard's own, shorter list of presets (the Custom range is
+  // offered separately, at the top of each dropdown) — values are the same
+  // ones getReportsForPeriod understands, so the heatmap's link to the
+  // Geospatial Analysis page still carries the period over.
   function buildPeriodOptions() {
-    return buildReportPeriodOptions();
+    return [
+      { value: "month0", label: "This Month" },
+      { value: "month1", label: "Last Month" },
+      { value: "year0", label: "This Year" },
+      { value: "year1", label: "Last Year" },
+      { value: "all", label: "All Time" },
+    ];
   }
 
   // ---- Dropdown open/close ----
@@ -127,14 +146,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // stats.process/remarks keep their old names to match the statProcess/
   // statRemarks element ids below, but now count "Under Review"/"In Action"
-  // respectively.
+  // respectively; stats.withRemarks is the With Remarks status.
   function computeStats(reports) {
-    const stats = { total: reports.length, new: 0, process: 0, resolved: 0, remarks: 0 };
+    const stats = { total: reports.length, new: 0, process: 0, resolved: 0, remarks: 0, withRemarks: 0 };
     reports.forEach((r) => {
-      if (r.status === "New Submission") stats.new++;
+      if (r.status === "Submitted") stats.new++;
       else if (r.status === "Under Review") stats.process++;
       else if (r.status === "Resolved") stats.resolved++;
       else if (r.status === "In Action") stats.remarks++;
+      else if (r.status === "With Remarks") stats.withRemarks++;
     });
     return stats;
   }
@@ -182,8 +202,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     setStat("statTotal", "statTotalDelta", cur.total, prev && prev.total, suffix);
     setStat("statNew", "statNewDelta", cur.new, prev && prev.new, suffix);
     setStat("statProcess", "statProcessDelta", cur.process, prev && prev.process, suffix);
-    setStat("statResolved", "statResolvedDelta", cur.resolved, prev && prev.resolved, suffix);
     setStat("statRemarks", "statRemarksDelta", cur.remarks, prev && prev.remarks, suffix);
+    setStat("statResolved", "statResolvedDelta", cur.resolved, prev && prev.resolved, suffix);
+    setStat("statWithRemarks", "statWithRemarksDelta", cur.withRemarks, prev && prev.withRemarks, suffix);
   }
 
   // ---- Date range dropdown (the top filter — sets every graph's default) ----
@@ -201,10 +222,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderDateRangeMenu() {
-    const defaultRange = state.customRange || {
-      from: toDateInputValue(getWeekRange(0).start),
-      to: toDateInputValue(getWeekRange(0).end),
-    };
+    const defaultRange = state.customRange || defaultCustomRange();
     dateRangeMenu.innerHTML =
       `<li class="dash-dropdown-menu__custom">
         <div class="dash-dropdown-menu__custom-row">
@@ -244,7 +262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   clearFiltersBtn.addEventListener("click", () => {
-    setTopPeriod("week");
+    setTopPeriod(DASHBOARD_DEFAULT_PERIOD);
     renderAll();
   });
 
@@ -447,16 +465,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statusBarChart = document.getElementById("statusBarChart");
 
   const STATUS_BAR_DEFS = [
-    { key: "new", label: "New Submission", modifier: "new" },
+    { key: "new", label: "Submitted", modifier: "new" },
     { key: "process", label: "Under Review", modifier: "process" },
     { key: "remarks", label: "In Action", modifier: "remarks" },
     { key: "resolved", label: "Resolved", modifier: "resolved" },
+    { key: "withRemarks", label: "With Remarks", modifier: "remarked" },
   ];
   const MAX_BAR_HEIGHT = 168; // px — leaves room for the count label above it
 
   function renderStatusChart() {
     const stats = computeStats(getReportsForPeriod(effectivePeriod("status")));
-    const maxCount = Math.max(stats.new, stats.process, stats.remarks, stats.resolved, 1);
+    const maxCount = Math.max(stats.new, stats.process, stats.remarks, stats.resolved, stats.withRemarks, 1);
 
     if (!stats.total) {
       statusBarChart.innerHTML = `<div class="status-bar-chart__empty">No reports for this period.</div>`;
@@ -523,7 +542,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // vanish from this list just because the selected date range has moved
   // past its submission date. Report has no resolved_at (see reports/
   // models.py), so "days open" is measured from created_at to now for
-  // anything not yet Resolved, which is the closest honest proxy available.
+  // anything not yet Resolved/With Remarks, which is the closest honest
+  // proxy available.
   let agingListLimit = 5;
   const agingReportsBody = document.getElementById("agingReportsBody");
   const timelinePageSizeSelect = document.getElementById("timelinePageSize");
@@ -552,7 +572,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!agingReportsBody) return;
     const now = new Date();
     const open = liveReports()
-      .filter((r) => r.status !== "Resolved")
+      .filter((r) => !isReportClosed(r.status))
       .slice()
       .sort((a, b) => a.dateSubmitted - b.dateSubmitted)
       .slice(0, agingListLimit);
@@ -572,14 +592,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         </tr>`;
           })
           .join("")
-      : `<tr><td colspan="6" class="ordinances-empty">Nothing open — every report has been resolved.</td></tr>`;
+      : `<tr><td colspan="6" class="ordinances-empty">Nothing open — every report has been closed.</td></tr>`;
   }
 
   function statusPillClass(status) {
-    if (status === "Resolved") return "status-pill--resolved";
-    if (status === "Under Review") return "status-pill--in-process";
-    if (status === "In Action") return "status-pill--remarks";
-    return "status-pill--new";
+    return REPORT_STATUS_PILL_CLASS[status] || "status-pill--new";
   }
 
   // ---- Incident heatmap (real Leaflet density map) + its summary ----
@@ -858,9 +875,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const override = state.graphOverride[cfg.key];
     const isCustom = !!override && typeof override === "object";
     const current = isCustom ? "" : override || "";
-    const defaultRange = isCustom
-      ? override
-      : { from: toDateInputValue(getWeekRange(0).start), to: toDateInputValue(getWeekRange(0).end) };
+    const defaultRange = isCustom ? override : defaultCustomRange();
     const options = [{ value: "", label: "Dashboard Default" }, ...buildPeriodOptions()];
     menu.innerHTML =
       `<li class="dash-dropdown-menu__custom">

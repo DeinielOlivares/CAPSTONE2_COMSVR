@@ -442,6 +442,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     # password is checked (so a wrong guess still counts toward the lockout).
     portal = serializers.ChoiceField(choices=["citizen", "staff"], required=False, write_only=True)
 
+    # A wrong password and an email with no account get the same message, so
+    # the login form can't be used to check whether an email is registered.
+    default_error_messages = {"no_active_account": "Incorrect email or password."}
+
     WRONG_PORTAL = {
         "citizen": ({User.Role.STAFF, User.Role.ADMIN}, "Barangay staff and administrator accounts can't log in here. Please use the Staff Portal."),
         "staff": ({User.Role.CITIZEN}, "Citizen accounts can't log in here. Please use the citizen portal."),

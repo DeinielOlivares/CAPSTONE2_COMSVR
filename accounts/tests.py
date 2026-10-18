@@ -40,6 +40,17 @@ class FailedLoginLockoutTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self._login(GOOD_PASSWORD).status_code, 200)
 
+    def test_wrong_password_and_unknown_email_get_the_same_message(self):
+        self.assertEqual(self._login("wrong-password").data["detail"], "Incorrect email or password.")
+        self.assertEqual(
+            self._login(GOOD_PASSWORD, email="nobody@test.com").data["detail"], "Incorrect email or password."
+        )
+
+    def test_phone_number_is_not_accepted_as_the_login(self):
+        self.user.contact_number = "09171234567"
+        self.user.save()
+        self.assertNotEqual(self._login(GOOD_PASSWORD, email="09171234567").status_code, 200)
+
     def test_successful_login_resets_the_counter(self):
         self._fail(MAX_FAILED_LOGINS - 1)
         self.assertEqual(self._login(GOOD_PASSWORD).status_code, 200)

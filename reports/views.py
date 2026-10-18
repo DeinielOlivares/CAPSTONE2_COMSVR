@@ -302,12 +302,12 @@ class StaffReportDetailView(APIView):
         if "remarks" in request.data:
             log_action(request.user, "Updated a report's remarks")
 
-        # Only on the transition INTO Resolved (the status timeline's "Final
-        # Verdict" stage), not every save while already resolved — otherwise
-        # re-saving the same status would re-notify every time. Remarks, if
-        # any were left, are included in this same email rather than a
-        # separate one (see report_resolved.html).
-        if report.status == Report.Status.RESOLVED and previous_status != Report.Status.RESOLVED:
+        # Only on the transition INTO Resolved or With Remarks (the status
+        # timeline's last, "Resolved/With Remarks" stage), not every save
+        # while already there — otherwise re-saving the same status would
+        # re-notify every time. Remarks, if any were left, are included in
+        # this same email rather than a separate one (see report_resolved.html).
+        if report.status in Report.CLOSED_STATUSES and report.status != previous_status:
             send_report_resolved_email(report)
 
         return Response(StaffReportSerializer(report, context={"request": request}).data)

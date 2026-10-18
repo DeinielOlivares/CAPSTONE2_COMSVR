@@ -236,7 +236,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const oldest = waiting.reduce((min, c) => (!min || c.dateSubmitted < min.dateSubmitted ? c : min), null);
     document.getElementById("kpiWaitingNote").textContent = oldest
       ? `Oldest has waited ${formatDuration(Date.now() - oldest.dateSubmitted)}`
-      : "Nothing waiting";
+      : "No submitted concerns left to review";
 
     document.getElementById("kpiReviewedLabel").textContent = `Reviewed ${meta.noun}`;
     document.getElementById("kpiReviewed").textContent = reviewedInPeriod.length;
@@ -379,7 +379,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (noTopic) {
       flags.push({
         level: "info",
-        text: `${plural(noTopic, "waiting concern")} ${noTopic === 1 ? "hasn't" : "haven't"} been filed under a topic yet.`,
+        text: `${plural(noTopic, "submitted concern")} ${noTopic === 1 ? "hasn't" : "haven't"} been filed under a topic yet.`,
       });
     }
 
@@ -557,7 +557,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td>${formatConcernDate(c.dateSubmitted)}</td>
           <td>${c.folderName ? escapeHtml(c.folderName) : `<span class="cd-muted">No topic yet</span>`}</td>
           <td class="cd-summary">${escapeHtml(summary)}</td>
-          <td><span class="status-pill ${c.status === "Reviewed" ? "status-pill--resolved" : "status-pill--in-process"}">${c.status === "Reviewed" ? "Reviewed" : "Waiting"}</span></td>
+          <td><span class="status-pill ${c.status === "Reviewed" ? "status-pill--resolved" : "status-pill--new"}">${c.status === "Reviewed" ? "Reviewed" : "Submitted"}</span></td>
           <td><a class="recent-reports-table__view-btn" href="concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a></td>
         </tr>`;
       })

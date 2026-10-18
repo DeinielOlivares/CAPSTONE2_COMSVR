@@ -178,6 +178,7 @@ const REPORT_STATUS_LABELS_FOR_NOTIF = {
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 const CONCERN_STATUS_LABELS_FOR_NOTIF = { submitted: "Submitted", reviewed: "Reviewed" };
 
@@ -813,8 +814,21 @@ function applySiteBranding() {
     .catch(() => {});
 }
 
+// Publishes the sticky navbar's real height as --navbar-height, so sticky
+// side panels (the File Report page's Reporting Tips — see .info-panel in
+// style.css) stop just below it rather than underneath it.
+function trackNavbarHeight() {
+  const navbar = document.querySelector(".navbar");
+  if (!navbar) return;
+  const update = () => document.documentElement.style.setProperty("--navbar-height", `${navbar.offsetHeight}px`);
+  update();
+  if (window.ResizeObserver) new ResizeObserver(update).observe(navbar);
+  else window.addEventListener("resize", update);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   applySiteBranding();
+  trackNavbarHeight();
   document.querySelectorAll(".navbar__brand").forEach((brand) => {
     brand.style.cursor = "pointer";
     brand.addEventListener("click", () => {
@@ -1057,12 +1071,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // The login form hits the real API instead of just navigating.
-      // (Note: "Email or Phone" field currently requires an email — phone
-      // login isn't implemented on the backend yet.)
+      // The login form hits the real API instead of just navigating. Login
+      // is by email only — anything that isn't an email address (e.g. a
+      // phone number) gets the same "Incorrect email or password." a wrong
+      // password does, without a trip to the server.
       if (form.dataset.login !== undefined) {
         const submitBtn = form.querySelector('button[type="submit"]');
-        const emailField = form.querySelector('[name="emailOrPhone"]');
+        const emailField = form.querySelector('[name="email"]');
         const passwordField = form.querySelector('[name="password"]');
         const rememberField = form.querySelector('[name="rememberMe"]');
         clearFormError(form);
@@ -1074,6 +1089,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // in) skips this entirely.
         if (!passwordField.value) {
           showFormError(form, "Enter your email and password to log in.");
+          return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailField.value.trim())) {
+          showFormError(form, "Incorrect email or password.");
           return;
         }
 

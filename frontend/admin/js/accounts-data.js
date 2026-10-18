@@ -103,10 +103,11 @@ async function createCitizenAccount({ email }) {
 // StaffReportForfeitView) — for when that Investigator has left or gone
 // inactive. Manage Accounts lists an account's claims with these.
 const CLAIM_STATUS_LABELS = {
-  submitted: "New Submission",
+  submitted: "Submitted",
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 
 async function getClaimedReports(userId) {

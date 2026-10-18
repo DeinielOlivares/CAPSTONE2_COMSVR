@@ -111,6 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     under_review: "Under Review",
     in_action: "In Action",
     resolved: "Resolved",
+    with_remarks: "With Remarks",
   };
   const SUGGESTION_STATUS_LABELS = { submitted: "Submitted", reviewed: "Reviewed" };
 

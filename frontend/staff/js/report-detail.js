@@ -77,16 +77,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const evidenceEl = document.getElementById("reportEvidence");
   if (evidenceEl) renderReportEvidence(evidenceEl, report.attachments);
 
-  // Ordered to exactly match the status timeline's 4 stages below — a
-  // status's completed-steps count is just its index here, no separate
-  // mapping to keep in sync.
-  const STATUSES_ORDERED = ["New Submission", "Under Review", "In Action", "Resolved"];
-  const STATUS_PILL_CLASS = {
-    "New Submission": "status-pill--new",
-    "Under Review": "status-pill--in-process",
-    "In Action": "status-pill--remarks",
-    Resolved: "status-pill--resolved",
-  };
+  // Every status, in timeline order (see reports-data.js) — Resolved and
+  // With Remarks are the two ways a report reaches the last stage.
+  const STATUSES_ORDERED = REPORT_STATUS_LABELS_ORDERED;
+  const STATUS_PILL_CLASS = REPORT_STATUS_PILL_CLASS;
 
   const statusPill = document.getElementById("statusPill");
   const statusSelect = document.getElementById("statusSelect");
@@ -143,6 +137,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderClaim();
 
+  // ---- Download Report (Investigator only — the citizen gets the same
+  // form from My Report Detail; see /citizen/js/report-form-download.js) ----
+  const downloadBtn = document.getElementById("downloadReportBtn");
+  if (isInvestigator) {
+    downloadBtn.hidden = false;
+    downloadBtn.addEventListener("click", async () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = "Preparing download...";
+      try {
+        await downloadReportForm({
+          id: report.id,
+          reporter: report.reporter,
+          contactNumber: report.contactNumber,
+          location: report.location,
+          ordinance: report.ordinance,
+          incidentDate: report.incidentDate,
+          incidentTime: report.incidentTimeRaw,
+          natureOfViolation: report.natureOfViolation,
+          status: report.status,
+          remarks: report.remarks,
+          investigator: report.assignedInvestigator,
+          dateFiled: report.dateSubmitted,
+          attachments: report.attachments,
+        });
+      } catch (err) {
+        siteAlert(err.message || "Could not download this report.");
+      } finally {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = "Download Report";
+      }
+    });
+  }
+
   claimBtn.addEventListener("click", async () => {
     if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE)) return;
     claimBtn.disabled = true;
@@ -176,11 +203,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       { label: "Submitted", description: "The report was submitted." },
       { label: "Under Review", description: "The report is being reviewed" },
       { label: "In Action", description: "Appropriate actions are being taken." },
-      { label: "Final Verdict", description: "Report is finished and closed." },
+      { label: "Resolved/With Remarks", description: "Report is finished and closed." },
     ];
-    // Status is one of STATUSES_ORDERED, in the same order as these 4
-    // stages, so "how many steps are done" is just that status's position.
-    const completedSteps = STATUSES_ORDERED.indexOf(status) + 1;
+    // Submitted/Under Review/In Action are stages 1-3; Resolved and With
+    // Remarks both complete the 4th.
+    const completedSteps = isReportClosed(status) ? steps.length : STATUSES_ORDERED.indexOf(status) + 1;
 
     timelineItems.innerHTML = steps
       .map((step, i) => {

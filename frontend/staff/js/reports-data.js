@@ -5,27 +5,56 @@
 // `await ensureReportsLoaded()` before using liveReports()/getReportById().
 
 const REPORT_STATUS_TO_LABEL = {
-  submitted: "New Submission",
+  submitted: "Submitted",
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 const REPORT_LABEL_TO_STATUS = {
-  "New Submission": "submitted",
+  Submitted: "submitted",
   "Under Review": "under_review",
   "In Action": "in_action",
   Resolved: "resolved",
+  "With Remarks": "with_remarks",
+};
+
+// Every status, in timeline order — what the status dropdowns/filters list.
+const REPORT_STATUS_LABELS_ORDERED = ["Submitted", "Under Review", "In Action", "Resolved", "With Remarks"];
+
+// Resolved and With Remarks both close a report (the status timeline's last,
+// "Resolved/With Remarks" stage) — anything else is still open.
+const REPORT_CLOSED_LABELS = ["Resolved", "With Remarks"];
+function isReportClosed(status) {
+  return REPORT_CLOSED_LABELS.includes(status);
+}
+
+// Badge (list rows) and pill (tables/detail) classes per status label.
+const REPORT_STATUS_BADGE_CLASS = {
+  Submitted: "status-badge--submitted",
+  "Under Review": "status-badge--in-process",
+  "In Action": "status-badge--with-remarks",
+  Resolved: "status-badge--resolved",
+  "With Remarks": "status-badge--remarked",
+};
+const REPORT_STATUS_PILL_CLASS = {
+  Submitted: "status-pill--new",
+  "Under Review": "status-pill--in-process",
+  "In Action": "status-pill--remarks",
+  Resolved: "status-pill--resolved",
+  "With Remarks": "status-pill--remarked",
 };
 
 // Newest-first within each status, with statuses themselves ordered by
-// where they sit in the timeline (New Submission -> ... -> Resolved last) —
-// so the list reads as "what needs attention" at a glance rather than pure
-// chronological order.
+// where they sit in the timeline (Submitted -> ... -> Resolved/With Remarks
+// last) — so the list reads as "what needs attention" at a glance rather
+// than pure chronological order.
 const REPORT_STATUS_RANK = {
-  "New Submission": 0,
+  Submitted: 0,
   "Under Review": 1,
   "In Action": 2,
   Resolved: 3,
+  "With Remarks": 3,
 };
 
 function sortReportsByStatusThenDate(reports) {
@@ -169,9 +198,9 @@ async function claimReport(id) {
 
 // Claims are permanent for Investigators (only an Administrator can release
 // one — see StaffReportForfeitView), so both Claim buttons (reports-list.js,
-// report-detail.js) confirm first with this message.
-const CLAIM_CONFIRM_MESSAGE =
-  "Claim this report? Once claimed, it's assigned to you and can't be forfeited or handed to another Investigator.";
+// report-detail.js) confirm first — with just siteConfirm's own "Are you
+// sure?" title, no extra message.
+const CLAIM_CONFIRM_MESSAGE = "";
 
 // ---- Date/period helpers — kept from the old mock generator, since
 // filtering real created_at timestamps by week/month is still legitimate,

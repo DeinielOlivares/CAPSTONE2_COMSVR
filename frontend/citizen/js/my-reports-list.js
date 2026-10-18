@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "Under Review": "status-badge--in-process",
     "In Action": "status-badge--with-remarks",
     Resolved: "status-badge--resolved",
+    "With Remarks": "status-badge--remarked",
   };
 
   function formatDate(iso) {
@@ -31,22 +32,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let reports = [];
   let page = 1;
-  // Resolved reports are hidden until the citizen actually picks a filter
-  // themselves — even re-selecting "All" counts, since that's an explicit
-  // "yes, show everything" action. Only the untouched initial load (which
-  // happens to also show "All" selected) excludes Resolved by default.
+  // Closed reports (Resolved/With Remarks) are hidden until the citizen
+  // actually picks a filter themselves — even re-selecting "All" counts,
+  // since that's an explicit "yes, show everything" action. Only the
+  // untouched initial load (which happens to also show "All" selected)
+  // excludes them by default.
   let filterTouched = false;
 
   // Default display order when more than one status is showing: Submitted,
-  // then Under Review, then In Action, with Resolved last — newest first
-  // within each status.
-  const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3 };
+  // then Under Review, then In Action, with Resolved/With Remarks last —
+  // newest first within each status.
+  const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3, "With Remarks": 3 };
+  const CLOSED_LABELS = ["Resolved", "With Remarks"];
 
   function getFiltered() {
     const filterValue = statusFilter.value;
     const rows = reports.filter((r) => {
       const label = REPORT_STATUS_LABELS[r.status] || r.status;
-      if (!filterTouched && filterValue === "All") return label !== "Resolved";
+      if (!filterTouched && filterValue === "All") return !CLOSED_LABELS.includes(label);
       return filterValue === "All" || label === filterValue;
     });
     return rows.slice().sort((a, b) => {

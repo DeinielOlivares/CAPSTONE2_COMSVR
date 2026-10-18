@@ -1,7 +1,18 @@
-// Barangay Platero OVRMS — Reports Management: search + filter (type/date/status) +
+// Barangay Platero OVRMS — Reports Management: search + filter (type/status) +
 // paginate across real reports from reports-data.js (GET /api/reports/staff/).
 // Reports is the Investigator's claimable work queue — see reports-data.js's
 // claimReport. Claims are permanent (no forfeiting), so claiming confirms first.
+// Split into subpages from the sidebar's Reports group (?view= — see
+// REPORT_VIEWS below): All Reports, Unclaimed Reports, My Claimed Reports.
+
+// Each subpage is this same page narrowed to a subset of reports. "mine"
+// is Investigator-only (hidden from the sidebar for anyone else, see
+// admin.js's STAFF_NAV_ACCESS) and falls back to "all" for other roles.
+const REPORT_VIEWS = {
+  all: { heading: "All Reports", filter: () => true },
+  unclaimed: { heading: "Unclaimed Reports", filter: (r) => !r.assignedInvestigatorId },
+  mine: { heading: "My Claimed Reports", filter: (r, user) => !!user && r.assignedInvestigatorId === user.id },
+};
 
 function escapeReportHtml(str) {
   const div = document.createElement("div");
@@ -15,17 +26,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   const searchForm = document.getElementById("reportSearchForm");
   const searchInput = document.getElementById("reportSearchInput");
   const typeFilter = document.getElementById("typeFilter");
-  const dateFrom = document.getElementById("dateFrom");
-  const dateTo = document.getElementById("dateTo");
-  // Reports can't be filtered into a future that hasn't happened yet.
-  const todayStr = new Date().toLocaleDateString("en-CA");
-  dateFrom.max = todayStr;
-  dateTo.max = todayStr;
-  const dateRangeClear = document.getElementById("dateRangeClear");
   const statusFilter = document.getElementById("statusFilter");
   const list = document.getElementById("reportsList");
   const pagination = document.getElementById("reportsPagination");
   const pageSizeSelect = document.getElementById("reportsPageSize");
+
+  const currentUser = getAdminUser();
+  const isInvestigator = !!currentUser && currentUser.position === "Investigator";
+  let viewKey = new URLSearchParams(window.location.search).get("view") || "all";
+  if (!REPORT_VIEWS[viewKey] || (viewKey === "mine" && !isInvestigator)) viewKey = "all";
+  const view = REPORT_VIEWS[viewKey];
+
+  document.getElementById("reportsHeading").textContent = view.heading;
+  document.title = `Barangay Platero OVRMS — ${view.heading}`;
+  // Highlight this subpage in the sidebar's Reports group.
+  const activeHref = viewKey === "all" ? "reports.html" : `reports.html?view=${viewKey}`;
+  document.querySelectorAll(".admin-sidebar__subnav a").forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === activeHref);
+  });
+  // A claimed report is past Submitted soon after, so My Claimed Reports
+  // shows every status by default rather than the page's usual Submitted —
+  // made the HTML default too, so the panel's Clear button resets to it.
+  if (viewKey === "mine") {
+    statusFilter.querySelectorAll("option").forEach((o) => {
+      o.selected = o.value === "all";
+      o.toggleAttribute("selected", o.value === "all");
+    });
+  }
 
   let page = 1;
   // Only re-filters on Search (or pressing Enter in the field), not on every
@@ -52,27 +79,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeFilter.appendChild(opt);
     });
 
-  const badgeClass = {
-    "New Submission": "status-badge--submitted",
-    "Under Review": "status-badge--in-process",
-    "In Action": "status-badge--with-remarks",
-    Resolved: "status-badge--resolved",
-  };
+  const badgeClass = REPORT_STATUS_BADGE_CLASS;
+
+  function viewReports() {
+    return liveReports().filter((r) => view.filter(r, currentUser));
+  }
 
   function getFiltered() {
-    let rows;
-    if (!dateFrom.value && !dateTo.value) {
-      // No check-in/check-out picked: no date restriction either — with the
-      // Status filter defaulting to "all" (see reports.html), that's just
-      // every report, ordered by the priority sort below.
-      rows = liveReports();
-    } else {
-      rows = liveReports().filter((r) => {
-        if (dateFrom.value && r.dateSubmitted < new Date(`${dateFrom.value}T00:00:00`)) return false;
-        if (dateTo.value && r.dateSubmitted > new Date(`${dateTo.value}T23:59:59`)) return false;
-        return true;
-      });
-    }
+    let rows = viewReports();
 
     if (typeFilter.value !== "all") {
       rows = rows.filter((r) => r.incidentType === typeFilter.value);
@@ -81,13 +95,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (statusFilter.value !== "all") {
       rows = rows.filter((r) => r.status === statusFilter.value);
     } else {
-      // "all": every status shows, but ranked so whatever isn't Resolved yet
-      // (New Submission/Under Review/In Action) comes ahead of Resolved
-      // reports, newest first within each group — so a backlog of old
-      // resolved reports doesn't bury what's still active.
+      // "all": every status shows, but ranked so whatever isn't closed yet
+      // (Submitted/Under Review/In Action) comes ahead of Resolved/With
+      // Remarks reports, newest first within each group — so a backlog of
+      // old closed reports doesn't bury what's still active.
       rows = rows.slice().sort((a, b) => {
-        const aResolved = a.status === "Resolved" ? 1 : 0;
-        const bResolved = b.status === "Resolved" ? 1 : 0;
+        const aResolved = isReportClosed(a.status) ? 1 : 0;
+        const bResolved = isReportClosed(b.status) ? 1 : 0;
         if (aResolved !== bResolved) return aResolved - bResolved;
         return b.dateSubmitted - a.dateSubmitted;
       });
@@ -112,11 +126,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 
-    const currentUser = getAdminUser();
     // Claiming is Investigator-only (same rule as report-detail.js and
     // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
     // page but only gets a read-only view of who's working what.
-    const isInvestigator = currentUser && currentUser.position === "Investigator";
 
     list.innerHTML = pageRows.length
       ? pageRows
@@ -144,7 +156,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>`;
           })
           .join("")
-      : `<div class="ordinances-empty">${liveReports().length ? "No reports match your search or filters." : "No reports submitted yet."}</div>`;
+      : `<div class="ordinances-empty">${viewReports().length ? "No reports match your search or filters." : "No reports here yet."}</div>`;
 
     list.querySelectorAll("[data-claim]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -173,24 +185,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     render();
   });
   typeFilter.addEventListener("change", () => {
-    page = 1;
-    render();
-  });
-  dateFrom.addEventListener("change", () => {
-    // Check-in can't land after check-out — keep the range sane instead of
-    // silently returning zero results.
-    if (dateTo.value && dateFrom.value > dateTo.value) dateTo.value = dateFrom.value;
-    page = 1;
-    render();
-  });
-  dateTo.addEventListener("change", () => {
-    if (dateFrom.value && dateTo.value < dateFrom.value) dateFrom.value = dateTo.value;
-    page = 1;
-    render();
-  });
-  dateRangeClear.addEventListener("click", () => {
-    dateFrom.value = "";
-    dateTo.value = "";
     page = 1;
     render();
   });
