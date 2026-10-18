@@ -11,7 +11,6 @@ caller shows the results as suggestions and staff review them before saving.
 """
 
 import re
-import threading
 
 # Below this many characters, page 1 is treated as a scan and OCR'd. Real
 # text-layer PDFs (a rare case among scanned ordinances) skip OCR entirely.
@@ -20,6 +19,11 @@ MIN_TEXT_LAYER_CHARS = 200
 # identical, but peak memory during OCR dropped from ~490MB to ~370MB — which
 # matters on a 512MB host.
 OCR_DPI = 110
+# The pixel count (and so OCR memory) follows the page's stated physical size,
+# not just the DPI — a scan saved with bogus page dimensions renders huge and
+# got the instance OOM-killed. Standard paper at OCR_DPI stays under this
+# (legal is ~935x1540), so only oversized pages get rendered at a lower DPI.
+MAX_OCR_SIDE_PX = 1700
 
 _MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
@@ -84,41 +88,100 @@ _CATEGORY_KEYWORDS = [
     ("Local Governance", ("creating", "committee", "creation", "institutionalizing", "organizing", "reorganization")),
 ]
 
-_ocr_engine = None
-_ocr_lock = threading.Lock()
-
-
-def _get_ocr_engine():
-    """Loads the OCR model once per process — it's ~1s to load and ~100MB, so never per request."""
-    global _ocr_engine
-    with _ocr_lock:
-        if _ocr_engine is None:
-            from rapidocr_onnxruntime import RapidOCR
-
-            _ocr_engine = RapidOCR()
-        return _ocr_engine
+# Under gunicorn's 120s worker timeout, so a stuck OCR fails this one request
+# instead of getting the whole worker killed. A normal page takes ~8s locally
+# and ~20s on Render.
+OCR_TIMEOUT_SECONDS = 90
 
 
 def read_first_page(pdf_bytes):
     """Returns the text of page 1, as one string with a line per text row."""
-    import numpy as np
     import pymupdf
 
     document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     try:
         if len(document) == 0:
             return ""
-        page = document[0]
-        text_layer = page.get_text().strip()
+        text_layer = document[0].get_text().strip()
         if len(text_layer) >= MIN_TEXT_LAYER_CHARS:
             return text_layer
-
-        pixmap = page.get_pixmap(dpi=OCR_DPI, colorspace=pymupdf.csRGB)
-        image = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(pixmap.height, pixmap.width, 3)
-        result, _ = _get_ocr_engine()(image)
-        return "\n".join(row[1] for row in (result or []))
     finally:
         document.close()
+    return _ocr_in_child_process(pdf_bytes)
+
+
+def _ocr_in_child_process(pdf_bytes):
+    """
+    OCR on page 1 peaks around 250-300MB, and the memory never goes back to the
+    OS afterwards — the web worker sat ~80MB higher after one run, and repeated
+    runs crept upward until a 512MB Render instance was OOM-killed (twice, on
+    an ordinary 11in scan). Running it in a throwaway process means the model,
+    the rendered page and all that scratch memory are handed back the moment
+    it exits; the web worker never loads the model at all. Costs ~1s per
+    request to reload the model.
+    """
+    import multiprocessing
+
+    # fork on Linux (Render): starts instantly and shares the worker's
+    # already-loaded pages instead of re-importing Django. Windows (local dev)
+    # only has spawn.
+    method = "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
+    context = multiprocessing.get_context(method)
+    receiver, sender = context.Pipe(duplex=False)
+    process = context.Process(target=_ocr_worker, args=(pdf_bytes, sender), daemon=True)
+    process.start()
+    sender.close()  # Only the child writes; closing ours lets recv() see EOF if it dies.
+    try:
+        if not receiver.poll(OCR_TIMEOUT_SECONDS):
+            raise TimeoutError(f"OCR took longer than {OCR_TIMEOUT_SECONDS}s")
+        try:
+            outcome, payload = receiver.recv()
+        except EOFError:
+            # Killed without sending anything — most likely the OOM killer,
+            # which _ocr_worker asks to pick it over the web worker.
+            process.join(5)
+            raise RuntimeError(f"OCR process died (exit code {process.exitcode})") from None
+        if outcome == "error":
+            raise RuntimeError(f"OCR failed: {payload}")
+        return payload
+    finally:
+        receiver.close()
+        if process.is_alive():
+            process.kill()
+        process.join(5)
+
+
+def _ocr_worker(pdf_bytes, sender):
+    """Runs in the child process: renders page 1, OCRs it, sends back ("ok", text) or ("error", message)."""
+    try:
+        # If memory still runs out, have the kernel kill this process rather
+        # than the web worker, so the site stays up and only the prefill fails.
+        # Linux-only; raising one's own score needs no privileges.
+        with open("/proc/self/oom_score_adj", "w") as f:
+            f.write("1000")
+    except OSError:
+        pass
+    try:
+        import numpy as np
+        import pymupdf
+        from rapidocr_onnxruntime import RapidOCR
+
+        document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            page = document[0]
+            longest_side_inches = max(page.rect.width, page.rect.height) / 72
+            # PyMuPDF only accepts a whole-number dpi.
+            dpi = min(OCR_DPI, int(MAX_OCR_SIDE_PX / longest_side_inches))
+            pixmap = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csRGB)
+        finally:
+            document.close()
+        image = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(pixmap.height, pixmap.width, 3)
+        result, _ = RapidOCR()(image)
+        sender.send(("ok", "\n".join(row[1] for row in (result or []))))
+    except Exception as exc:
+        sender.send(("error", repr(exc)))
+    finally:
+        sender.close()
 
 
 def _split_squished_words(line):
