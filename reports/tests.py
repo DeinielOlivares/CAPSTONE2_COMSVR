@@ -178,6 +178,19 @@ class ReportStatusClaimGateTests(APITestCase):
         self.report.refresh_from_db()
         self.assertNotEqual(self.report.status, Report.Status.RESOLVED)
 
+    def test_with_remarks_closes_the_report_and_emails_the_citizen(self):
+        self.client.force_authenticate(self.investigator)
+        self.client.post(f"{self.url}claim/")
+        mail.outbox.clear()
+        response = self._patch(status="with_remarks", remarks="No violation found on inspection.")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "with_remarks")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("With Remarks", mail.outbox[0].subject)
+        # Re-saving the same status doesn't email again.
+        self._patch(status="with_remarks")
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_admin_can_still_update_on_someones_behalf(self):
         self.report.assigned_investigator = self.other_investigator
         self.report.save()

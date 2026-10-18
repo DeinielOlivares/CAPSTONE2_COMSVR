@@ -1723,13 +1723,19 @@ label.geo-toggle {
   min-width: 0;
 }
 
+/* Sticks just below the (also sticky) navbar while the page scrolls, so the
+   tips stay in view instead of sliding up underneath it. --navbar-height is
+   the navbar's real height, kept current by main.js (it changes as the
+   navbar wraps); max-height keeps a long panel scrollable on short screens. */
 .info-panel {
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 26px 24px;
   position: sticky;
-  top: 24px;
+  top: calc(var(--navbar-height, 72px) + 16px);
+  max-height: calc(100vh - var(--navbar-height, 72px) - 32px);
+  overflow-y: auto;
 }
 
 .info-panel__title {
@@ -1765,6 +1771,12 @@ label.geo-toggle {
 @media (max-width: 900px) {
   .plain-page__layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column: the panel sits below the form, so it just scrolls with it. */
+  .info-panel {
+    position: static;
+    max-height: none;
   }
 }
 
@@ -2499,6 +2511,14 @@ label.geo-toggle {
   color: #7a6f1e;
 }
 
+/* With Remarks — blue (closed, with the Investigator's remarks). Not the
+   same as .status-badge--with-remarks above, which is In Action's color. */
+.status-badge--remarked {
+  background: #dbe7f6;
+  border: 1px solid #9db8de;
+  color: #2b4f80;
+}
+
 /* ---------- My Reports list ---------- */
 
 .reports-toolbar {
@@ -2701,6 +2721,11 @@ label.geo-toggle {
 
 .concern-detail__sidebar > .btn {
   margin-top: 0;
+}
+
+/* Download Report sits above Back to Reports — keep the two apart. */
+.concern-detail__sidebar > #downloadReportBtn {
+  margin-bottom: 10px;
 }
 
 .field input[disabled],

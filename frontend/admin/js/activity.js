@@ -17,12 +17,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function tally(citizens) {
-    const totals = { filed: 0, awaiting: 0, inProgress: 0, resolved: 0, suggestions: 0 };
+    const totals = { filed: 0, awaiting: 0, inProgress: 0, resolved: 0, withRemarks: 0, suggestions: 0 };
     citizens.forEach((c) => {
       totals.filed += (c.reportStats && c.reportStats.total) || 0;
       totals.awaiting += count(c.reportStats, "submitted");
       totals.inProgress += count(c.reportStats, "under_review") + count(c.reportStats, "in_action");
       totals.resolved += count(c.reportStats, "resolved");
+      totals.withRemarks += count(c.reportStats, "with_remarks");
       totals.suggestions += (c.suggestionStats && c.suggestionStats.total) || 0;
     });
     return totals;
@@ -39,6 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ["Awaiting review", totals.awaiting],
       ["In progress", totals.inProgress],
       ["Resolved", totals.resolved],
+      ["With Remarks", totals.withRemarks],
       ["Suggestions", totals.suggestions],
     ]
       .map(([label, value]) => `<div class="activity-total"><span class="activity-total__value">${value}</span><span class="activity-total__label">${label}</span></div>`)
@@ -57,12 +59,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             <td>${count(c.reportStats, "submitted")}</td>
             <td>${count(c.reportStats, "under_review") + count(c.reportStats, "in_action")}</td>
             <td>${count(c.reportStats, "resolved")}</td>
+            <td>${count(c.reportStats, "with_remarks")}</td>
             <td>${(c.suggestionStats && c.suggestionStats.total) || 0}</td>
           </tr>`
           )
           .join("")
-      : `<tr><td colspan="6" class="admin-table__empty">No citizen accounts yet.</td></tr>`;
+      : `<tr><td colspan="7" class="admin-table__empty">No citizen accounts yet.</td></tr>`;
   } catch (err) {
-    bodyEl.innerHTML = `<tr><td colspan="6" class="admin-table__empty">${escape(err.message)}</td></tr>`;
+    bodyEl.innerHTML = `<tr><td colspan="7" class="admin-table__empty">${escape(err.message)}</td></tr>`;
   }
 });

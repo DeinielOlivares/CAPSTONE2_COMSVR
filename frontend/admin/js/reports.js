@@ -11,6 +11,7 @@ const REPORT_STATUS_LABEL = {
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 
 const REPORT_STATUS_BADGE_CLASS = {
@@ -18,10 +19,14 @@ const REPORT_STATUS_BADGE_CLASS = {
   under_review: "status-badge--in-process",
   in_action: "status-badge--with-remarks",
   resolved: "status-badge--resolved",
+  with_remarks: "status-badge--remarked",
 };
 
+// Resolved and With Remarks both close a report.
+const CLOSED_REPORT_STATUSES = ["resolved", "with_remarks"];
+
 // The 3 "currently being worked" statuses shown in the workload bars —
-// Resolved is deliberately excluded (see WORKLOAD_STATUSES's own comment).
+// Resolved/With Remarks are deliberately excluded (see WORKLOAD_STATUSES's own comment).
 // Same colors as the Staff Portal's Reports Dashboard "Reports by Status"
 // bar chart (.status-bar-chart__bar--new/--process/--remarks), for the same
 // statuses to always mean the same color everywhere in the app.
@@ -91,7 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     workloadEl.innerHTML = sortedInvestigators
       .map((inv) => {
-        const current = allReports.filter((r) => r.assignedInvestigatorId === inv.id && r.status !== "resolved");
+        const current = allReports.filter((r) => r.assignedInvestigatorId === inv.id && !CLOSED_REPORT_STATUSES.includes(r.status));
         const total = current.length;
 
         if (!total) {

@@ -7,14 +7,15 @@
 // Built only from what a report already records (where, which ordinance,
 // its status, who filed it). It can't say whether a resolved report ended
 // in a confirmed violation — Report has no outcome field — so "resolved"
-// here means the report reached its final stage, nothing more.
+// here means the report reached its final stage (Resolved or With
+// Remarks), nothing more.
 //
 // createGeoAnalysis is the full panel on the Geospatial Analysis page
 // (geo-analysis-page.js); renderGeoSummary is the short version beside the
 // heatmap on the Reports Dashboard. Depends on heatmap.js (streetOf).
 
 const GEO_OPEN_STATUSES = ["New Submission", "Under Review", "In Action"];
-const GEO_STATUS_ORDER = ["New Submission", "Under Review", "In Action", "Resolved"];
+const GEO_STATUS_ORDER = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
 const GEO_ORDINANCE_ROWS = 6;
 
 // Quotes too, not just what innerHTML escapes — street and ordinance text
@@ -61,7 +62,7 @@ function geoUniqueReporters(reports) {
 }
 
 function geoResolvedCount(reports) {
-  return reports.filter((r) => r.status === "Resolved").length;
+  return reports.filter((r) => isReportClosed(r.status)).length;
 }
 
 // <li> rows of "label | bar | 12.5% (3)". With clickAttr (a data-* name)
@@ -135,7 +136,7 @@ function createGeoAnalysis(el, opts = {}) {
       <div class="geo-tiles">
         ${tile("Reports filed", total, filedNote)}
         ${tile("Citizens who reported", reporters, reporterNote)}
-        ${tile("Resolved", resolved, `<b>${geoPct(resolved, total)}</b> of reports filed`)}
+        ${tile("Resolved/With Remarks", resolved, `<b>${geoPct(resolved, total)}</b> of reports filed`)}
         ${tile("Still open", open, `<b>${geoPct(open, total)}</b> of reports filed`)}
       </div>`;
   }
@@ -173,7 +174,7 @@ function createGeoAnalysis(el, opts = {}) {
 
     const resolved = geoResolvedCount(reports);
     findings.push(
-      `<b>${geoPct(resolved, total)}</b> (${resolved} of ${total}) of reports are resolved; <b>${geoPct(total - resolved, total)}</b> (${total - resolved}) are still open.`
+      `<b>${geoPct(resolved, total)}</b> (${resolved} of ${total}) of reports are Resolved/With Remarks; <b>${geoPct(total - resolved, total)}</b> (${total - resolved}) are still open.`
     );
 
     const perReporter = geoCountBy(reports, (r) => r.reporterId || r.reporter);
@@ -207,7 +208,7 @@ function createGeoAnalysis(el, opts = {}) {
         <div class="geo-tiles">
           ${tile("Reports here", total, `<b>${geoPct(total, reports.length)}</b> of all ${geoPlural(reports.length, "report")}`)}
           ${tile("Reporters", reporters, `<b>${geoPct(reporters, allReporters)}</b> of all ${geoPlural(allReporters, "reporter")}`)}
-          ${tile("Resolved here", resolved, `<b>${geoPct(resolved, total)}</b> of this street's reports`)}
+          ${tile("Resolved/With Remarks here", resolved, `<b>${geoPct(resolved, total)}</b> of this street's reports`)}
           ${tile("Still open here", total - resolved, `<b>${geoPct(total - resolved, total)}</b> of this street's reports`)}
         </div>
         <h4>Ordinances reported here <small>% of this street's reports</small></h4>
@@ -242,7 +243,7 @@ function createGeoAnalysis(el, opts = {}) {
               <tr>
                 ${header("street", "Street")}
                 ${header("reports", "Reports")}
-                ${header("resolved", "Resolved")}
+                ${header("resolved", "Resolved/With Remarks")}
                 <th>Top ordinance</th>
               </tr>
             </thead>
@@ -261,7 +262,7 @@ function createGeoAnalysis(el, opts = {}) {
             </tbody>
           </table>
         </div>
-        <p class="geo-note">Reports: share of all reports shown. Resolved and Top ordinance: share of that street's own reports.</p>
+        <p class="geo-note">Reports: share of all reports shown. Resolved/With Remarks and Top ordinance: share of that street's own reports.</p>
       </section>`;
   }
 
@@ -375,7 +376,7 @@ function renderGeoSummary(el, { reports, registeredCitizens, href }) {
       </div>
       <div>
         <dt>Resolution rate</dt>
-        <dd><span><b>${geoPct(resolved, total)}</b> (${resolved} of ${total} resolved)</span></dd>
+        <dd><span><b>${geoPct(resolved, total)}</b> (${resolved} of ${total} Resolved/With Remarks)</span></dd>
       </div>
       <div>
         <dt>Citizens who reported</dt>

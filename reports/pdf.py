@@ -1,12 +1,14 @@
 """
-Barangay Platero OVRMS — builds the "Download PDF" an Investigator (or any
-Staff/Admin) gets from a Resolved report's detail page (see
-StaffReportPdfView in reports/views.py), and the combined, multi-report PDF
-the Reports page's bulk download button gets instead (see
-StaffReportBulkPdfView) — whatever reports currently match its filters,
-computed client-side (reports-list.js's getFiltered()) and posted here as a
-list of ids. Only ever called on report(s) already Resolved — the views
-enforce that before either of these run.
+Barangay Platero OVRMS — PDF builders. build_dashboard_pdf (further down)
+backs the Captain's Reports Dashboard "Download Summary (PDF)" (see
+StaffReportDashboardPdfView in reports/views.py).
+
+build_report_pdf/build_reports_pdf are currently unused: their endpoints
+(a single Resolved report's "Download PDF", open to every Staff role, and
+the Reports page's bulk "Download Resolved Reports (PDF)") were removed in
+favor of the per-report Download Report image that only the citizen and
+the Investigator get (frontend/citizen/js/report-form-download.js). Kept so
+switching that download over to PDF later is just a matter of a view.
 
 Each report is meant to fit on one page, whether it's the only one in the
 PDF or one of several (separated by a page break). reportlab's flowable
@@ -410,6 +412,7 @@ def _dashboard_stats_rows(payload_stats):
         ("process", "Under Review"),
         ("remarks", "In Action"),
         ("resolved", "Resolved"),
+        ("withRemarks", "With Remarks"),
     ]
     rows = []
     for key, label in labels:
@@ -470,6 +473,7 @@ def build_dashboard_pdf(payload):
                 ("process", "Under Review"),
                 ("remarks", "In Action"),
                 ("resolved", "Resolved"),
+                ("withRemarks", "With Remarks"),
             ]
         ]
         if status_stats.get("total")

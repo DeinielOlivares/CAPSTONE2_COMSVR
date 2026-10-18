@@ -1,7 +1,20 @@
-// Barangay Platero OVRMS — Reports Management: search + filter (ordinance/status) +
+// Barangay Platero OVRMS — Reports Management: search + filter (type/status) +
 // paginate across real reports from reports-data.js (GET /api/reports/staff/).
 // Reports is the Investigator's claimable work queue — see reports-data.js's
 // claimReport. Claims are permanent (no forfeiting), so claiming confirms first.
+// Split into subpages from the sidebar's Reports group (?view= — see
+// REPORT_VIEWS below): All Reports, Unclaimed Reports, My Claimed Reports.
+
+// Each subpage is this same page showing some of its three lists (Claimed
+// by Me / Unclaimed / Claimed by Others). "mine" is Investigator-only
+// (hidden from the sidebar for anyone else, see admin.js's
+// STAFF_NAV_ACCESS) and falls back to "all" for other roles. `paginated` is
+// the list the page's pagination bar pages through.
+const REPORT_VIEWS = {
+  all: { heading: "All Reports", groups: ["mine", "unclaimed", "others"], paginated: "unclaimed" },
+  unclaimed: { heading: "Unclaimed Reports", groups: ["unclaimed"], paginated: "unclaimed" },
+  mine: { heading: "My Claimed Reports", groups: ["mine"], paginated: "mine" },
+};
 
 function escapeReportHtml(str) {
   const div = document.createElement("div");
@@ -20,9 +33,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   const listUnclaimed = document.getElementById("reportsListUnclaimed");
   const listOthers = document.getElementById("reportsListOthers");
   const groupMine = document.getElementById("reportsGroupMine");
+  const groupUnclaimed = document.getElementById("reportsGroupUnclaimed");
+  const groupOthers = document.getElementById("reportsGroupOthers");
   const groupOthersTitle = document.getElementById("reportsGroupOthersTitle");
   const pagination = document.getElementById("reportsPagination");
   const pageSizeSelect = document.getElementById("reportsPageSize");
+
+  const currentUser = getAdminUser();
+  // Claiming is Investigator-only (same rule as report-detail.js and
+  // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
+  // page but only gets a read-only view of who's working what.
+  const isInvestigator = !!currentUser && currentUser.position === "Investigator";
+  let viewKey = new URLSearchParams(window.location.search).get("view") || "all";
+  if (!REPORT_VIEWS[viewKey] || (viewKey === "mine" && !isInvestigator)) viewKey = "all";
+  const view = REPORT_VIEWS[viewKey];
+
+  document.getElementById("reportsHeading").textContent = view.heading;
+  document.title = `Barangay Platero OVRMS — ${view.heading}`;
+  // Highlight this subpage in the sidebar's Reports group.
+  const activeHref = viewKey === "all" ? "reports.html" : `reports.html?view=${viewKey}`;
+  document.querySelectorAll(".admin-sidebar__subnav a").forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === activeHref);
+  });
+
+  const showMine = isInvestigator && view.groups.includes("mine");
+  groupMine.hidden = !showMine;
+  groupUnclaimed.hidden = !view.groups.includes("unclaimed");
+  groupOthers.hidden = !view.groups.includes("others");
 
   let page = 1;
   // Only re-filters on Search (or pressing Enter in the field), not on every
@@ -36,9 +73,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();
   } catch (err) {
-    listUnclaimed.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
-    listMine.innerHTML = "";
-    listOthers.innerHTML = "";
+    const target = showMine && !view.groups.includes("unclaimed") ? listMine : listUnclaimed;
+    [listMine, listUnclaimed, listOthers].forEach((list) => (list.innerHTML = ""));
+    target.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
     return;
   }
 
@@ -56,8 +93,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Filters, search, page size and page survive opening a report and coming
   // back, or visiting other pages, for the rest of this browser tab.
   // sessionStorage (not localStorage) so they reset with a fresh tab; keyed
-  // per user so someone else signing in on the same tab starts clean.
-  const filtersKey = `orms_reports_filters_${getAdminUser()?.id ?? "anon"}`;
+  // per user and subpage so someone else signing in on the same tab starts
+  // clean, and each subpage keeps its own.
+  const filtersKey = `orms_reports_filters_${currentUser?.id ?? "anon"}_${viewKey}`;
 
   function saveFilters() {
     try {
@@ -96,12 +134,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   restoreFilters();
 
-  const badgeClass = {
-    "New Submission": "status-badge--submitted",
-    "Under Review": "status-badge--in-process",
-    "In Action": "status-badge--with-remarks",
-    Resolved: "status-badge--resolved",
-  };
+  const badgeClass = REPORT_STATUS_BADGE_CLASS;
 
   function getFiltered() {
     let rows = liveReports();
@@ -114,8 +147,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       rows = rows.filter((r) => r.status === statusFilter.value);
     } else {
       // "all": every status shows, ranked New Submission > Under Review >
-      // In Action > Resolved, newest first within each group — so a backlog
-      // of old resolved reports doesn't bury what's still active.
+      // In Action > Resolved/With Remarks, newest first within each group —
+      // so a backlog of old closed reports doesn't bury what's still active.
       rows = sortReportsByStatusThenDate(rows);
     }
 
@@ -138,7 +171,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <span class="concern-row__title">${r.incidentType}</span>
             <span class="concern-row__date">${formatReportDate(r.dateSubmitted)}</span>
             <a class="concern-row__link" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>
-            <span class="status-badge ${badgeClass[r.status]}">${r.status}</span>
+            <span class="status-badge ${badgeClass[r.status] || ""}">${r.status}</span>
           </div>
           <div class="report-row__claim">
             <span>${claimLabel}</span>
@@ -169,62 +202,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function paginate(rows) {
+    const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+    page = Math.min(page, totalPages);
+    const start = pageSize ? (page - 1) * pageSize : 0;
+    return { totalPages, pageRows: pageSize ? rows.slice(start, start + pageSize) : rows };
+  }
+
   function render() {
     const rows = getFiltered();
-    const currentUser = getAdminUser();
-    // Claiming is Investigator-only (same rule as report-detail.js and
-    // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
-    // page but only gets a read-only view of who's working what.
-    const isInvestigator = currentUser && currentUser.position === "Investigator";
 
     // Three lists inside one card — the investigator's own claimed work,
     // then the unclaimed queue, then other investigators' claims — so their
     // own work doesn't get lost among everyone else's.
-    const mine = [];
-    const unclaimed = [];
-    const others = [];
+    const groups = { mine: [], unclaimed: [], others: [] };
     rows.forEach((r) => {
-      if (!r.assignedInvestigatorId) unclaimed.push(r);
-      else if (currentUser && r.assignedInvestigatorId === currentUser.id) mine.push(r);
-      else others.push(r);
+      if (!r.assignedInvestigatorId) groups.unclaimed.push(r);
+      else if (currentUser && r.assignedInvestigatorId === currentUser.id) groups.mine.push(r);
+      else groups.others.push(r);
     });
 
-    groupMine.hidden = !isInvestigator;
+    // Only this subpage's main list is paginated (the Unclaimed queue on
+    // All Reports) — it's the one that can grow into an actual queue;
+    // claimed work shown alongside it is naturally bounded per person.
+    const { totalPages, pageRows } = paginate(groups[view.paginated]);
+    const shown = (key) => (key === view.paginated ? pageRows : groups[key]);
+
     groupOthersTitle.textContent = isInvestigator ? "Claimed by Other Investigators" : "Claimed Reports";
 
-    if (isInvestigator) {
-      renderGroup(listMine, mine, "You haven't claimed any reports yet.", (r) =>
+    if (showMine) {
+      renderGroup(listMine, shown("mine"), "You haven't claimed any reports that match.", (r) =>
         reportRow(r, { claimLabel: "Claimed by you", claimAction: "" })
       );
     }
 
-    // Only the Unclaimed list is paginated — it's the one that can grow
-    // into an actual queue; claimed work is naturally bounded per person.
-    const totalPages = pageSize ? Math.max(1, Math.ceil(unclaimed.length / pageSize)) : 1;
-    page = Math.min(page, totalPages);
-    const start = pageSize ? (page - 1) * pageSize : 0;
-    const pageRows = pageSize ? unclaimed.slice(start, start + pageSize) : unclaimed;
+    if (!groupUnclaimed.hidden) {
+      renderGroup(
+        listUnclaimed,
+        shown("unclaimed"),
+        liveReports().length ? "No unclaimed reports match your search or filters." : "No reports submitted yet.",
+        (r) =>
+          reportRow(r, {
+            claimLabel: "Unclaimed",
+            claimAction: isInvestigator
+              ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
+              : "",
+          })
+      );
+      wireClaimButtons(listUnclaimed);
+    }
 
-    renderGroup(
-      listUnclaimed,
-      pageRows,
-      liveReports().length ? "No unclaimed reports match your search or filters." : "No reports submitted yet.",
-      (r) =>
-        reportRow(r, {
-          claimLabel: "Unclaimed",
-          claimAction: isInvestigator
-            ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
-            : "",
-        })
-    );
-    wireClaimButtons(listUnclaimed);
-
-    renderGroup(
-      listOthers,
-      others,
-      isInvestigator ? "No reports claimed by other investigators." : "No claimed reports.",
-      (r) => reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" })
-    );
+    if (!groupOthers.hidden) {
+      renderGroup(
+        listOthers,
+        shown("others"),
+        isInvestigator ? "No reports claimed by other investigators." : "No claimed reports.",
+        (r) => reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" })
+      );
+    }
 
     renderPaginationControls(pagination, page, totalPages, (n) => {
       page = n;
@@ -259,49 +294,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
-
-  // Bundles whatever the current filters/search match into one combined PDF
-  // (see reports/pdf.py's build_reports_pdf) — only the Resolved ones among
-  // them actually make it in (no "final verdict" yet otherwise), which is
-  // exactly what the button's own label says, so there's no need for a
-  // separate warning when some get left out.
-  const downloadResolvedBtn = document.getElementById("downloadResolvedBtn");
-  if (downloadResolvedBtn) {
-    downloadResolvedBtn.addEventListener("click", async () => {
-      const ids = getFiltered().map((r) => r.id);
-      if (!ids.length) {
-        siteAlert("No reports match the current filters.");
-        return;
-      }
-      downloadResolvedBtn.disabled = true;
-      downloadResolvedBtn.textContent = "Preparing...";
-      try {
-        const response = await authFetch("/api/reports/staff/pdf-bulk/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids }),
-        });
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not download the PDF.");
-        }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filenameFromResponse(response, "resolved-reports.pdf");
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        siteAlert(err.message);
-      } finally {
-        downloadResolvedBtn.disabled = false;
-        downloadResolvedBtn.textContent = "Download Resolved Reports (PDF)";
-      }
-    });
-  }
 
   render();
 });

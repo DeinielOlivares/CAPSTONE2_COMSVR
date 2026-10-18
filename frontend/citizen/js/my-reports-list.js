@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "Under Review": "status-badge--in-process",
     "In Action": "status-badge--with-remarks",
     Resolved: "status-badge--resolved",
+    "With Remarks": "status-badge--remarked",
   };
 
   function formatDate(iso) {
@@ -33,11 +34,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   let page = 1;
 
   // Default display order when more than one status is showing: Submitted,
-  // then Under Review, then In Action, with Resolved last — newest first
-  // within each status. "All" really means all: Resolved used to be hidden
-  // until the filter was touched, which left a citizen whose reports were
-  // all resolved looking at "No reports match this status." under "All".
-  const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3 };
+  // then Under Review, then In Action, with Resolved/With Remarks last —
+  // newest first within each status. "All" really means all: Resolved used
+  // to be hidden until the filter was touched, which left a citizen whose
+  // reports were all resolved looking at "No reports match this status."
+  // under "All".
+  const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3, "With Remarks": 3 };
 
   function getFiltered() {
     const filterValue = statusFilter.value;

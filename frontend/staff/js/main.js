@@ -178,6 +178,7 @@ const REPORT_STATUS_LABELS_FOR_NOTIF = {
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
+  with_remarks: "With Remarks",
 };
 const CONCERN_STATUS_LABELS_FOR_NOTIF = { submitted: "Submitted", reviewed: "Reviewed" };
 
@@ -1078,15 +1079,21 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // The login form hits the real API instead of just navigating.
-      // (Note: "Email or Phone" field currently requires an email — phone
-      // login isn't implemented on the backend yet.)
+      // The login form hits the real API instead of just navigating. Login
+      // is by email only — anything that isn't an email address (e.g. a
+      // phone number) gets the same "Incorrect email or password." a wrong
+      // password does, without a trip to the server.
       if (form.dataset.login !== undefined) {
         const submitBtn = form.querySelector('button[type="submit"]');
-        const emailField = form.querySelector('[name="emailOrPhone"]');
+        const emailField = form.querySelector('[name="email"]');
         const passwordField = form.querySelector('[name="password"]');
         const rememberField = form.querySelector('[name="rememberMe"]');
         clearFormError(form);
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailField.value.trim())) {
+          showFormError(form, "Incorrect email or password.");
+          return;
+        }
 
         submitBtn.disabled = true;
         submitBtn.textContent = "Logging in...";

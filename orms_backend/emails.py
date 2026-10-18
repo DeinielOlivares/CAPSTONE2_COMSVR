@@ -9,7 +9,7 @@ below:
     - their account is approved
     - their report is submitted (a confirmation)
     - their suggestion is submitted (a confirmation)
-    - their report reaches a final verdict (Resolved — remarks included if any)
+    - their report is closed as Resolved or With Remarks (remarks included if any)
     - their report is unclaimed and then claimed by a different investigator
     - their account is rejected (with the admin's reason, and another chance
       to sign up again with the same email)
@@ -136,12 +136,12 @@ def send_suggestion_submitted_citizen_email(concern):
 
 
 def send_report_resolved_email(report):
-    # Final Verdict, in status-timeline terms — the last of the 4 stages.
-    # Includes remarks in the body when there are any, rather than a
+    # Resolved/With Remarks, in status-timeline terms — the last of the 4
+    # stages. Includes remarks in the body when there are any, rather than a
     # separate email.
     send_templated_email(
         to=report.citizen.email,
-        subject="Barangay Platero OVRMS — Your report has reached a final verdict",
+        subject=f"Barangay Platero OVRMS — Your report has been marked {report.get_status_display()}",
         template_name="report_resolved",
         context={"report": report},
     )

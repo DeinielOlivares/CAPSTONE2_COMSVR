@@ -4,15 +4,15 @@ const REPORT_TIMELINE_STEPS = [
   { label: "Submitted", description: "Your report has been submitted successfully." },
   { label: "Under Review", description: "Your report is being reviewed." },
   { label: "In Action", description: "Appropriate actions are being taken." },
-  { label: "Resolved", description: "Your report is finished and closed." },
+  { label: "Resolved/With Remarks", description: "Your report is finished and closed." },
 ];
 
 // How many of the 4 steps count as "done" for a given backend status. There's
 // no per-stage history yet (just one status field), so anything past step 1
 // is dated with updated_at as the best available approximation of when that
-// stage was reached, rather than a fabricated date. Statuses mirror the 4
-// stages above exactly, so this is just each status's position.
-const REPORT_COMPLETED_STEPS = { submitted: 1, under_review: 2, in_action: 3, resolved: 4 };
+// stage was reached, rather than a fabricated date. Resolved and With Remarks
+// both complete the last stage.
+const REPORT_COMPLETED_STEPS = { submitted: 1, under_review: 2, in_action: 3, resolved: 4, with_remarks: 4 };
 
 function formatTime12h(hhmm) {
   if (!hhmm) return "Not specified";
@@ -111,6 +111,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("remarksCard").hidden = false;
     document.getElementById("remarksText").textContent = report.remarks;
   }
+
+  const downloadBtn = document.getElementById("downloadReportBtn");
+  downloadBtn.hidden = false;
+  downloadBtn.addEventListener("click", async () => {
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = "Preparing download...";
+    try {
+      await downloadReportForm({
+        id: report.id,
+        reporter: report.reporter,
+        contactNumber: report.contact_number,
+        location: report.location,
+        ordinance: report.ordinance,
+        incidentDate: report.incident_date,
+        incidentTime: report.incident_time,
+        natureOfViolation: report.nature_of_violation,
+        status: REPORT_STATUS_LABELS[report.status] || report.status,
+        remarks: report.remarks,
+        investigator: report.claimed_by,
+        dateFiled: new Date(report.created_at),
+        attachments: report.attachments,
+      });
+    } catch (err) {
+      siteAlert(err.message || "Could not download this report.");
+    } finally {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = "Download Report";
+    }
+  });
 
   document.getElementById("investigatorClaimedBy").textContent = report.claimed_by
     ? `Claimed by ${report.claimed_by}`
