@@ -439,9 +439,9 @@ def build_dashboard_pdf(payload):
     styles = _dashboard_styles()
     generated = timezone.localtime(timezone.now()).strftime("%B %d, %Y, %I:%M %p")
     story = [
-        Paragraph("Barangay Platero OVRMS", styles["meta"]),
+        Paragraph(f"Generated {generated}", styles["meta"]),
         Paragraph("Reports Summary &amp; Analytics", styles["title"]),
-        Paragraph(f"Generated {generated} · Period: {payload.get('top_period_label') or '—'}", styles["meta"]),
+        Paragraph(f"Period: {escape(payload.get('top_period_label') or '—')}", styles["meta"]),
     ]
 
     _dashboard_section(
