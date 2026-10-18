@@ -171,7 +171,7 @@ async function claimReport(id) {
 // one — see StaffReportForfeitView), so both Claim buttons (reports-list.js,
 // report-detail.js) confirm first with this message.
 const CLAIM_CONFIRM_MESSAGE =
-  "Claim this report? Once claimed, it's assigned to you and can't be forfeited or handed to another Investigator.";
+  "Claim this report?";
 
 // ---- Date/period helpers — kept from the old mock generator, since
 // filtering real created_at timestamps by week/month is still legitimate,
