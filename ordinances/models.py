@@ -39,7 +39,9 @@ class Ordinance(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     number = models.CharField(max_length=100)
-    title = models.CharField(max_length=255)
+    # TextField, not CharField(255): real titles run long — City Ordinance No.
+    # 05-(2016)'s is ~300 characters — and the upload form is a textarea.
+    title = models.TextField()
     # Free text, typed directly on Upload/Edit Ordinance — not a ForeignKey to
     # OrdinanceAuthor. The roster (see that model) only powers autocomplete
     # suggestions there; ordinances from outside the barangay/city council, a
