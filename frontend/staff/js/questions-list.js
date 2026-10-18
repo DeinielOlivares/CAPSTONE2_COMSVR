@@ -23,8 +23,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pageSizeSelect = document.getElementById("questionsPageSize");
   if (!list) return;
 
+  const memory = createFilterMemory("questions");
+  memory.bindSelect(statusFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
   let questions = [];
-  let page = 1;
+  let page = memory.get("page", 1);
 
   function getFiltered() {
     const filterValue = statusFilter ? statusFilter.value : "all";
@@ -39,6 +44,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filtered = getFiltered();
     const totalPages = pageSize ? Math.max(1, Math.ceil(filtered.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const rows = pageSize ? filtered.slice(start, start + pageSize) : filtered;
 

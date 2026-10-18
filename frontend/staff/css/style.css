@@ -1535,6 +1535,8 @@ button {
 .upload-drop--compact {
   max-width: 260px;
   padding: 20px 14px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .upload-drop__formats {
@@ -2000,6 +2002,20 @@ button {
 
 .concern-row:last-child {
   border-bottom: none;
+}
+
+.concern-row--with-category {
+  grid-template-columns: 1.6fr 1fr 1fr 0.8fr 0.9fr;
+}
+
+.concern-row__category {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.concern-row__category--none {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .concern-row__title {
@@ -2758,7 +2774,8 @@ button {
     margin-top: 8px;
   }
 
-  .concern-row {
+  .concern-row,
+  .concern-row--with-category {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -4714,6 +4731,10 @@ button {
   margin-top: 4px;
 }
 
+.geo-findings__label {
+  color: var(--text-muted);
+}
+
 .geo-rows {
   list-style: none;
   margin: 0;
@@ -4838,12 +4859,6 @@ button {
 
 .geo-sort.is-active {
   color: var(--navy);
-}
-
-.geo-note {
-  margin: 6px 0 0;
-  font-size: 0.74rem;
-  color: var(--text-muted);
 }
 
 
@@ -4996,6 +5011,12 @@ button {
   font-weight: 700;
   font-size: 0.9rem;
   color: var(--text);
+}
+
+.status-edit-hint {
+  margin: -10px 0 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .status-edit-row .status-pill,
@@ -5750,6 +5771,11 @@ button {
 /* ---------- Announcement picture picker (New Announcement) ---------- */
 .announcement-picture {
   margin-bottom: 18px;
+  text-align: center;
+}
+
+.announcement-picture .announcement-picture__file {
+  text-align: left;
 }
 
 .announcement-picture .field-hint {

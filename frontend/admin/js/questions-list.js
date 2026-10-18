@@ -22,8 +22,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pagination = document.getElementById("questionsPagination");
   const pageSizeSelect = document.getElementById("questionsPageSize");
 
+  const memory = createFilterMemory("admin_questions");
+  memory.bindSelect(statusFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
   let questions = [];
-  let page = 1;
+  let page = memory.get("page", 1);
 
   // ---- Citizen questions ----
 
@@ -38,6 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const totalPages = pageSize ? Math.max(1, Math.ceil(filtered.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const rows = pageSize ? filtered.slice(start, start + pageSize) : filtered;
 

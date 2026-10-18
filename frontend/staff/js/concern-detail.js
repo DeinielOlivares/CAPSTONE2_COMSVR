@@ -1,7 +1,6 @@
-// Barangay Platero OVRMS — Concern/Suggestion detail: view real info and let staff change
-// its status (Submitted/Reviewed) and leave remarks. Saves go through
-// updateConcernStatus (PATCH /api/concerns/staff/<id>/) instead of the old
-// localStorage-only folder-assignment mock.
+// Barangay Platero OVRMS — Concern/Suggestion detail: view real info, leave remarks and
+// assign a category (PATCH /api/concerns/staff/<id>/). Status isn't edited
+// here: the server marks it Reviewed once it's categorized or given remarks.
 
 const CONCERN_EVIDENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
 
@@ -77,12 +76,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>
     </div>`;
 
-  const STATUSES_ORDERED = ["Submitted", "Reviewed"];
   const STATUS_PILL_CLASS = { Submitted: "status-pill--new", Reviewed: "status-pill--resolved" };
 
   const statusPill = document.getElementById("statusPill");
-  const statusSelect = document.getElementById("statusSelect");
-  const statusEditBtn = document.getElementById("statusEditBtn");
+  const statusAutoHint = document.getElementById("statusAutoHint");
   const remarksInput = document.getElementById("remarksInput");
   const saveBtn = document.getElementById("saveChangesBtn");
   const backBtn = document.getElementById("backToConcernsBtn");
@@ -100,26 +97,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   // from their read-only dashboard just sees it, no editing.
   const currentUser = getAdminUser();
   const isSecretary = currentUser && currentUser.position === "Secretary";
-  if (!isSecretary) {
-    statusEditBtn.hidden = true;
-    saveBtn.hidden = true;
-  }
+  if (!isSecretary) saveBtn.hidden = true;
 
-  STATUSES_ORDERED.forEach((s) => statusSelect.append(new Option(s, s)));
-
-  let currentStatus = concern.status;
   remarksInput.value = concern.remarks || "";
   remarksInput.disabled = !isSecretary;
 
-  let savedStatus = currentStatus;
   let savedRemarks = remarksInput.value.trim();
 
   function applyPill(status) {
     statusPill.className = `status-pill ${STATUS_PILL_CLASS[status] || "status-pill--new"}`;
     statusPill.textContent = status;
+    statusAutoHint.hidden = !isSecretary || status !== "Submitted";
   }
 
-  applyPill(currentStatus);
+  applyPill(concern.status);
 
   // ---- Folder assignment — saves immediately on Assign/Remove, independent
   // of the Status/Remarks Save Changes flow below. ----
@@ -195,9 +186,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      await assignConcernFolder(concern.id, folderId);
+      const updated = await assignConcernFolder(concern.id, folderId);
       concern.folderId = folderId;
       concern.folderName = folderName;
+      concern.status = updated.status;
+      applyPill(concern.status);
       renderFolderAssignment();
       assignFolderModal.hidden = true;
     } catch (err) {
@@ -207,35 +200,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  statusEditBtn.addEventListener("click", () => {
-    statusSelect.value = currentStatus;
-    statusPill.hidden = true;
-    statusSelect.hidden = false;
-  });
-
-  function pendingStatus() {
-    return statusSelect.hidden ? currentStatus : statusSelect.value;
-  }
-
   function isDirty() {
-    return pendingStatus() !== savedStatus || remarksInput.value.trim() !== savedRemarks;
+    return remarksInput.value.trim() !== savedRemarks;
   }
 
   async function commitSave() {
-    const nextStatus = pendingStatus();
-    const patch = { status: nextStatus, remarks: remarksInput.value.trim() };
+    const patch = { remarks: remarksInput.value.trim() };
 
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving...";
     try {
-      await updateConcernStatus(concern.id, patch);
-      currentStatus = nextStatus;
-      savedStatus = currentStatus;
+      const updated = await updateConcernStatus(concern.id, patch);
       savedRemarks = patch.remarks;
-
-      applyPill(currentStatus);
-      statusPill.hidden = false;
-      statusSelect.hidden = true;
+      concern.status = updated.status;
+      applyPill(concern.status);
       return true;
     } catch (err) {
       siteAlert(err.message);
@@ -253,8 +231,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
+  // Back to the page this was opened from (Concerns/Suggestions, the
+  // dashboard, Notifications...); opened directly, Concerns/Suggestions.
   function goToConcerns() {
-    window.location.href = "concerns.html";
+    let target = "concerns.html";
+    try {
+      const from = new URL(document.referrer);
+      if (
+        from.origin === window.location.origin &&
+        from.pathname.includes("/staff/") &&
+        !/\/staff\/(index\.html)?$/.test(from.pathname) &&
+        from.pathname !== window.location.pathname
+      ) {
+        target = from.href;
+      }
+    } catch {
+      // No referrer (opened directly / from a bookmark).
+    }
+    window.location.href = target;
   }
 
   backBtn.addEventListener("click", () => {

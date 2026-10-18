@@ -51,12 +51,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     mapEl.innerHTML = `<div class="ordinances-empty">Map unavailable</div>`;
   }
 
+  // Leaving a street's profile zooms the map back out to the whole barangay.
+  let shownStreet = null;
   const geoAnalysis = createGeoAnalysis(panelEl, {
     categories,
     onChange: ({ reports, street }) => {
       if (!heatmap) return;
       heatmap.render(countByLocation(reports));
       heatmap.highlight(street);
+      if (shownStreet && !street) heatmap.fit();
+      shownStreet = street;
     },
   });
 

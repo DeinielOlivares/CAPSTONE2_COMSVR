@@ -32,6 +32,10 @@ function sortConcernsByStatusThenDate(concerns) {
 let _concernsCache = null;
 let _foldersCache = null;
 
+function escapeConcernHtml(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
 function mapConcern(c) {
   return {
     id: c.id,

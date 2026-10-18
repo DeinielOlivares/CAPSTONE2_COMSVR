@@ -23,6 +23,7 @@ vary them per report the way the rest of the sizing can.
 import io
 import os
 import tempfile
+from xml.sax.saxutils import escape
 
 import pymupdf
 from django.utils import timezone
@@ -334,9 +335,8 @@ def build_reports_pdf(reports):
 # ---- Reports Dashboard summary/analytics PDF -------------------------
 #
 # Unlike the per-report PDFs above, this isn't built from a Report
-# queryset at all — every number here (stats, category/status/investigator
-# breakdowns, the filed-over-time trend, the open-reports list) is already
-# computed client-side in reports-dashboard.js, the same way the dashboard
+# queryset at all — every number here (stats and the category/status/
+# investigator breakdowns) is already computed client-side in reports-dashboard.js, the same way the dashboard
 # itself renders, respecting the page's date-range filter and each graph's
 # own override. This just lays out whatever JSON it's handed (see
 # StaffReportDashboardPdfView) into a document — it doesn't need, and
@@ -373,7 +373,9 @@ def _dashboard_styles():
 def _dashboard_table(headers, rows, col_widths):
     styles = _dashboard_styles()
     data = [[Paragraph(h, styles["cell_header"]) for h in headers]]
-    data += [[Paragraph(str(cell), styles["cell"]) for cell in row] for row in rows]
+    # Escaped: ordinance names and locations are free text, and a stray "&"
+    # or "<" would otherwise be read as Paragraph markup and fail the build.
+    data += [[Paragraph(escape(str(cell)), styles["cell"]) for cell in row] for row in rows]
     table = Table(data, colWidths=col_widths, repeatRows=1)
     table.setStyle(
         TableStyle(
@@ -431,8 +433,9 @@ def _dashboard_stats_rows(payload_stats):
 
 
 def build_dashboard_pdf(payload):
-    """The Reports Dashboard's current stats/graphs/open-reports list (see
-    above) -> one PDF, as a set of summary tables."""
+    """The Reports Dashboard's current stats and breakdowns (see above) ->
+    one PDF, as a set of summary tables. The Reports Filed Over Time chart
+    and the Report Timeline list stay on the dashboard only."""
     styles = _dashboard_styles()
     generated = timezone.localtime(timezone.now()).strftime("%B %d, %Y, %I:%M %p")
     story = [
@@ -497,29 +500,6 @@ def build_dashboard_pdf(payload):
         [[row["name"], row["count"]] for row in investigators.get("rows") or []],
         [3.6 * inch, 2.9 * inch],
         "No claimed reports for this period.",
-    )
-
-    trend = payload.get("trend") or {}
-    unit = trend.get("unit") or "period"
-    _dashboard_section(
-        story,
-        "Reports Filed Over Time",
-        trend.get("period_label"),
-        [unit.capitalize(), "Reports Filed"],
-        [[p["title"], p["count"]] for p in trend.get("points") or []],
-        [4.6 * inch, 1.9 * inch],
-        "No reports filed in this period.",
-    )
-
-    aging = payload.get("aging") or []
-    _dashboard_section(
-        story,
-        "Report Timeline — Open Reports",
-        "Every not-yet-resolved report, regardless of the date filters above — oldest first.",
-        ["Ordinance", "Location", "Days Open", "Status", "Investigator"],
-        [[r["ordinance"], r["location"], r["days"], r["status"], r["investigator"]] for r in aging],
-        [1.9 * inch, 1.7 * inch, 0.8 * inch, 1.1 * inch, 1.0 * inch],
-        "Nothing open — every report has been resolved.",
     )
 
     buffer = io.BytesIO()

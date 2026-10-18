@@ -1,9 +1,9 @@
 // Barangay Platero OVRMS — Download Report: draws one report the way the File a
 // Report form looked when it was filled in (the "Reporting As" card, then
 // the "Report Details" card with every field in its own place — Street,
-// Pin my current location, Block/Lot, Date and Time of Incident, Nature of
-// Violation, Ordinance in Violation, the evidence box and the consent line)
-// and saves that picture as a one-page PDF, like a screenshot of the form.
+// Block/Lot, Date and Time of Incident, Ordinance in Violation, Nature of
+// Violation, the uploaded photos/videos when there are any, and the consent
+// line) and saves that picture as a one-page PDF, like a screenshot of the form.
 // Shared by the citizen's My Report Detail page and the Investigator's
 // Report Detail page (staff/report-detail.html loads it from here) — those
 // are the only two places it's offered. Drawn with the plain Canvas API and
@@ -14,7 +14,7 @@
 //
 // downloadReportForm(data) takes:
 //   { id, reportNumber ("YYYYMMDD-N"), reporter, contactNumber, location
-//     ("Block/Lot, Street"), latitude, longitude, ordinance, incidentDate
+//     ("Block/Lot, Street"), ordinance, incidentDate
 //     ("YYYY-MM-DD"), incidentTime ("HH:MM[:SS]" or null),
 //     natureOfViolation, dateFiled (Date), attachments (urls) }
 
@@ -332,21 +332,9 @@ function reportFormDraw(ctx, data, media, layout) {
 
   const { street, blockLot } = reportFormSplitLocation(data.location);
 
-  // Street + Pin my current location
   y = label(dx, y, "Street");
   y = input(dx, y, dw, street, { placeholder: "Type to search streets..." });
-  y += 10;
-  const pinned = data.latitude != null && data.longitude != null;
-  reportFormCheckbox(ctx, dx, y + 2, pinned);
-  ctx.font = font(400, 14.08);
-  ctx.fillStyle = C.text;
-  const pinText = "Pin my current location";
-  ctx.fillText(pinText, dx + 13 + 8, y + 13);
-  const pinW = ctx.measureText(`${pinText} `).width;
-  ctx.font = font(400, 12.48);
-  ctx.fillStyle = C.muted;
-  ctx.fillText("(only if you're at the incident spot)", dx + 13 + 8 + pinW, y + 13);
-  y += 18 + 16;
+  y += 16;
 
   // Block, Lot, etc.
   y = label(dx, y, "Block, Lot, etc.");
@@ -361,19 +349,8 @@ function reportFormDraw(ctx, data, media, layout) {
   y = input(dx + half + 16, rowY, half, reportFormInputTime(data.incidentTime), { placeholder: "--:-- --", icon: "time" });
   y += 16;
 
-  // Nature of Violation — grows to fit, never cut off.
-  y = label(dx, y, "Nature of Violation");
-  ctx.font = font(400, 14.4);
-  const natureLines = reportFormWrap(ctx, data.natureOfViolation, dw - 28);
-  const lineH = 20.5;
-  const natureH = Math.max(90, natureLines.length * lineH + 22);
-  input(dx, y, dw, "", { height: natureH });
-  ctx.font = font(400, 14.4);
-  ctx.fillStyle = C.text;
-  natureLines.forEach((line, i) => ctx.fillText(line, dx + 14, y + 11 + 14.5 + i * lineH));
-  y += natureH + 16;
-
   // Ordinance in Violation — the custom dropdown's trigger, text wrapped.
+  const lineH = 20.5;
   y = label(dx, y, "Ordinance in Violation");
   ctx.font = font(400, 14.4);
   const ordLines = reportFormWrap(ctx, data.ordinance || "Select", dw - 54);
@@ -387,29 +364,34 @@ function reportFormDraw(ctx, data, media, layout) {
   ctx.fillText("▾", dx + dw - 24, y + ordH / 2 + 4);
   y += ordH + 16;
 
-  // Evidence: the upload box, holding whatever was uploaded with the report.
+  // Nature of Violation — grows to fit, never cut off.
+  y = label(dx, y, "Nature of Violation");
+  ctx.font = font(400, 14.4);
+  const natureLines = reportFormWrap(ctx, data.natureOfViolation, dw - 28);
+  const natureH = Math.max(90, natureLines.length * lineH + 22);
+  input(dx, y, dw, "", { height: natureH });
+  ctx.font = font(400, 14.4);
+  ctx.fillStyle = C.text;
+  natureLines.forEach((line, i) => ctx.fillText(line, dx + 14, y + 11 + 14.5 + i * lineH));
+  y += natureH + 16;
+
+  // Evidence: the upload box with whatever was uploaded — left out entirely
+  // when nothing was.
   const tiles = media.evidence;
-  const thumb = 116;
-  const gap = 12;
-  const perRow = Math.max(1, Math.floor((dw - 32 + gap) / (thumb + gap)));
-  const rows = Math.ceil(tiles.length / perRow);
-  const boxH = tiles.length ? 16 + 22 + rows * thumb + (rows - 1) * gap + 18 : 92;
-  ctx.save();
-  ctx.setLineDash([6, 4]);
-  reportFormRoundRect(ctx, dx + 1, y + 1, dw - 2, boxH - 2, 8);
-  ctx.strokeStyle = C.border;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-  ctx.textAlign = "center";
-  if (!tiles.length) {
-    ctx.font = font(600, 13.6);
-    ctx.fillStyle = C.text;
-    ctx.fillText("Uploaded photos/videos", W / 2, y + 40);
-    ctx.font = font(400, 11.5);
-    ctx.fillStyle = C.muted;
-    ctx.fillText("None — no evidence was uploaded with this report.", W / 2, y + 60);
-  } else {
+  if (tiles.length) {
+    const thumb = 116;
+    const gap = 12;
+    const perRow = Math.max(1, Math.floor((dw - 32 + gap) / (thumb + gap)));
+    const rows = Math.ceil(tiles.length / perRow);
+    const boxH = 16 + 22 + rows * thumb + (rows - 1) * gap + 18;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    reportFormRoundRect(ctx, dx + 1, y + 1, dw - 2, boxH - 2, 8);
+    ctx.strokeStyle = C.border;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    ctx.textAlign = "center";
     ctx.font = font(600, 13.6);
     ctx.fillStyle = C.text;
     ctx.fillText(`Uploaded photos/videos (${tiles.length})`, W / 2, y + 16 + 13);
@@ -450,9 +432,9 @@ function reportFormDraw(ctx, data, media, layout) {
       ctx.lineWidth = 1;
       ctx.stroke();
     });
+    ctx.textAlign = "left";
+    y += boxH + 16;
   }
-  ctx.textAlign = "left";
-  y += boxH + 16;
 
   // Consent line — required to submit, so it was ticked.
   y += 6;

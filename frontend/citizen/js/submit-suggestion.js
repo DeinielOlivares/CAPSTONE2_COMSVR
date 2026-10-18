@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("suggestionForm");
   const submitBtn = form.querySelector('button[type="submit"]');
   const successModal = document.getElementById("successModal");
+  const unsavedGuard = guardUnsavedForm(form);
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -35,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (typeof firstError === "string") throw new Error(firstError);
         throw new Error(`Could not submit your concern/suggestion. (server responded ${response.status})`);
       }
+      unsavedGuard.allowLeave();
       successModal.hidden = false;
     } catch (err) {
       showFormError(form, err.message);

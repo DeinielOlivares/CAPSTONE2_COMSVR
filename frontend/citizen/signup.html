@@ -198,16 +198,15 @@
     </div>
   </div>
 
-  <!-- Terms & Conditions / Data Privacy gate — must be scrolled to the
-       bottom before "I Agree" enables; shown automatically on load, no
-       close button, and not dismissible by clicking the backdrop (see
-       main.js's generic modal-close handlers, both of which skip
+  <!-- Terms & Conditions / Data Privacy gate — shown once per browser
+       session, no close button, and not dismissible by clicking the
+       backdrop (main.js's generic modal-close handlers skip
        [data-modal-mandatory]). -->
   <div class="modal-overlay" id="termsModal" data-modal-mandatory hidden>
     <div class="modal-card terms-modal__card">
       <h2>Terms &amp; Conditions and Data Privacy Notice</h2>
       <div class="terms-modal__body" id="termsModalBody">
-        <p>Please read this notice in full before creating a Barangay Platero OVRMS account. Scroll to the bottom to enable "I Agree."</p>
+        <p>Please read this notice before creating a Barangay Platero OVRMS account.</p>
         <h3>1. Acceptance of Terms</h3>
         <p>By creating an account on Barangay Platero OVRMS, you agree to use the system only for filing genuine ordinance-violation reports, concerns, and suggestions within the barangay it serves. Submitting a false or malicious report is a violation of these Terms and may be referred to the barangay for appropriate action, including penalties under applicable local ordinances.</p>
         <h3>2. Data Privacy Act of 2012 (Republic Act No. 10173)</h3>
@@ -226,7 +225,7 @@
         <p>Filing a report you know to be false or misleading is subject to penalty under local ordinances. By proceeding, you acknowledge and accept this responsibility.</p>
         <p>By clicking "I Agree" below, you confirm that you have read and understood this notice and consent to the collection and processing of your personal data as described above.</p>
       </div>
-      <button type="button" class="btn" id="termsAgreeBtn" disabled>Scroll down to continue</button>
+      <button type="button" class="btn" id="termsAgreeBtn">I Agree</button>
     </div>
   </div>
 </body>

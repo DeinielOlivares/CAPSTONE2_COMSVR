@@ -45,6 +45,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     return state.graphOverride[graphKey] || topPeriodValue();
   }
 
+  // The top filter and every graph's own filter are kept for this browser
+  // tab (see createFilterMemory), so coming back from a report shows the
+  // dashboard as it was left.
+  const memory = createFilterMemory("reports_dashboard");
+  const isPreset = (value) => buildPeriodOptions().some((o) => o.value === value);
+  const isCustom = (value) => !!value && typeof value === "object" && value.type === "custom" && !!value.from && !!value.to;
+  (function restoreDashboardFilters() {
+    const saved = memory.get("periods", null);
+    if (!saved) return;
+    if (isPreset(saved.topPeriod)) {
+      state.topPeriod = saved.topPeriod;
+    } else if (saved.topPeriod === "custom" && isCustom({ type: "custom", ...saved.customRange })) {
+      state.topPeriod = "custom";
+      state.customRange = { from: saved.customRange.from, to: saved.customRange.to };
+    }
+    Object.keys(state.graphOverride).forEach((key) => {
+      const value = saved.graphOverride && saved.graphOverride[key];
+      if (isPreset(value) || isCustom(value)) state.graphOverride[key] = value;
+    });
+  })();
+
+  function saveDashboardFilters() {
+    memory.set("periods", state);
+  }
+
   // Builds from local date components, not toISOString() (which converts to
   // UTC first and would roll the date back a day in any timezone ahead of
   // UTC, e.g. the Philippines at local midnight).
@@ -223,6 +248,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     state.topPeriod = period;
     state.customRange = customRange || null;
     Object.keys(state.graphOverride).forEach((key) => (state.graphOverride[key] = null));
+    saveDashboardFilters();
   }
 
   function renderDateRangeMenu() {
@@ -548,9 +574,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // models.py), so "days open" is measured from created_at to now for
   // anything not yet Resolved/With Remarks, which is the closest honest
   // proxy available.
-  let agingListLimit = 5;
   const agingReportsBody = document.getElementById("agingReportsBody");
   const timelinePageSizeSelect = document.getElementById("timelinePageSize");
+  memory.bindSelect(timelinePageSizeSelect);
+  let agingListLimit = pageSizeFrom(timelinePageSizeSelect, 5) ?? Infinity;
 
   if (timelinePageSizeSelect) {
     timelinePageSizeSelect.addEventListener("change", () => {
@@ -896,6 +923,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     menu.querySelectorAll("li[data-value]").forEach((li) => {
       li.addEventListener("click", () => {
         state.graphOverride[cfg.key] = li.dataset.value || null;
+        saveDashboardFilters();
         closeAllDropdowns();
         renderGraphFilterLabel(cfg);
         renderGraphFilterMenu(cfg);
@@ -913,6 +941,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
       state.graphOverride[cfg.key] = { type: "custom", from, to };
+      saveDashboardFilters();
       closeAllDropdowns();
       renderGraphFilterLabel(cfg);
       renderGraphFilterMenu(cfg);
@@ -947,31 +976,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       .sort((a, b) => investigatorCounts[b] - investigatorCounts[a])
       .map((name) => ({ name, count: investigatorCounts[name] }));
 
-    const trendPeriod = effectivePeriod("trend");
-    const trendReports = getReportsForPeriod(trendPeriod);
-    const { start, end } = periodDateRange(trendPeriod);
-    const { unit, buckets } = trendBuckets(start, end);
-    const trendPoints = buckets.map((b) => ({
-      title: b.title,
-      count: trendReports.filter((r) => r.dateSubmitted >= b.start && r.dateSubmitted <= b.end).length,
-    }));
-
-    // Not limited to agingListLimit (the on-screen page size) — a
-    // downloaded summary is meant to be the complete record, not just
-    // whatever currently fits on the card.
-    const now = new Date();
-    const aging = liveReports()
-      .filter((r) => !isReportClosed(r.status))
-      .slice()
-      .sort((a, b) => a.dateSubmitted - b.dateSubmitted)
-      .map((r) => ({
-        ordinance: r.ordinance || "—",
-        location: r.location || "—",
-        days: daysBetween(r.dateSubmitted, now),
-        status: r.status,
-        investigator: r.assignedInvestigator || "Unclaimed",
-      }));
-
     // Used server-side only to name the downloaded file (see
     // StaffReportDashboardPdfView) — the PDF's own content still shows
     // top_period_label, the human-readable version.
@@ -984,8 +988,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       category: { period_label: labelForPeriodValue(categoryPeriod), slices: categorySlices },
       status: { period_label: labelForPeriodValue(statusPeriod), stats: statusStats },
       investigators: { period_label: labelForPeriodValue(investigatorPeriod), rows: investigators },
-      trend: { period_label: labelForPeriodValue(trendPeriod), unit, points: trendPoints },
-      aging,
     };
   }
 

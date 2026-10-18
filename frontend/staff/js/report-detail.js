@@ -152,8 +152,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           reporter: report.reporter,
           contactNumber: report.contactNumber,
           location: report.location,
-          latitude: report.latitude,
-          longitude: report.longitude,
           ordinance: report.ordinance,
           incidentDate: report.incidentDate,
           incidentTime: report.incidentTimeRaw,
@@ -269,7 +267,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveBtn.textContent = "Saving...";
     try {
       report = await updateReportStatus(report.id, patch);
-      currentStatus = nextStatus;
+      // The server may have moved a New Submission with remarks to Under Review.
+      currentStatus = report.status;
       savedStatus = currentStatus;
       savedRemarks = patch.remarks;
 
@@ -295,13 +294,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
-  // Back to whichever Reports subpage (Unclaimed/My Claimed/...) this
-  // report was opened from; anywhere else lands on Unclaimed Reports.
+  // Back to the page this report was opened from (a Reports subpage, the
+  // Reports Dashboard, Notifications...); opened directly, Reports.
   function goToReports() {
     let target = "reports.html";
     try {
       const from = new URL(document.referrer);
-      if (from.origin === window.location.origin && from.pathname.endsWith("/staff/reports.html")) target = from.href;
+      if (
+        from.origin === window.location.origin &&
+        from.pathname.includes("/staff/") &&
+        !/\/staff\/(index\.html)?$/.test(from.pathname) &&
+        from.pathname !== window.location.pathname
+      ) {
+        target = from.href;
+      }
     } catch {
       // No referrer (opened directly / from a bookmark).
     }

@@ -124,6 +124,50 @@ function wireFiltersDropdown(toggleBtn, panel) {
   }
 }
 
+// Remembers a page's filters, search and page number for the rest of this
+// browser tab, so opening an item and coming back (or visiting other pages)
+// shows the page the way it was left. Kept per signed-in user and per page;
+// sessionStorage, so a fresh tab starts from the defaults.
+function createFilterMemory(name) {
+  const user = getAdminUser();
+  const key = `orms_filters_${(user && user.id) || "anon"}_${name}`;
+  let saved = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem(key)) || {};
+  } catch {
+    saved = {};
+  }
+  function set(field, value) {
+    saved[field] = value;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(saved));
+    } catch {
+      // Storage unavailable (private mode, blocked) — filters just won't persist.
+    }
+  }
+  return {
+    get(field, fallback) {
+      return Object.prototype.hasOwnProperty.call(saved, field) ? saved[field] : fallback;
+    },
+    set,
+    // Puts back a <select>'s saved choice (only if that option still
+    // exists) and saves every later change.
+    bindSelect(select, field) {
+      if (!select) return;
+      const name = field || select.id;
+      const value = saved[name];
+      if (value !== undefined && Array.from(select.options).some((o) => o.value === value)) select.value = value;
+      select.addEventListener("change", () => set(name, select.value));
+    },
+  };
+}
+
+// A "Show" select's value as a page size (null = All).
+function pageSizeFrom(select, fallback) {
+  if (!select) return fallback;
+  return select.value === "all" ? null : Number(select.value) || fallback;
+}
+
 // Renders a real uploaded profile picture into an avatar container (the
 // topbar avatar, the profile popup avatar, etc.) when one exists, falling
 // back to initials — used everywhere a placeholder profile picture

@@ -13,12 +13,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pagination = document.getElementById("auditPagination");
   const pageSizeSelect = document.getElementById("auditPageSize");
 
+  const memory = createFilterMemory("audit_logs");
+  memory.bindSelect(sortSelect);
+  memory.bindSelect(typeFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
   let logs = [];
-  let page = 1;
+  let page = memory.get("page", 1);
   let currentPageRows = [];
   // Only re-filters on Search (or pressing Enter in the field), not on every
   // keystroke — this tracks the query that was actually searched for.
-  let appliedQuery = "";
+  let appliedQuery = memory.get("query", "");
+  searchInput.value = appliedQuery;
 
   async function loadLogs() {
     tbody.innerHTML = skeletonTableRows(6, 5);
@@ -55,6 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 
@@ -149,6 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   searchForm.addEventListener("submit", (e) => {
     e.preventDefault();
     appliedQuery = searchInput.value.trim().toLowerCase();
+    memory.set("query", appliedQuery);
     page = 1;
     render();
   });

@@ -361,31 +361,95 @@ class ReportNumberTests(APITestCase):
         self.assertEqual(self.client.get("/api/reports/staff/").data[0]["report_number"], report.report_number)
 
 
-class ConcernReviewedAtTests(APITestCase):
+class ReportRemarksAutoReviewTests(APITestCase):
+    """Remarks saved on a New Submission without moving its status put it Under Review."""
+
     def setUp(self):
+        citizen = User.objects.create_user(username="cit4", email="cit4@test.com", password="x", is_verified=True)
+        self.investigator = User.objects.create_user(
+            username="inv4", email="inv4@test.com", password="x", role=User.Role.STAFF, position="Investigator"
+        )
+        self.report = Report.objects.create(
+            citizen=citizen, location="Purok 1", ordinance="Anti-Littering", incident_date="2026-09-01",
+            nature_of_violation="Dumping garbage", assigned_investigator=self.investigator,
+        )
+        self.url = f"/api/reports/staff/{self.report.id}/"
+        self.client.force_authenticate(self.investigator)
+
+    def _status_after(self, body):
+        response = self.client.patch(self.url, body, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.report.refresh_from_db()
+        return self.report.status
+
+    def test_remarks_with_status_left_as_submitted_moves_to_under_review(self):
+        self.assertEqual(self._status_after({"status": "submitted", "remarks": "Site visit scheduled."}), "under_review")
+
+    def test_remarks_without_a_status_also_moves_it(self):
+        self.assertEqual(self._status_after({"remarks": "Site visit scheduled."}), "under_review")
+
+    def test_a_status_the_investigator_picked_is_kept(self):
+        self.assertEqual(self._status_after({"status": "in_action", "remarks": "Team dispatched."}), "in_action")
+
+    def test_blank_remarks_leave_it_submitted(self):
+        self.assertEqual(self._status_after({"status": "submitted", "remarks": "   "}), "submitted")
+
+    def test_only_applies_to_new_submissions(self):
+        self.report.status = Report.Status.IN_ACTION
+        self.report.save()
+        self.assertEqual(self._status_after({"status": "in_action", "remarks": "Still ongoing."}), "in_action")
+
+
+class ConcernAutoReviewTests(APITestCase):
+    def setUp(self):
+        from .models import ConcernFolder
+
         self.citizen = User.objects.create_user(username="cit3", email="cit3@test.com", password="x")
         self.secretary = User.objects.create_user(
             username="sec3", email="sec3@test.com", password="x", role=User.Role.STAFF, position="Secretary"
         )
+        self.folder = ConcernFolder.objects.create(name="Stray Animals")
         self.concern = Concern.objects.create(citizen=self.citizen, description="Stray dogs near the plaza")
         self.url = f"/api/concerns/staff/{self.concern.id}/"
         self.client.force_authenticate(self.secretary)
 
-    def test_marking_reviewed_stamps_the_time_and_reverting_clears_it(self):
-        response = self.client.patch(self.url, {"status": "reviewed"}, format="json")
+    def _patch(self, body):
+        response = self.client.patch(self.url, body, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(response.data["reviewed_at"])
         self.concern.refresh_from_db()
+        return response
+
+    def test_status_cannot_be_set_by_hand(self):
+        self._patch({"status": "reviewed"})
+        self.assertEqual(self.concern.status, Concern.Status.SUBMITTED)
+        self.assertIsNone(self.concern.reviewed_at)
+
+    def test_saving_remarks_marks_it_reviewed(self):
+        response = self._patch({"remarks": "Endorsed to the committee."})
+        self.assertEqual(self.concern.status, Concern.Status.REVIEWED)
+        self.assertIsNotNone(response.data["reviewed_at"])
+
+    def test_blank_remarks_do_not(self):
+        self._patch({"remarks": "  "})
+        self.assertEqual(self.concern.status, Concern.Status.SUBMITTED)
+
+    def test_filing_under_a_category_marks_it_reviewed_and_removing_keeps_it(self):
+        self._patch({"folder": str(self.folder.id)})
+        self.assertEqual(self.concern.status, Concern.Status.REVIEWED)
         stamped = self.concern.reviewed_at
 
-        # Editing remarks afterwards must not move it.
-        self.client.patch(self.url, {"remarks": "Endorsed to the committee."}, format="json")
-        self.concern.refresh_from_db()
+        response = self._patch({"folder": None})
+        self.assertEqual(self.concern.status, Concern.Status.REVIEWED)
+        self.assertIsNone(self.concern.folder_id)
+        self.assertIsNone(response.data["folder"])
         self.assertEqual(self.concern.reviewed_at, stamped)
 
-        self.client.patch(self.url, {"status": "submitted"}, format="json")
-        self.concern.refresh_from_db()
-        self.assertIsNone(self.concern.reviewed_at)
+        self._patch({"remarks": "Later note."})
+        self.assertEqual(self.concern.reviewed_at, stamped)
+
+    def test_removing_from_a_category_alone_does_not_review_it(self):
+        self._patch({"folder": None})
+        self.assertEqual(self.concern.status, Concern.Status.SUBMITTED)
 
 
 class StaffReportAnalysisBaseTests(APITestCase):

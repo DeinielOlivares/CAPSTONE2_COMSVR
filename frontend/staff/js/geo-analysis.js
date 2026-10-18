@@ -141,47 +141,41 @@ function createGeoAnalysis(el, opts = {}) {
       </div>`;
   }
 
-  // Two to five plain sentences read straight off the numbers below.
+  // Labelled figures read straight off the numbers below.
   function findingsHtml(reports) {
     const total = reports.length;
     if (!total) return "";
     const findings = [];
+    const finding = (label, value) => findings.push(`<span class="geo-findings__label">${label}:</span> ${value}`);
+    const share = (part, whole) => `${part} of ${geoPlural(whole, "report")} (<b>${geoPct(part, whole)}</b>)`;
+    const named = (name, part, whole) => `<b>${geoEscape(name)}</b> (${part} of ${geoPlural(whole, "report")}, ${geoPct(part, whole)})`;
 
-    const streets = geoCountBy(reports, geoStreetOfReport);
-    const [topStreet, topStreetCount] = streets[0];
-    findings.push(
-      `<b>${geoEscape(topStreet)}</b> is the most-reported location with <b>${geoPct(topStreetCount, total)}</b> (${topStreetCount} of ${total}) of reports.`
-    );
+    const [topStreet, topStreetCount] = geoCountBy(reports, geoStreetOfReport)[0];
+    finding("Most reported location", named(topStreet, topStreetCount, total));
 
-    const ordinances = geoCountBy(reports, (r) => r.ordinance || "Unspecified ordinance");
-    const [topOrdinance, topOrdinanceCount] = ordinances[0];
-    let ordinanceFinding = `The most-reported ordinance is <b>${geoEscape(topOrdinance)}</b> at <b>${geoPct(topOrdinanceCount, total)}</b> (${topOrdinanceCount} of ${total}).`;
+    const [topOrdinance, topOrdinanceCount] = geoCountBy(reports, (r) => r.ordinance || "Unspecified ordinance")[0];
+    finding("Most reported ordinance", named(topOrdinance, topOrdinanceCount, total));
     if (topOrdinanceCount > 1) {
-      const where = geoCountBy(
+      const [where, whereCount] = geoCountBy(
         reports.filter((r) => (r.ordinance || "Unspecified ordinance") === topOrdinance),
         geoStreetOfReport
       )[0];
-      ordinanceFinding += ` <b>${geoPct(where[1], topOrdinanceCount)}</b> (${where[1]} of ${topOrdinanceCount}) of those are on ${geoEscape(where[0])}.`;
+      finding("Most common location for that ordinance", named(where, whereCount, topOrdinanceCount));
     }
-    findings.push(ordinanceFinding);
 
     if (!view.category) {
       const [topCategory, topCategoryCount] = geoCountBy(reports, (r) => r.category)[0];
-      findings.push(
-        `<b>${geoEscape(topCategory)}</b> is the leading category at <b>${geoPct(topCategoryCount, total)}</b> (${topCategoryCount} of ${total}).`
-      );
+      finding("Leading category", named(topCategory, topCategoryCount, total));
     }
 
     const resolved = geoResolvedCount(reports);
-    findings.push(
-      `<b>${geoPct(resolved, total)}</b> (${resolved} of ${total}) of reports are Resolved/With Remarks; <b>${geoPct(total - resolved, total)}</b> (${total - resolved}) are still open.`
-    );
+    finding("Resolved/With Remarks", share(resolved, total));
+    finding("Still open", share(total - resolved, total));
 
     const perReporter = geoCountBy(reports, (r) => r.reporterId || r.reporter);
     const repeat = perReporter.filter(([, n]) => n > 1).length;
-    findings.push(
-      `${geoPlural(perReporter.length, "citizen")} filed these reports; <b>${geoPct(repeat, perReporter.length)}</b> (${repeat}) of them filed more than one.`
-    );
+    finding("Citizens who reported", `<b>${perReporter.length}</b>`);
+    finding("Citizens who reported more than once", `${repeat} of ${perReporter.length} (<b>${geoPct(repeat, perReporter.length)}</b>)`);
 
     return `
       <section class="geo-section">
@@ -236,7 +230,7 @@ function createGeoAnalysis(el, opts = {}) {
 
     return `
       <section class="geo-section">
-        <h3>Streets ranked <small>click a street to analyse it</small></h3>
+        <h3>Streets ranked <small>click a street to analyse it; click it again to return to all streets</small></h3>
         <div class="geo-table-wrap">
           <table class="geo-table">
             <thead>
@@ -262,7 +256,6 @@ function createGeoAnalysis(el, opts = {}) {
             </tbody>
           </table>
         </div>
-        <p class="geo-note">Reports: share of all reports shown. Resolved/With Remarks and Top ordinance: share of that street's own reports.</p>
       </section>`;
   }
 
@@ -343,9 +336,10 @@ function createGeoAnalysis(el, opts = {}) {
       data = { ...data, ...next };
       paint();
     },
-    // From a click on the map: opens that street's profile at the top.
+    // From a click on the map: opens that street's profile at the top, or
+    // closes it when the same street is clicked again.
     selectStreet(street) {
-      view.street = street || null;
+      view.street = street && street !== view.street ? street : null;
       paint();
       el.scrollTop = 0;
     },

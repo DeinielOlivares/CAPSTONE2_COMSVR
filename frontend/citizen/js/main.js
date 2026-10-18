@@ -77,6 +77,7 @@ function expireStaleSession() {
 // verify-signup.html choosing their ID photo, so the whole signup (text
 // fields + photo) can be submitted as one multipart request from there.
 const SIGNUP_DRAFT_KEY = "orms_signup_draft";
+const SIGNUP_TERMS_KEY = "orms_signup_terms_agreed";
 
 // Same idea, for the Forgot Password flow's 3 separate pages (Forgot
 // Password -> Input Code -> Reset Password): holds the email, and once
@@ -335,6 +336,141 @@ function wireFiltersDropdown(toggleBtn, panel) {
       });
     });
   }
+}
+
+// Remembers a page's filters, search and page number for the rest of this
+// browser tab, so opening an item and coming back (or visiting other pages)
+// shows the page the way it was left. Kept per signed-in user and per page;
+// sessionStorage, so a fresh tab starts from the defaults.
+function createFilterMemory(name) {
+  const user = getCurrentUser();
+  const key = `orms_filters_${(user && user.id) || "anon"}_${name}`;
+  let saved = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem(key)) || {};
+  } catch {
+    saved = {};
+  }
+  function set(field, value) {
+    saved[field] = value;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(saved));
+    } catch {
+      // Storage unavailable (private mode, blocked) — filters just won't persist.
+    }
+  }
+  return {
+    get(field, fallback) {
+      return Object.prototype.hasOwnProperty.call(saved, field) ? saved[field] : fallback;
+    },
+    set,
+    // Puts back a <select>'s saved choice (only if that option still
+    // exists) and saves every later change.
+    bindSelect(select, field) {
+      if (!select) return;
+      const name = field || select.id;
+      const value = saved[name];
+      if (value !== undefined && Array.from(select.options).some((o) => o.value === value)) select.value = value;
+      select.addEventListener("change", () => set(name, select.value));
+    },
+  };
+}
+
+// A "Show" select's value as a page size (null = All).
+function pageSizeFrom(select, fallback) {
+  if (!select) return fallback;
+  return select.value === "all" ? null : Number(select.value) || fallback;
+}
+
+// Whether anything editable in the form differs from how the page loaded it
+// (typed text, a picked option or date, a ticked box, an attached file).
+function formHasEntries(form) {
+  return Array.from(form.elements).some((el) => {
+    if (el.disabled || el.readOnly) return false;
+    if (el.type === "file") return el.files.length > 0;
+    if (el.type === "checkbox" || el.type === "radio") return el.checked !== el.defaultChecked;
+    if (el.tagName === "SELECT") {
+      // Options filled in by script have no default — the first one is it.
+      const initial = Array.from(el.options).find((o) => o.defaultSelected) || el.options[0];
+      return !!initial && el.value !== initial.value;
+    }
+    if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") {
+      if (["button", "submit", "reset", "hidden"].includes(el.type)) return false;
+      return el.value.trim() !== el.defaultValue.trim();
+    }
+    return false;
+  });
+}
+
+// Asks "Save Changes?" (the same popup as My Profile's) before leaving a
+// form that has something entered in it: Save Changes runs the form's own
+// submit, Discard Changes leaves anyway, Cancel stays on the page. Covers
+// every link on the page (Cancel, sidebar, navbar) and — through the
+// browser's own prompt — closing the tab or pressing Back. isDirty defaults
+// to formHasEntries(form). Call allowLeave() right before the page moves on
+// by itself (e.g. after a successful submit).
+function guardUnsavedForm(form, isDirty) {
+  const hasChanges = isDirty || (() => formHasEntries(form));
+  let leaving = false;
+  let pendingHref = null;
+
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="modal-card">
+      <h2>Save Changes?</h2>
+      <p class="auth-card__subtitle">You have entered details that haven't been submitted yet.</p>
+      <div class="stacked-buttons">
+        <button type="button" class="btn" data-unsaved="save">Save Changes</button>
+        <button type="button" class="btn btn-muted" data-unsaved="discard">Discard Changes</button>
+        <button type="button" class="btn btn-danger" data-unsaved="cancel">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.addEventListener("click", (e) => {
+    const action = e.target.closest("[data-unsaved]")?.dataset.unsaved;
+    if (e.target === modal || action === "cancel") {
+      modal.hidden = true;
+    } else if (action === "save") {
+      modal.hidden = true;
+      form.requestSubmit();
+    } else if (action === "discard") {
+      modal.hidden = true;
+      leaving = true;
+      window.location.href = pendingHref;
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#logoutYes")) {
+      // Logging out already asked "Continue to Logout?".
+      leaving = true;
+      return;
+    }
+    if (leaving || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const link = e.target.closest("a[href]");
+    if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+    const href = link.getAttribute("href");
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+    if (!hasChanges()) return;
+    e.preventDefault();
+    pendingHref = link.href;
+    modal.hidden = false;
+  });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (leaving || !hasChanges()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
+  return {
+    allowLeave() {
+      leaving = true;
+    },
+  };
 }
 
 // Clears both buckets unconditionally (rather than just whichever
@@ -1119,7 +1255,13 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
         if (!fileInput.files.length) {
-          showFormError(form, "Please upload a photo of your Voter's ID.");
+          const drop = form.querySelector(".upload-drop");
+          if (drop) drop.classList.add("upload-drop--invalid");
+          markFieldInvalid(fileInput, "You must upload a photo of your Voter's ID first.");
+          fileInput.addEventListener("change", () => {
+            clearFieldInvalid(fileInput);
+            if (drop) drop.classList.remove("upload-drop--invalid");
+          }, { once: true });
           return;
         }
 
@@ -2113,38 +2255,56 @@ document.addEventListener("DOMContentLoaded", () => {
   const termsAgreeBtn = document.getElementById("termsAgreeBtn");
   const signupForm = document.querySelector("form[data-signup-step1]");
 
+  if (signupForm) restoreSignupDraft(signupForm);
+
   if (termsModal && termsModalBody && termsAgreeBtn) {
     const signupFields = signupForm
       ? signupForm.querySelectorAll("input, select, button, textarea")
       : [];
-    signupFields.forEach((el) => (el.disabled = true));
-    termsModal.hidden = false;
-
-    function reachedBottom() {
-      return termsModalBody.scrollTop + termsModalBody.clientHeight >= termsModalBody.scrollHeight - 4;
-    }
-
-    termsModalBody.addEventListener("scroll", () => {
-      if (reachedBottom()) {
-        termsAgreeBtn.disabled = false;
-        termsAgreeBtn.textContent = "I Agree";
-      }
-    });
-
-    // A notice this short may not even need scrolling on a tall viewport —
-    // don't block agreement on a scrollbar that was never going to appear.
-    if (reachedBottom()) {
-      termsAgreeBtn.disabled = false;
-      termsAgreeBtn.textContent = "I Agree";
+    let agreed = false;
+    try {
+      agreed = sessionStorage.getItem(SIGNUP_TERMS_KEY) === "1";
+    } catch {}
+    if (!agreed) {
+      signupFields.forEach((el) => (el.disabled = true));
+      termsModal.hidden = false;
     }
 
     termsAgreeBtn.addEventListener("click", () => {
-      if (termsAgreeBtn.disabled) return;
       termsModal.hidden = true;
       signupFields.forEach((el) => (el.disabled = false));
+      try {
+        sessionStorage.setItem(SIGNUP_TERMS_KEY, "1");
+      } catch {}
     });
   }
 });
+
+// Coming back from the ID step ("Back to Sign Up") refills what was typed.
+function restoreSignupDraft(form) {
+  let draft = null;
+  try {
+    draft = JSON.parse(sessionStorage.getItem(SIGNUP_DRAFT_KEY));
+  } catch {}
+  if (!draft) return;
+  const set = (selector, value) => {
+    const el = form.querySelector(selector);
+    if (el && value) el.value = value;
+  };
+  set('[name="last_name"]', draft.last_name);
+  set('[name="first_name"]', draft.first_name);
+  set('[name="middle_initial"]', draft.middle_initial);
+  set('[name="email"]', draft.email);
+  set('[name="phone"]', draft.contact_number);
+  set('[name="password"]', draft.password);
+  set('[name="confirmPassword"]', draft.password);
+  const address = draft.address || "";
+  const cut = address.lastIndexOf(", ");
+  if (cut !== -1) {
+    set("#signupBlockLot", address.slice(0, cut));
+    set("#signupStreet", address.slice(cut + 2));
+  }
+}
 
 
 // A Philippine mobile number: 09XXXXXXXXX or +639XXXXXXXXX (spaces and dashes ignored).

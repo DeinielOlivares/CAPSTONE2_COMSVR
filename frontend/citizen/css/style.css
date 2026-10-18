@@ -718,6 +718,10 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
+.upload-drop.upload-drop--invalid {
+  border-color: #c0392b;
+}
+
 .upload-drop:hover,
 .upload-drop--dragover {
   border-color: var(--navy);
