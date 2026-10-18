@@ -472,7 +472,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (response.status === 429) {
           refreshGateStatus();
         }
-        throw new Error(data.detail || "Could not submit your report.");
+        // Refusals come back as {detail: "..."}, field validation as
+        // {field: ["..."]}. Anything else (a server error page, a request
+        // blocked before it reached the app) has no message, so give the
+        // status code instead of nothing.
+        if (typeof data.detail === "string") throw new Error(data.detail);
+        const firstError = Object.values(data)[0];
+        if (Array.isArray(firstError)) throw new Error(firstError[0]);
+        throw new Error(`Could not submit your report. (server responded ${response.status})`);
       }
       reportFiledThisVisit = true;
       successModal.hidden = false;

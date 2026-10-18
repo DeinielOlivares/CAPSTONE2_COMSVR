@@ -38,7 +38,9 @@ class Report(models.Model):
     # Free text rather than a FK — Ordinances aren't backed by a real model
     # yet (frontend/citizen/js/ordinances-data.js is still a hardcoded
     # array), so this just stores whichever option label the citizen picked.
-    ordinance = models.CharField(max_length=255)
+    # TextField: that label is "number — title", and Ordinance.title is
+    # unbounded (real titles exceed 255 characters).
+    ordinance = models.TextField()
     incident_date = models.DateField()
     # Nullable — the exact time of an incident is often unknown (ongoing or
     # long-standing violations), so a citizen can leave it blank.
