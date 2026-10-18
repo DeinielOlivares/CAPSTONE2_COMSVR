@@ -7,7 +7,7 @@
 // can do here that an Investigator/Captain's own pages don't already cover.
 
 const REPORT_STATUS_LABEL = {
-  submitted: "Submitted",
+  submitted: "New Submission",
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",
@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function loadData() {
-    tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="5">Loading reports...</td></tr>`;
+    tbody.innerHTML = skeletonTableRows(5, 5);
     try {
       const [reportsRes, usersRes] = await Promise.all([
         authFetch("/api/reports/staff/"),
@@ -177,8 +177,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (r) => `
         <tr>
-          <td>${escapeHtml(r.reporter)}</td>
-          <td>${escapeHtml(r.ordinance)}</td>
+          <td class="admin-table__ellipsis" title="${escapeHtml(r.reporter)}">${escapeHtml(r.reporter)}</td>
+          <td class="admin-table__ellipsis" title="${escapeHtml(r.ordinance)}">${escapeHtml(r.ordinance)}</td>
           <td>${formatDate(r.created_at)}</td>
           <td><span class="status-badge ${REPORT_STATUS_BADGE_CLASS[r.status] || ""}">${escapeHtml(REPORT_STATUS_LABEL[r.status] || r.status)}</span></td>
           <td>${assignControlHtml(r)}</td>

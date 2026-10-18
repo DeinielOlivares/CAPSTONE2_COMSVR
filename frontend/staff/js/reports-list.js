@@ -5,13 +5,15 @@
 // Split into subpages from the sidebar's Reports group (?view= — see
 // REPORT_VIEWS below): All Reports, Unclaimed Reports, My Claimed Reports.
 
-// Each subpage is this same page narrowed to a subset of reports. "mine"
-// is Investigator-only (hidden from the sidebar for anyone else, see
-// admin.js's STAFF_NAV_ACCESS) and falls back to "all" for other roles.
+// Each subpage is this same page showing some of its three lists (Claimed
+// by Me / Unclaimed / Claimed by Others). "mine" is Investigator-only
+// (hidden from the sidebar for anyone else, see admin.js's
+// STAFF_NAV_ACCESS) and falls back to "all" for other roles. `paginated` is
+// the list the page's pagination bar pages through.
 const REPORT_VIEWS = {
-  all: { heading: "All Reports", filter: () => true },
-  unclaimed: { heading: "Unclaimed Reports", filter: (r) => !r.assignedInvestigatorId },
-  mine: { heading: "My Claimed Reports", filter: (r, user) => !!user && r.assignedInvestigatorId === user.id },
+  all: { heading: "All Reports", groups: ["mine", "unclaimed", "others"], paginated: "unclaimed" },
+  unclaimed: { heading: "Unclaimed Reports", groups: ["unclaimed"], paginated: "unclaimed" },
+  mine: { heading: "My Claimed Reports", groups: ["mine"], paginated: "mine" },
 };
 
 function escapeReportHtml(str) {
@@ -27,11 +29,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   const searchInput = document.getElementById("reportSearchInput");
   const typeFilter = document.getElementById("typeFilter");
   const statusFilter = document.getElementById("statusFilter");
-  const list = document.getElementById("reportsList");
+  const listMine = document.getElementById("reportsListMine");
+  const listUnclaimed = document.getElementById("reportsListUnclaimed");
+  const listOthers = document.getElementById("reportsListOthers");
+  const groupMine = document.getElementById("reportsGroupMine");
+  const groupUnclaimed = document.getElementById("reportsGroupUnclaimed");
+  const groupOthers = document.getElementById("reportsGroupOthers");
+  const groupOthersTitle = document.getElementById("reportsGroupOthersTitle");
   const pagination = document.getElementById("reportsPagination");
   const pageSizeSelect = document.getElementById("reportsPageSize");
 
   const currentUser = getAdminUser();
+  // Claiming is Investigator-only (same rule as report-detail.js and
+  // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
+  // page but only gets a read-only view of who's working what.
   const isInvestigator = !!currentUser && currentUser.position === "Investigator";
   let viewKey = new URLSearchParams(window.location.search).get("view") || "all";
   if (!REPORT_VIEWS[viewKey] || (viewKey === "mine" && !isInvestigator)) viewKey = "all";
@@ -44,27 +55,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".admin-sidebar__subnav a").forEach((link) => {
     link.classList.toggle("active", link.getAttribute("href") === activeHref);
   });
-  // A claimed report is past Submitted soon after, so My Claimed Reports
-  // shows every status by default rather than the page's usual Submitted —
-  // made the HTML default too, so the panel's Clear button resets to it.
-  if (viewKey === "mine") {
-    statusFilter.querySelectorAll("option").forEach((o) => {
-      o.selected = o.value === "all";
-      o.toggleAttribute("selected", o.value === "all");
-    });
-  }
+
+  const showMine = isInvestigator && view.groups.includes("mine");
+  groupMine.hidden = !showMine;
+  groupUnclaimed.hidden = !view.groups.includes("unclaimed");
+  groupOthers.hidden = !view.groups.includes("others");
 
   let page = 1;
   // Only re-filters on Search (or pressing Enter in the field), not on every
   // keystroke — this tracks the query that was actually searched for.
   let appliedQuery = "";
 
-  list.innerHTML = `<div class="ordinances-empty">Loading reports...</div>`;
+  listMine.innerHTML = skeletonCards(2);
+  listUnclaimed.innerHTML = skeletonCards(3);
+  listOthers.innerHTML = skeletonCards(2);
   try {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    const target = showMine && !view.groups.includes("unclaimed") ? listMine : listUnclaimed;
+    [listMine, listUnclaimed, listOthers].forEach((list) => (list.innerHTML = ""));
+    target.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
     return;
   }
 
@@ -79,14 +90,54 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeFilter.appendChild(opt);
     });
 
-  const badgeClass = REPORT_STATUS_BADGE_CLASS;
+  // Filters, search, page size and page survive opening a report and coming
+  // back, or visiting other pages, for the rest of this browser tab.
+  // sessionStorage (not localStorage) so they reset with a fresh tab; keyed
+  // per user and subpage so someone else signing in on the same tab starts
+  // clean, and each subpage keeps its own.
+  const filtersKey = `orms_reports_filters_${currentUser?.id ?? "anon"}_${viewKey}`;
 
-  function viewReports() {
-    return liveReports().filter((r) => view.filter(r, currentUser));
+  function saveFilters() {
+    try {
+      sessionStorage.setItem(filtersKey, JSON.stringify({
+        type: typeFilter.value,
+        status: statusFilter.value,
+        pageSize: pageSizeSelect ? pageSizeSelect.value : null,
+        query: appliedQuery,
+        page,
+      }));
+    } catch {
+      // Storage unavailable (private mode, blocked) — filters just won't persist.
+    }
   }
 
+  function restoreFilters() {
+    let saved;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(filtersKey));
+    } catch {
+      return;
+    }
+    if (!saved) return;
+    // Only restore a select's value if that option still exists — e.g. the
+    // saved ordinance type may no longer appear in any report.
+    const setIfOption = (select, value) => {
+      if (select && Array.from(select.options).some((o) => o.value === value)) select.value = value;
+    };
+    setIfOption(typeFilter, saved.type);
+    setIfOption(statusFilter, saved.status);
+    setIfOption(pageSizeSelect, saved.pageSize);
+    if (pageSizeSelect) pageSize = pageSizeSelect.value === "all" ? null : Number(pageSizeSelect.value);
+    appliedQuery = saved.query || "";
+    searchInput.value = appliedQuery;
+    page = Number(saved.page) || 1;
+  }
+  restoreFilters();
+
+  const badgeClass = REPORT_STATUS_BADGE_CLASS;
+
   function getFiltered() {
-    let rows = viewReports();
+    let rows = liveReports();
 
     if (typeFilter.value !== "all") {
       rows = rows.filter((r) => r.incidentType === typeFilter.value);
@@ -95,16 +146,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (statusFilter.value !== "all") {
       rows = rows.filter((r) => r.status === statusFilter.value);
     } else {
-      // "all": every status shows, but ranked so whatever isn't closed yet
-      // (Submitted/Under Review/In Action) comes ahead of Resolved/With
-      // Remarks reports, newest first within each group — so a backlog of
-      // old closed reports doesn't bury what's still active.
-      rows = rows.slice().sort((a, b) => {
-        const aResolved = isReportClosed(a.status) ? 1 : 0;
-        const bResolved = isReportClosed(b.status) ? 1 : 0;
-        if (aResolved !== bResolved) return aResolved - bResolved;
-        return b.dateSubmitted - a.dateSubmitted;
-      });
+      // "all": every status shows, ranked New Submission > Under Review >
+      // In Action > Resolved/With Remarks, newest first within each group —
+      // so a backlog of old closed reports doesn't bury what's still active.
+      rows = sortReportsByStatusThenDate(rows);
     }
 
     if (appliedQuery) {
@@ -119,48 +164,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     return rows;
   }
 
-  function render() {
-    const rows = getFiltered();
-    const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
-    page = Math.min(page, totalPages);
-    const start = pageSize ? (page - 1) * pageSize : 0;
-    const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
-
-    // Claiming is Investigator-only (same rule as report-detail.js and
-    // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
-    // page but only gets a read-only view of who's working what.
-
-    list.innerHTML = pageRows.length
-      ? pageRows
-          .map((r) => {
-            const isMine = r.assignedInvestigatorId && currentUser && r.assignedInvestigatorId === currentUser.id;
-            const claimLabel = r.assignedInvestigator
-              ? `Claimed by ${isMine ? "you" : escapeReportHtml(r.assignedInvestigator)}`
-              : "Unclaimed";
-            const claimAction =
-              isInvestigator && !r.assignedInvestigator
-                ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
-                : "";
-            return `
+  function reportRow(r, { claimLabel, claimAction }) {
+    return `
         <div class="report-row">
           <div class="report-row__top">
             <span class="concern-row__title">${r.incidentType}</span>
             <span class="concern-row__date">${formatReportDate(r.dateSubmitted)}</span>
             <a class="concern-row__link" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>
-            <span class="status-badge ${badgeClass[r.status]}">${r.status}</span>
+            <span class="status-badge ${badgeClass[r.status] || ""}">${r.status}</span>
           </div>
           <div class="report-row__claim">
             <span>${claimLabel}</span>
             ${claimAction}
           </div>
         </div>`;
-          })
-          .join("")
-      : `<div class="ordinances-empty">${viewReports().length ? "No reports match your search or filters." : "No reports here yet."}</div>`;
+  }
 
-    list.querySelectorAll("[data-claim]").forEach((btn) => {
+  function renderGroup(container, rows, emptyMessage, rowFn) {
+    container.innerHTML = rows.length
+      ? rows.map(rowFn).join("")
+      : `<div class="ordinances-empty">${emptyMessage}</div>`;
+  }
+
+  function wireClaimButtons(container) {
+    container.querySelectorAll("[data-claim]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE)) return;
+        if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE, CLAIM_CONFIRM_OPTIONS)) return;
         btn.disabled = true;
         try {
           await claimReport(btn.dataset.claim);
@@ -171,11 +200,74 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       });
     });
+  }
+
+  function paginate(rows) {
+    const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+    page = Math.min(page, totalPages);
+    const start = pageSize ? (page - 1) * pageSize : 0;
+    return { totalPages, pageRows: pageSize ? rows.slice(start, start + pageSize) : rows };
+  }
+
+  function render() {
+    const rows = getFiltered();
+
+    // Three lists inside one card — the investigator's own claimed work,
+    // then the unclaimed queue, then other investigators' claims — so their
+    // own work doesn't get lost among everyone else's.
+    const groups = { mine: [], unclaimed: [], others: [] };
+    rows.forEach((r) => {
+      if (!r.assignedInvestigatorId) groups.unclaimed.push(r);
+      else if (currentUser && r.assignedInvestigatorId === currentUser.id) groups.mine.push(r);
+      else groups.others.push(r);
+    });
+
+    // Only this subpage's main list is paginated (the Unclaimed queue on
+    // All Reports) — it's the one that can grow into an actual queue;
+    // claimed work shown alongside it is naturally bounded per person.
+    const { totalPages, pageRows } = paginate(groups[view.paginated]);
+    const shown = (key) => (key === view.paginated ? pageRows : groups[key]);
+
+    groupOthersTitle.textContent = isInvestigator ? "Claimed by Other Investigators" : "Claimed Reports";
+
+    if (showMine) {
+      renderGroup(listMine, shown("mine"), "You haven't claimed any reports that match.", (r) =>
+        reportRow(r, { claimLabel: "Claimed by you", claimAction: "" })
+      );
+    }
+
+    if (!groupUnclaimed.hidden) {
+      renderGroup(
+        listUnclaimed,
+        shown("unclaimed"),
+        liveReports().length ? "No unclaimed reports match your search or filters." : "No reports submitted yet.",
+        (r) =>
+          reportRow(r, {
+            claimLabel: "Unclaimed",
+            claimAction: isInvestigator
+              ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
+              : "",
+          })
+      );
+      wireClaimButtons(listUnclaimed);
+    }
+
+    if (!groupOthers.hidden) {
+      renderGroup(
+        listOthers,
+        shown("others"),
+        isInvestigator ? "No reports claimed by other investigators." : "No claimed reports.",
+        (r) => reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" })
+      );
+    }
 
     renderPaginationControls(pagination, page, totalPages, (n) => {
       page = n;
       render();
     });
+    // Every filter, search, Clear and page change ends up here, so this one
+    // call keeps the saved state current.
+    saveFilters();
   }
 
   searchForm.addEventListener("submit", (e) => {

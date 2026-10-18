@@ -35,6 +35,22 @@
     <div class="navbar__profile" role="button" tabindex="0"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></div>
   </nav>
 
+  <script>
+    // Adds .navbar--authed before first paint if a session is cached, so
+    // the mobile navbar's logo/brand doesn't flash into view and then
+    // disappear once main.js's own (later) check runs — see
+    // .navbar--authed in style.css and the guest-nav wiring in main.js.
+    (function () {
+      var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
+      var hasToken = !!store.getItem("orms_access_token");
+      var user;
+      try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
+      if (!hasToken || !user) return;
+      var navbar = document.querySelector(".navbar");
+      if (navbar) navbar.classList.add("navbar--authed");
+    })();
+  </script>
+
   <div class="plain-page">
     <div class="plain-page__inner plain-page__inner--wide">
       <div class="profile-layout">
@@ -42,7 +58,7 @@
           <h1 class="profile-sidebar__title">My Profile</h1>
           <button type="button" class="profile-tab active" data-tab="edit">Edit Account Information</button>
           <button type="button" class="profile-tab" data-tab="password">Change Password</button>
-          <a class="btn btn-danger profile-sidebar__cancel" href="ordinances.html" id="profileCancelBtn">Cancel</a>
+          <button type="button" class="btn btn-danger profile-sidebar__delete" id="deleteAccountBtn">Delete Account</button>
         </aside>
 
         <div class="profile-panel">
@@ -54,14 +70,18 @@
             </label>
             <input type="file" id="avatarUpload" accept="image/*" hidden />
             <form id="editProfileForm">
-              <div class="form-row">
+              <div class="form-row form-row--with-mi">
                 <div class="field">
                   <label for="profileFirstName">Given Name</label>
-                  <input type="text" id="profileFirstName" required disabled />
+                  <input type="text" id="profileFirstName" required />
+                </div>
+                <div class="field">
+                  <label for="profileMiddleInitial">M.I.</label>
+                  <input type="text" id="profileMiddleInitial" maxlength="10" />
                 </div>
                 <div class="field">
                   <label for="profileLastName">Last Name</label>
-                  <input type="text" id="profileLastName" required disabled />
+                  <input type="text" id="profileLastName" required />
                 </div>
               </div>
               <div class="field">
@@ -109,6 +129,9 @@
               </div>
               <ul class="password-hint" data-password-field="newPassword">
                 <li data-rule="length"><input type="checkbox" disabled tabindex="-1" /> At least 8 characters</li>
+                <li data-rule="lowercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 lowercase character</li>
+                <li data-rule="uppercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 uppercase character</li>
+                <li data-rule="special"><input type="checkbox" disabled tabindex="-1" /> At least 1 special character</li>
                 <li data-rule="numeric"><input type="checkbox" disabled tabindex="-1" /> Not entirely numbers</li>
                 <li data-rule="common"><input type="checkbox" disabled tabindex="-1" /> Not a commonly used password</li>
                 <li data-rule="similar"><input type="checkbox" disabled tabindex="-1" /> Not too similar to your name or email</li>
@@ -160,6 +183,33 @@
         <button type="button" class="btn btn-muted" id="unsavedDiscardBtn">Discard Changes</button>
         <button type="button" class="btn btn-danger" id="unsavedCancelBtn">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Delete Account confirmation -->
+  <div class="modal-overlay" id="deleteAccountModal" hidden>
+    <div class="modal-card">
+      <h2>Delete Your Account?</h2>
+      <p class="auth-card__subtitle">This permanently deletes your account, along with every report, concern/suggestion, and question you've ever submitted. This can't be undone.</p>
+      <form id="deleteAccountForm" novalidate>
+        <div class="field field--boxed">
+          <label for="deleteAccountPassword">Enter your password to confirm</label>
+          <input type="password" id="deleteAccountPassword" required />
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-danger" id="deleteAccountConfirm">Delete My Account</button>
+          <button type="button" class="btn btn-muted" id="deleteAccountCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirms the account was deleted, then logs out -->
+  <div class="modal-overlay" id="deleteAccountDoneModal" hidden>
+    <div class="modal-card">
+      <h2>Account Deleted</h2>
+      <p class="auth-card__subtitle">Your account and everything tied to it have been permanently deleted.</p>
+      <button type="button" class="btn" id="deleteAccountDoneConfirm">Confirm</button>
     </div>
   </div>
 

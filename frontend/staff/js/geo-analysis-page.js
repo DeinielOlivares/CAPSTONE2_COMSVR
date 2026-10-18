@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     content.innerHTML = `<div class="ordinances-empty">${geoEscape(err.message)}</div>`;
     return;
   }
+  // Best-effort — the heatmap/analysis just can't place a street-only
+  // report precisely if this fails, not worth failing the whole page over.
+  await ensureStreetsLoaded().catch(() => {});
 
   // Every category a real ordinance defines, plus whatever a report's own
   // category is (e.g. "Other" for an ordinance that no longer matches) —

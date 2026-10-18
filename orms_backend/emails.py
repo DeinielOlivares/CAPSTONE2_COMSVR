@@ -21,8 +21,15 @@ below:
     - the Secretary or Barangay Captain posts a new Announcement (every
       citizen gets this one — see announcements/views.py)
   Any account (citizen, staff, or admin) gets emailed when...
+    - someone else creates it for them (an Administrator creating a
+      Staff/Administrator account, or a Barangay Citizen account) — a
+      one-time link to fill in their details and choose their own
+      password, see send_account_setup_link_email
     - an Administrator disables or deletes it (accounts/views.py's
       AdminAccountDetailView)
+    - (Staff/Administrator only) an Administrator chooses Reset Password in
+      Manage Accounts — a one-time link to choose a new password, see
+      send_password_reset_link_email
     - they (or anyone with access to their account) change their email,
       mobile number, or address from My Profile → Edit Account Information
       (a 6-digit code, sent to the address already on file, not any new
@@ -49,7 +56,6 @@ if the notification email doesn't go out.
 """
 
 import logging
-from urllib.parse import quote
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -189,24 +195,29 @@ def send_account_suspicious_activity_email(user):
     )
 
 
-def send_staff_setup_code_email(user, code, expires_minutes, with_setup_link=False):
-    # First-login setup for an admin-created Staff/Administrator account
-    # (accounts/views.py's StaffAccountSetupView) proves the person controls the
-    # address by making them enter this code before they can choose a password.
-    # with_setup_link is for the email sent when the account is created: it links
-    # straight to the code step, so the code in the email is the one to use.
-    setup_url = None
-    if with_setup_link:
-        portal = "citizen" if user.role == user.Role.CITIZEN else "staff"
-        setup_url = (
-            f"{settings.FRONTEND_BASE_URL}/{portal}/account-setup.html"
-            f"?email={quote(user.email)}&sent=1"
-        )
+def send_account_setup_link_email(user, setup_url, expires_hours):
+    # Sent when someone else creates an account for this person (an
+    # Administrator creating a Staff/Administrator account, or a Barangay
+    # Citizen account with or without its details filled in), and again
+    # whenever a new link is requested — see accounts/setup_links.py. No
+    # password is ever emailed: the owner chooses their own via the link.
     send_templated_email(
         to=user.email,
-        subject="Your account setup code",
-        template_name="staff_setup_code",
-        context={"user": user, "code": code, "expires_minutes": expires_minutes, "setup_url": setup_url},
+        subject="Barangay Platero OVRMS — Set up your account",
+        template_name="account_setup_link",
+        context={"user": user, "setup_url": setup_url, "expires_hours": expires_hours},
+    )
+
+
+def send_password_reset_link_email(user, reset_url, expires_hours):
+    # Manage Accounts → Reset Password, for a Barangay Staff/Administrator
+    # account (see accounts/setup_links.py's send_reset_link). The current
+    # password keeps working until the link is used.
+    send_templated_email(
+        to=user.email,
+        subject="Barangay Platero OVRMS — Reset your password",
+        template_name="password_reset_link",
+        context={"user": user, "reset_url": reset_url, "expires_hours": expires_hours},
     )
 
 
@@ -231,6 +242,18 @@ def send_account_deleted_email(name, email):
         to=email,
         subject="Barangay Platero OVRMS — Your account has been deleted",
         template_name="account_deleted",
+        context={"name": name},
+    )
+
+
+def send_account_self_deleted_email(name, email):
+    # Citizen-initiated deletion (My Profile → Delete Account — see
+    # MeView.delete) — distinct wording from send_account_deleted_email,
+    # which is specifically for an Administrator-initiated deletion.
+    send_templated_email(
+        to=email,
+        subject="Barangay Platero OVRMS — Your account has been deleted",
+        template_name="account_self_deleted",
         context={"name": name},
     )
 

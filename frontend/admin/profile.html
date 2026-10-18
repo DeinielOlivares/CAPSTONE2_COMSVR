@@ -50,10 +50,14 @@
             </label>
             <input type="file" id="avatarUpload" accept="image/*" hidden />
             <form id="editProfileForm">
-              <div class="form-row">
+              <div class="form-row form-row--with-mi">
                 <div class="field">
                   <label for="profileFirstName">Given Name</label>
                   <input type="text" id="profileFirstName" required />
+                </div>
+                <div class="field">
+                  <label for="profileMiddleInitial">M.I.</label>
+                  <input type="text" id="profileMiddleInitial" maxlength="10" />
                 </div>
                 <div class="field">
                   <label for="profileLastName">Last Name</label>
@@ -95,6 +99,9 @@
               </div>
               <ul class="password-hint" data-password-field="newPassword">
                 <li data-rule="length"><input type="checkbox" disabled tabindex="-1" /> At least 8 characters</li>
+                <li data-rule="lowercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 lowercase character</li>
+                <li data-rule="uppercase"><input type="checkbox" disabled tabindex="-1" /> At least 1 uppercase character</li>
+                <li data-rule="special"><input type="checkbox" disabled tabindex="-1" /> At least 1 special character</li>
                 <li data-rule="numeric"><input type="checkbox" disabled tabindex="-1" /> Not entirely numbers</li>
                 <li data-rule="common"><input type="checkbox" disabled tabindex="-1" /> Not a commonly used password</li>
                 <li data-rule="similar"><input type="checkbox" disabled tabindex="-1" /> Not too similar to your name or email</li>

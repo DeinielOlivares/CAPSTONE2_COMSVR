@@ -5,11 +5,27 @@
 // previously this page always showed a hardcoded "Eliseo Aurelio Jr."
 // mock regardless of who was actually logged in.
 
+// Where Cancel and the post-save confirmation send the user back to — each
+// Staff role's own landing page (kept in sync with main.js's
+// STAFF_POSITION_HOME; duplicated here since this page doesn't load
+// main.js, only admin.js).
+const STAFF_HOME_PAGE = {
+  "Barangay Captain": "reports-dashboard.html",
+  Secretary: "secretary-dashboard.html",
+  Investigator: "investigator-dashboard.html",
+};
+
+function staffHomePage() {
+  const user = getAdminUser();
+  return (user && STAFF_HOME_PAGE[user.position]) || "reports-dashboard.html";
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const avatarUpload = document.getElementById("avatarUpload");
   const avatarImg = document.getElementById("editAvatarImg");
   const avatarInitials = document.getElementById("editAvatarInitials");
   const firstNameInput = document.getElementById("profileFirstName");
+  const middleInitialInput = document.getElementById("profileMiddleInitial");
   const lastNameInput = document.getElementById("profileLastName");
   const emailInput = document.getElementById("profileEmail");
   const mobileInput = document.getElementById("profileMobile");
@@ -37,6 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       avatarImg.hidden = true;
     }
     firstNameInput.value = user.firstName || "";
+    middleInitialInput.value = user.middleInitial || "";
     lastNameInput.value = user.lastName || "";
     emailInput.value = user.email || "";
     mobileInput.value = user.mobile || "";
@@ -52,6 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const cached = getAdminUser();
   if (cached) populate(cached);
+  document.getElementById("profileCancelBtn").href = staffHomePage();
 
   try {
     const res = await authFetch("/api/auth/me/");
@@ -61,6 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         initials: initialsFor(fresh.first_name, fresh.last_name),
         profilePicture: fresh.profile_picture,
         firstName: fresh.first_name,
+        middleInitial: fresh.middle_initial,
         lastName: fresh.last_name,
         email: fresh.email,
         mobile: fresh.contact_number,
@@ -77,6 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // the live inputs against whichever snapshot is current.
   let savedSnapshot = {
     firstName: firstNameInput.value,
+    middleInitial: middleInitialInput.value,
     lastName: lastNameInput.value,
     email: emailInput.value,
     mobile: mobileInput.value,
@@ -86,6 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function isEditDirty() {
     return (
       firstNameInput.value !== savedSnapshot.firstName ||
+      middleInitialInput.value !== savedSnapshot.middleInitial ||
       lastNameInput.value !== savedSnapshot.lastName ||
       emailInput.value !== savedSnapshot.email ||
       mobileInput.value !== savedSnapshot.mobile ||
@@ -232,6 +253,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const formData = new FormData();
     formData.append("first_name", firstNameInput.value.trim());
+    formData.append("middle_initial", middleInitialInput.value.trim());
     formData.append("last_name", lastNameInput.value.trim());
     formData.append("email", emailInput.value.trim());
     formData.append("contact_number", mobileInput.value.trim());
@@ -261,6 +283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ...(getAdminUser() || {}),
           name: updated.name,
           firstName: updated.first_name,
+          middleInitial: updated.middle_initial,
           lastName: updated.last_name,
           initials: initialsFor(updated.first_name, updated.last_name),
           email: updated.email,
@@ -272,6 +295,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       savedSnapshot = {
         firstName: firstNameInput.value,
+        middleInitial: middleInitialInput.value,
         lastName: lastNameInput.value,
         email: emailInput.value,
         mobile: mobileInput.value,
@@ -293,7 +317,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (await commitEditSave()) {
       updatedTitle.textContent = "Information Changed!";
       onUpdatedConfirm = () => {
-        window.location.href = "reports-dashboard.html";
+        window.location.href = staffHomePage();
       };
       updatedModal.hidden = false;
     }

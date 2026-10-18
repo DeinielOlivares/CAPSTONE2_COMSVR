@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           <div class="announcement-row__info">
             <span class="announcement-row__title">${escapeHtml(a.title)}</span>
-            <span class="announcement-row__date">${date}${a.posted_by_name ? ` &middot; ${escapeHtml(a.posted_by_name)}` : ""}</span>
+            <span class="announcement-row__date">${date}${a.posted_by_name ? ` &middot; ${escapeHtml(a.posted_by_name)}` : ""}${a.is_edited ? ` &middot; <em>(edited)</em>` : ""}</span>
           </div>
           ${
             canManage

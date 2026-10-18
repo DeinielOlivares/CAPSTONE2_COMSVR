@@ -31,6 +31,7 @@
           <ul class="admin-sidebar__subnav" hidden>
             <li><a href="activity.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20V12M10 20V5M15.5 20v-8.5M21 20H3"/></svg> Citizen Activity</a></li>
             <li><a href="reports.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> Investigator Activity</a></li>
+            <li><a href="audit-logs.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="4" width="13" height="17" rx="1.8"/><path d="M9.3 4a1.2 1.2 0 011.2-1.2h3a1.2 1.2 0 011.2 1.2v.6H9.3z"/><path d="M8.7 11h6.6M8.7 14.3h6.6M8.7 17.6h4.4"/></svg> View Audit Logs</a></li>
           </ul>
         </li>
         <li class="admin-sidebar__group">
@@ -44,7 +45,6 @@
           </ul>
         </li>
         <li><a href="questions.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.7-1.2c.5.9.3 1.7-.5 2.4l-.7.6c-.6.5-1 .9-1 1.7v.3"/><circle cx="12" cy="17" r="0.2" fill="currentColor"/></svg> Answer Questions</a></li>
-        <li><a href="audit-logs.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="4" width="13" height="17" rx="1.8"/><path d="M9.3 4a1.2 1.2 0 011.2-1.2h3a1.2 1.2 0 011.2 1.2v.6H9.3z"/><path d="M8.7 11h6.6M8.7 14.3h6.6M8.7 17.6h4.4"/></svg> View Audit Logs</a></li>
       </ul>
       <button type="button" class="admin-sidebar__logout" id="logoutBtn">&#8618; Logout</button>
     </aside>
@@ -101,6 +101,14 @@
                   <option value="all">All</option>
                   <option value="citizen">Barangay Citizens</option>
                   <option value="staff">Barangay Staff</option>
+                </select>
+              </label>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Status</span>
+                <select id="statusFilter">
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="disabled">Disabled</option>
                 </select>
               </label>
               <label class="filters-dropdown__field">
@@ -201,7 +209,7 @@
         <div class="edit-account-card__actions">
           <button type="button" class="edit-account-btn edit-account-btn--disable" id="editDisableBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg> Disable User</button>
           <button type="button" class="edit-account-btn edit-account-btn--type" id="editTypeBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M18 6l-1.6 1.6M7.6 16.4L6 18M18 18l-1.6-1.6M7.6 7.6L6 6"/></svg> Update Role</button>
-          <button type="button" class="edit-account-btn edit-account-btn--reset" id="editResetBtn" disabled title="Not available yet"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.8"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg> Reset Password</button>
+          <button type="button" class="edit-account-btn edit-account-btn--reset" id="editResetBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.8"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg> Reset Password</button>
           <button type="button" class="edit-account-btn edit-account-btn--delete" id="editDeleteBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg> Delete Account</button>
         </div>
 

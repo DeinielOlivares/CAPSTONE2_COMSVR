@@ -45,6 +45,7 @@
 :root {
   --navy: #057a12;
   --navy-dark: #045c0e;
+  --navy-darker: #034e0c;
   --green-soft: #e3f7e5;
   --green-mist: #f7fdf8;
   --cream: #e3f7e5;
@@ -334,6 +335,10 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
 }
 
 .field {
@@ -874,6 +879,66 @@ button {
   text-align: center;
   padding: 40px 18px;
   color: var(--text-muted);
+}
+
+/* ---------- Skeleton loading placeholders ----------
+   A shimmering gray bar standing in for text/content that's still loading,
+   instead of a bare "Loading..." string, so a slow connection shows
+   something that already roughly matches the real layout rather than a
+   layout jump once data arrives. See skeletonTableRows()/skeletonCards()
+   in admin.js. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--plain-bg) 50%, var(--border) 75%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  height: 0.85em;
+  width: 100%;
+}
+
+.skeleton-text + .skeleton-text {
+  margin-top: 8px;
+}
+
+.skeleton-text--short {
+  width: 35%;
+}
+
+.skeleton-text--medium {
+  width: 65%;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-card:first-child {
+  border-top: none;
+}
+
+.skeleton-block {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
 }
 
 /* ---------- Ordinance detail ---------- */
@@ -1970,7 +2035,7 @@ button {
   width: 100%;
 }
 
-/* Submitted — grey */
+/* New Submission — grey */
 .status-badge--submitted {
   background: #e2e2e2;
   border: 1px solid #b8b8b8;
@@ -2574,8 +2639,8 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 28px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  background: var(--navy-darker);
+  color: var(--white);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -2585,7 +2650,7 @@ button {
   border: none;
   background: none;
   font-size: 1.25rem;
-  color: var(--text);
+  color: var(--white);
   line-height: 1;
 }
 
@@ -2644,7 +2709,8 @@ button {
 }
 
 .admin-topbar__name small {
-  color: var(--text-muted);
+  color: inherit;
+  opacity: 0.75;
   font-size: 0.78rem;
 }
 
@@ -2802,6 +2868,46 @@ button {
   overflow: hidden;
   box-shadow: var(--shadow);
   overflow-x: auto;
+}
+
+/* Fixed column widths so a long reporter name or ordinance title (Reporter/
+   Ordinance below) can't force the table past the card's width — without
+   this, table-layout's default "auto" sizing grows columns to fit their
+   content, which is what made this table need horizontal scrolling. The
+   over-wide text itself is handled by .admin-table__ellipsis. */
+.admin-table--unclaimed-reports {
+  table-layout: fixed;
+}
+
+.admin-table--unclaimed-reports th:nth-child(1),
+.admin-table--unclaimed-reports td:nth-child(1) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(2),
+.admin-table--unclaimed-reports td:nth-child(2) {
+  width: 35%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(3),
+.admin-table--unclaimed-reports td:nth-child(3) {
+  width: 13%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(4),
+.admin-table--unclaimed-reports td:nth-child(4) {
+  width: 12%;
+}
+
+.admin-table--unclaimed-reports th:nth-child(5),
+.admin-table--unclaimed-reports td:nth-child(5) {
+  width: 27%;
+}
+
+.admin-table__ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Per-row action buttons (Ordinance Authors) — .btn/.btn-muted are full-width
@@ -3344,7 +3450,17 @@ button {
    and Citizen (full 2-column) forms above it — see create-accounts.js. */
 .create-account-type-field {
   max-width: 300px;
-  margin-top: 28px;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+.field input.field-invalid,
+.field select.field-invalid {
+  border-color: #c0392b;
 }
 
 /* Barangay Staff only ever collects an email + role (see
@@ -3645,6 +3761,62 @@ button {
   .boundary-toolbar__check {
     margin-left: 0;
   }
+}
+
+/* "+ Add Street" toggled on — the map's next click places a street instead
+   of a boundary point (see map-boundary.js), so this needs to visibly read
+   as "armed" the same way the map's cursor changes. */
+#streetAddToggle.is-active {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.street-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.street-list__empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.street-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.street-list__delete {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.street-list__delete:hover {
+  background: #fdeceb;
+  color: #c0392b;
 }
 
 .setup-table td {

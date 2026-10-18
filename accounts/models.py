@@ -29,6 +29,7 @@ class User(AbstractUser):
     # first_name/last_name override AbstractUser's plain columns for the same
     # reason. None of the four can be searched or sorted by the database.
     first_name = EncryptedTextField("first name", max_length=150, blank=True)
+    middle_initial = EncryptedTextField("middle initial", max_length=10, blank=True)
     last_name = EncryptedTextField("last name", max_length=150, blank=True)
     contact_number = EncryptedTextField(max_length=20, blank=True)
     address = EncryptedTextField(max_length=255, blank=True)
@@ -58,6 +59,13 @@ class User(AbstractUser):
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
+
+    def get_full_name(self):
+        # AbstractUser's default joins first_name/last_name only — add the
+        # middle initial (e.g. "Juan D. Dela Cruz") when one is on file.
+        middle = f" {self.middle_initial.rstrip('.')}." if self.middle_initial else ""
+        full_name = f"{self.first_name}{middle} {self.last_name}"
+        return full_name.strip()
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.role})"

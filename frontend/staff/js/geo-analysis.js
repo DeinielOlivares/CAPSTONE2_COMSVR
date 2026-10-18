@@ -14,8 +14,8 @@
 // (geo-analysis-page.js); renderGeoSummary is the short version beside the
 // heatmap on the Reports Dashboard. Depends on heatmap.js (streetOf).
 
-const GEO_OPEN_STATUSES = ["Submitted", "Under Review", "In Action"];
-const GEO_STATUS_ORDER = ["Submitted", "Under Review", "In Action", "Resolved", "With Remarks"];
+const GEO_OPEN_STATUSES = ["New Submission", "Under Review", "In Action"];
+const GEO_STATUS_ORDER = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
 const GEO_ORDINANCE_ROWS = 6;
 
 // Quotes too, not just what innerHTML escapes — street and ordinance text

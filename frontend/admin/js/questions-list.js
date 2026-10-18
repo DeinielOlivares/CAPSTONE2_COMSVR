@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
 
-  if (list) list.innerHTML = `<div class="ordinances-empty">Loading questions...</div>`;
+  if (list) list.innerHTML = skeletonCards(4);
 
   try {
     questions = await getQuestions();

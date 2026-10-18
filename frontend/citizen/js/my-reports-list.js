@@ -32,24 +32,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let reports = [];
   let page = 1;
-  // Closed reports (Resolved/With Remarks) are hidden until the citizen
-  // actually picks a filter themselves — even re-selecting "All" counts,
-  // since that's an explicit "yes, show everything" action. Only the
-  // untouched initial load (which happens to also show "All" selected)
-  // excludes them by default.
-  let filterTouched = false;
 
   // Default display order when more than one status is showing: Submitted,
   // then Under Review, then In Action, with Resolved/With Remarks last —
-  // newest first within each status.
+  // newest first within each status. "All" really means all: Resolved used
+  // to be hidden until the filter was touched, which left a citizen whose
+  // reports were all resolved looking at "No reports match this status."
+  // under "All".
   const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3, "With Remarks": 3 };
-  const CLOSED_LABELS = ["Resolved", "With Remarks"];
 
   function getFiltered() {
     const filterValue = statusFilter.value;
     const rows = reports.filter((r) => {
       const label = REPORT_STATUS_LABELS[r.status] || r.status;
-      if (!filterTouched && filterValue === "All") return !CLOSED_LABELS.includes(label);
       return filterValue === "All" || label === filterValue;
     });
     return rows.slice().sort((a, b) => {
@@ -81,7 +76,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>`;
           })
           .join("")
-      : `<div class="ordinances-empty">No reports match this status.</div>`;
+      : `<div class="ordinances-empty">${
+          reports.length
+            ? "No reports match this status."
+            : `You haven't filed any reports yet. <a href="file-report.html">File a report</a>`
+        }</div>`;
 
     if (pagination) {
       renderPaginationControls(pagination, page, totalPages, (n) => {
@@ -92,7 +91,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   statusFilter.addEventListener("change", () => {
-    filterTouched = true;
     page = 1;
     render();
   });
@@ -105,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  list.innerHTML = `<div class="ordinances-empty">Loading your reports...</div>`;
+  list.innerHTML = skeletonCards(4);
   try {
     reports = await getMyReports();
     render();

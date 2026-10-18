@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -17,20 +16,21 @@ from orms_backend.emails import (
     send_account_deactivated_email,
     send_account_deleted_email,
     send_account_rejected_email,
+    send_account_self_deleted_email,
     send_profile_edit_code_email,
-    send_staff_setup_code_email,
 )
 
+from .lockout import clear_failed_logins
 from .models import (
     AuditLog,
     LoginSession,
-    PasswordResetCode,
     ProfileEditVerificationCode,
     User,
     VoterVerification,
     log_action,
 )
 from .serializers import (
+    AccountAvailabilityCheckSerializer,
     AdminAccountSerializer,
     CitizenInviteSerializer,
     CitizenSetupSerializer,
@@ -38,6 +38,8 @@ from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    DeleteAccountSerializer,
+    LinkPasswordSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PasswordResetVerifySerializer,
@@ -47,8 +49,18 @@ from .serializers import (
     STAFF_ROLE_CHOICES,
     STAFF_ROLE_TO_ROLE_FIELD,
     StaffAccountSetupSerializer,
+    StaffCreateCitizenSerializer,
     UserSerializer,
     validate_staff_role_uniqueness,
+)
+from .setup_links import (
+    can_receive_reset_link,
+    is_pending_setup,
+    pending_user_for_link,
+    send_reset_link,
+    send_setup_link,
+    user_for_reset_link,
+    user_from_uid,
 )
 from .throttles import ResetRequestEmailThrottle
 
@@ -65,6 +77,18 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         admins = User.objects.filter(role=User.Role.ADMIN, is_active=True)
         send_account_created_admin_emails(user, admins)
+
+
+class CheckAccountAvailabilityView(APIView):
+    """POST /api/auth/check-availability/ — see AccountAvailabilityCheckSerializer."""
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
+
+    def post(self, request):
+        serializer = AccountAvailabilityCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({})
 
 
 class PasswordResetRequestView(APIView):
@@ -141,96 +165,67 @@ class LogoutView(APIView):
         return Response({"detail": "Logged out."})
 
 
-def _pending_setup_account(email):
-    """The Staff, Administrator, or Barangay Citizen account an admin or secretary created that's still waiting on setup, or None."""
-    user = User.objects.filter(
-        email__iexact=(email or "").strip(), role__in=[User.Role.STAFF, User.Role.ADMIN, User.Role.CITIZEN]
-    ).first()
-    return user if user and not user.has_usable_password() else None
+def _setup_details(user):
+    # What the setup page pre-fills: blank for a Staff/Administrator account or
+    # an invited citizen, already filled in for a citizen an Administrator
+    # created with their details (they can still correct anything).
+    return {
+        "email": user.email,
+        "role": user.role,
+        "first_name": user.first_name,
+        "middle_initial": user.middle_initial,
+        "last_name": user.last_name,
+        "contact_number": user.contact_number,
+        "address": user.address,
+    }
 
 
-def _send_setup_code(user, with_setup_link=False):
-    # Same as Forgot Password: only the newest code works.
-    PasswordResetCode.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
-    code = generate_code()
-    PasswordResetCode.objects.create(
-        user=user,
-        code=code,
-        expires_at=timezone.now() + timedelta(minutes=PasswordResetCode.CODE_TTL_MINUTES),
-    )
-    send_staff_setup_code_email(user, code, PasswordResetCode.CODE_TTL_MINUTES, with_setup_link=with_setup_link)
+SETUP_LINK_INVALID = "This setup link has expired or has already been used."
 
 
-class StaffAccountSetupCodeRequestView(APIView):
+class AccountSetupCheckView(APIView):
     """
-    POST /api/auth/staff-setup/request-code/ — step 1 of first-login setup:
-    emails a 6-digit code to a Staff/Administrator account an admin created and
-    that's still waiting on setup. The code then goes through the ordinary
-    password-reset/verify/ step, and StaffAccountSetupView refuses to set a
-    password without a verified one.
-
-    Why the code exists: an admin-created account has no password, so before this
-    anyone who knew or guessed the email could type it in, choose a password,
-    and be logged in as that account — an Administrator's, if that's the role
-    it was created with. Now the person has to be able to read that inbox.
-
-    Always answers identically whether or not the email matches a pending
-    account, so this can't be used to find out which staff emails exist.
+    POST /api/auth/account-setup/check/ — the setup page opens with this:
+    given the uid+token from an emailed setup link (see
+    accounts/setup_links.py), returns the account's details to pre-fill, or
+    400 if the link is expired, already used, or replaced by a newer one.
     """
 
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle, ResetRequestEmailThrottle]
-    throttle_scope = "staff_setup_code"
-
-    def post(self, request):
-        user = _pending_setup_account(request.data.get("email"))
-        if user:
-            _send_setup_code(user)
-        return Response({
-            "detail": "If that email belongs to an account waiting on setup, we've sent a code to it."
-        })
-
-
-class StaffAccountSetupView(APIView):
-    """
-    POST /api/auth/staff-setup/ — completes a Barangay Staff/Administrator
-    account an admin created with just an email + role (see
-    AdminCreateUserSerializer): the staff member supplies their own name,
-    phone, and password on first login. Logs them straight in afterward —
-    same response shape as LoginView — so the frontend can reuse its
-    normal post-login redirect (main.js's ROLE_HOME).
-
-    Requires the emailed code from StaffAccountSetupCodeRequestView, already
-    accepted by password-reset/verify/ — see that view for why. Every way of
-    failing (no such account, already set up, missing/wrong/expired code)
-    gets the same answer, again so it can't be used to probe for accounts.
-    """
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "staff_setup"
-
-    NOT_ALLOWED = "This setup session has expired or is invalid. Please start again from the login page."
+    throttle_scope = "account_setup"
 
     def post(self, request):
-        user = _pending_setup_account(request.data.get("email"))
-        code = str(request.data.get("code") or "").strip()
-        reset_code = None
-        if user and code:
-            reset_code = (
-                PasswordResetCode.objects.filter(
-                    user=user, code=code, used_at__isnull=True, verified_at__isnull=False
-                )
-                .order_by("-created_at")
-                .first()
-            )
-        if not reset_code or not reset_code.is_valid():
-            return Response({"detail": self.NOT_ALLOWED}, status=400)
+        user = pending_user_for_link(request.data.get("uid"), request.data.get("token"))
+        if not user:
+            return Response({"detail": SETUP_LINK_INVALID}, status=400)
+        return Response(_setup_details(user))
+
+
+class AccountSetupView(APIView):
+    """
+    POST /api/auth/account-setup/ — the first-login screen's submit: the
+    owner of an account someone else created confirms their details and
+    chooses their own password, using the uid+token from the emailed setup
+    link. Logs them straight in afterward — same response shape as
+    LoginView — so the frontend reuses its normal post-login redirect.
+    Completing setup sets a usable password, which is also what kills the
+    link (see accounts/setup_links.py), so it can't be replayed.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "account_setup"
+
+    def post(self, request):
+        user = pending_user_for_link(request.data.get("uid"), request.data.get("token"))
+        if not user:
+            return Response({"detail": SETUP_LINK_INVALID}, status=400)
 
         setup_serializer = CitizenSetupSerializer if user.role == User.Role.CITIZEN else StaffAccountSetupSerializer
         serializer = setup_serializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        reset_code.expire()
 
         LoginSession.objects.create(user=user)
         log_action(user, "Completed account setup and logged in")
@@ -240,6 +235,35 @@ class StaffAccountSetupView(APIView):
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": UserSerializer(user, context={"request": request}).data,
+        })
+
+
+class AccountSetupLinkRequestView(APIView):
+    """
+    POST /api/auth/account-setup/request-link/ — emails a fresh setup link
+    (and kills every older one) to an account still waiting on setup. Takes
+    either `email` (typed on the setup page) or `uid` (the "Email me a new
+    link" button on an expired link, which still knows whose it was).
+
+    Always answers identically whether or not anything was sent, so it can't
+    be used to find out which emails have accounts. The link only ever goes
+    to the account's own inbox, so asking for one gets a stranger nothing.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle, ResetRequestEmailThrottle]
+    throttle_scope = "account_setup_link"
+
+    def post(self, request):
+        email = str(request.data.get("email") or "").strip()
+        if email:
+            user = User.objects.filter(email__iexact=email).first()
+        else:
+            user = user_from_uid(request.data.get("uid"))
+        if is_pending_setup(user):
+            send_setup_link(user)
+        return Response({
+            "detail": "If that account is waiting to be set up, we've emailed it a new setup link."
         })
 
 
@@ -333,6 +357,31 @@ class MeView(APIView):
         serializer.save()
         return Response(UserSerializer(user, context={"request": request}).data)
 
+    def delete(self, request):
+        """
+        DELETE /api/auth/me/ — My Profile → Delete Account, Citizen Portal
+        only (AdminAccountDetailView.delete already covers Staff/Admin
+        removal, with its own last-admin/claimed-reports handling that a
+        generic self-delete here doesn't account for). Requires the current
+        password (see DeleteAccountSerializer). Report/Concern/Question all
+        CASCADE off User, so this also wipes everything the citizen ever
+        submitted — the confirmation UI says so up front.
+        """
+        if request.user.role != User.Role.CITIZEN:
+            return Response({"detail": "Only a citizen account can be deleted this way."}, status=403)
+
+        serializer = DeleteAccountSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        name = user.get_full_name() or user.username
+        email = user.email
+        with transaction.atomic():
+            log_action(user, "Deleted own account")
+            user.delete()
+        send_account_self_deleted_email(name, email)
+        return Response(status=204)
+
 
 class ChangePasswordView(APIView):
     """POST /api/auth/change-password/ — My Profile → Edit Account Information → Change Password, all three portals."""
@@ -420,8 +469,9 @@ class AdminCreateUserView(generics.CreateAPIView):
     """
     POST /api/auth/admin/create-user/ — Administrator-only endpoint for
     creating a Barangay Staff (or Administrator) account with just an
-    email + role, pending the staff member's own first-login setup (see
-    StaffAccountSetupView).
+    email + role. The staff member gets a one-time setup link by email and
+    fills in their own name, phone and password from it (see
+    accounts/setup_links.py and AccountSetupView).
     """
     queryset = User.objects.all()
     serializer_class = AdminCreateUserSerializer
@@ -429,7 +479,7 @@ class AdminCreateUserView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        _send_setup_code(user, with_setup_link=True)
+        send_setup_link(user)
         log_action(self.request.user, f"Created a {user.position} account for {user.email}")
 
 
@@ -437,7 +487,7 @@ class AdminInviteCitizenView(generics.CreateAPIView):
     """
     POST /api/auth/admin/create-citizen/ — Administrator or Barangay Secretary
     creates a Barangay Citizen account from just an email. The citizen gets a
-    setup code and link by email and finishes the account themselves.
+    one-time setup link by email and finishes the account themselves.
     """
     queryset = User.objects.all()
     serializer_class = CitizenInviteSerializer
@@ -445,8 +495,28 @@ class AdminInviteCitizenView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        _send_setup_code(user, with_setup_link=True)
+        send_setup_link(user)
         log_action(self.request.user, f"Invited a Barangay Citizen account for {user.email}")
+
+
+class StaffCreateCitizenView(generics.CreateAPIView):
+    """
+    POST /api/auth/admin/create-citizen-direct/ — Administrator creates a
+    Barangay Citizen account with the full details entered directly (see
+    StaffCreateCitizenSerializer), rather than just inviting by email
+    (AdminInviteCitizenView above). The citizen still gets a one-time setup
+    link, where they confirm those details and choose their own password —
+    no password is generated or emailed. Admin-only — the
+    Barangay Secretary used to have this too, but that's been removed.
+    """
+    queryset = User.objects.all()
+    serializer_class = StaffCreateCitizenSerializer
+    permission_classes = [IsAdmin]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        send_setup_link(user)
+        log_action(self.request.user, f"Created a Barangay Citizen account for {user.email}")
 
 
 class AdminListUsersView(generics.ListAPIView):
@@ -670,20 +740,92 @@ class AdminListAuditLogsView(generics.ListAPIView):
     permission_classes = [IsAdmin]
 
 
-class AdminResetPasswordView(APIView):
+class AdminResendSetupLinkView(APIView):
     """
-    POST /api/auth/admin/users/<id>/reset-password/ — backs the "Reset
-    Password" button. Generates a one-time reset token; actually emailing it
-    is a follow-up (no email service wired up yet), so this currently
-    returns the token directly for testing.
+    POST /api/auth/admin/users/<id>/resend-setup-link/ — Manage Accounts'
+    "Resend Setup Link" (shown only while the account is Setup Pending, any
+    account type). Emails a fresh one-time setup link and kills older ones.
+    Refused once the account is set up, so it can't be used to knock a
+    working account back to no password.
     """
     permission_classes = [IsAdmin]
 
     def post(self, request, pk):
         user = get_object_or_404(User, pk=pk)
-        token = default_token_generator.make_token(user)
-        log_action(request.user, f"Reset password for {user.get_full_name() or user.username}")
-        return Response({
-            "detail": f"Password reset token generated for {user.email}.",
-            "token": token,
-        })
+        if not is_pending_setup(user):
+            return Response({"detail": "This account has already been set up."}, status=400)
+        send_setup_link(user)
+        log_action(request.user, f"Resent the account setup link to {user.email}")
+        return Response({"detail": f"A new setup link has been emailed to {user.email}."})
+
+
+class AdminResetPasswordView(APIView):
+    """
+    POST /api/auth/admin/users/<id>/reset-password/ — Manage Accounts'
+    "Reset Password", for Barangay Staff/Administrator accounts that are
+    already set up: emails the owner a one-time link to choose a new
+    password (see accounts/setup_links.py's send_reset_link). The
+    Administrator never sees or sets the password, and the current one
+    keeps working until the link is used. Citizens use Forgot Password.
+    """
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        if user.role == User.Role.CITIZEN:
+            return Response(
+                {"detail": "Citizens reset their own password with Forgot Password on the login page."}, status=400
+            )
+        if is_pending_setup(user):
+            return Response({"detail": "This account hasn't been set up yet. Use Resend Setup Link instead."}, status=400)
+        if user == request.user:
+            return Response({"detail": "Change your own password from My Profile instead."}, status=400)
+        if not can_receive_reset_link(user):
+            return Response({"detail": "Enable this account before resetting its password."}, status=400)
+        send_reset_link(user)
+        log_action(request.user, f"Sent a password reset link to {user.email}")
+        return Response({"detail": f"A password reset link has been emailed to {user.email}."})
+
+
+RESET_LINK_INVALID = "This password reset link has expired or has already been used. Ask an Administrator for a new one."
+
+
+class PasswordLinkCheckView(APIView):
+    """
+    POST /api/auth/password-link/check/ — staff/new-password.html opens with
+    this: is the emailed reset link (uid+token) still valid? Returns the
+    account's email (for the "too similar to your email" check) or 400.
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "account_setup"
+
+    def post(self, request):
+        user = user_for_reset_link(request.data.get("uid"), request.data.get("token"))
+        if not user:
+            return Response({"detail": RESET_LINK_INVALID}, status=400)
+        return Response({"email": user.email, "first_name": user.first_name, "last_name": user.last_name})
+
+
+class PasswordLinkConfirmView(APIView):
+    """
+    POST /api/auth/password-link/ — sets the new password from a valid reset
+    link. Doesn't log in: the person goes on to the normal login page, same
+    as the end of Forgot Password. Also lifts any failed-login lock, since
+    using the link proves control of the inbox (see accounts/lockout.py).
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "account_setup"
+
+    def post(self, request):
+        user = user_for_reset_link(request.data.get("uid"), request.data.get("token"))
+        if not user:
+            return Response({"detail": RESET_LINK_INVALID}, status=400)
+        serializer = LinkPasswordSerializer(data=request.data, context={"user": user})
+        serializer.is_valid(raise_exception=True)
+        user.set_password(serializer.validated_data["password"])
+        user.save(update_fields=["password"])
+        clear_failed_logins(user)
+        log_action(user, "Reset password from an Administrator's reset link")
+        return Response({"detail": "Your password has been reset."})

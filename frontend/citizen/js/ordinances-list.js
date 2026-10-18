@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
 
-  tbody.innerHTML = `<tr><td colspan="2" class="ordinances-empty">Loading ordinances...</td></tr>`;
+  tbody.innerHTML = skeletonTableRows(6, 2);
   try {
     await ensureOrdinancesLoaded();
     updateSearchPlaceholder();

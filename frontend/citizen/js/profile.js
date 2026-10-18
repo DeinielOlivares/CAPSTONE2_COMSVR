@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const avatarImg = document.getElementById("editAvatarImg");
   const avatarInitials = document.getElementById("editAvatarInitials");
   const firstNameInput = document.getElementById("profileFirstName");
+  const middleInitialInput = document.getElementById("profileMiddleInitial");
   const lastNameInput = document.getElementById("profileLastName");
   const emailInput = document.getElementById("profileEmail");
   const mobileInput = document.getElementById("profileMobile");
@@ -59,6 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       avatarImg.hidden = true;
     }
     firstNameInput.value = user.firstName || "";
+    middleInitialInput.value = user.middleInitial || "";
     lastNameInput.value = user.lastName || "";
     emailInput.value = user.email || "";
     mobileInput.value = user.mobile || "";
@@ -73,6 +75,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("passwordHintEmail").value = user.email || "";
   }
 
+  // Awaited before the first populate() below, since splitAddress() (inside
+  // it) needs STREETS to actually recognize the saved address's street.
+  await ensureStreetsLoaded().catch(() => {});
+
   const cached = getCurrentUser();
   if (cached) populate(cached);
 
@@ -84,6 +90,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         initials: initialsFor(fresh.first_name, fresh.last_name),
         profilePicture: fresh.profile_picture,
         firstName: fresh.first_name,
+        middleInitial: fresh.middle_initial,
         lastName: fresh.last_name,
         email: fresh.email,
         mobile: fresh.contact_number,
@@ -100,6 +107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // the live inputs against whichever snapshot is current.
   let savedSnapshot = {
     firstName: firstNameInput.value,
+    middleInitial: middleInitialInput.value,
     lastName: lastNameInput.value,
     email: emailInput.value,
     mobile: mobileInput.value,
@@ -110,6 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     syncAddress();
     return (
       firstNameInput.value !== savedSnapshot.firstName ||
+      middleInitialInput.value !== savedSnapshot.middleInitial ||
       lastNameInput.value !== savedSnapshot.lastName ||
       emailInput.value !== savedSnapshot.email ||
       mobileInput.value !== savedSnapshot.mobile ||
@@ -270,6 +279,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const formData = new FormData();
     formData.append("first_name", firstNameInput.value.trim());
+    formData.append("middle_initial", middleInitialInput.value.trim());
     formData.append("last_name", lastNameInput.value.trim());
     formData.append("email", emailInput.value.trim());
     formData.append("contact_number", mobileInput.value.trim());
@@ -301,6 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ...(getCurrentUser() || {}),
           name: updated.name,
           firstName: updated.first_name,
+          middleInitial: updated.middle_initial,
           lastName: updated.last_name,
           initials: initialsFor(updated.first_name, updated.last_name),
           email: updated.email,
@@ -312,6 +323,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       savedSnapshot = {
         firstName: firstNameInput.value,
+        middleInitial: middleInitialInput.value,
         lastName: lastNameInput.value,
         email: emailInput.value,
         mobile: mobileInput.value,
@@ -397,6 +409,77 @@ document.addEventListener("DOMContentLoaded", async () => {
       onUpdatedConfirm = () => switchToTab("edit");
       updatedModal.hidden = false;
     }
+  });
+
+  // ---- Delete Account ----
+  // Permanent and self-service — Report/Concern/Question all CASCADE off
+  // User (see accounts.views.MeView.delete), so this wipes everything the
+  // citizen ever submitted along with the account itself. Requires the
+  // current password, same reasoning as Change Password above.
+  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+  const deleteAccountModal = document.getElementById("deleteAccountModal");
+  const deleteAccountForm = document.getElementById("deleteAccountForm");
+  const deleteAccountPasswordInput = document.getElementById("deleteAccountPassword");
+  const deleteAccountConfirmBtn = document.getElementById("deleteAccountConfirm");
+  const deleteAccountCancel = document.getElementById("deleteAccountCancel");
+  const deleteAccountDoneModal = document.getElementById("deleteAccountDoneModal");
+  const deleteAccountDoneConfirm = document.getElementById("deleteAccountDoneConfirm");
+
+  deleteAccountBtn.addEventListener("click", () => {
+    deleteAccountPasswordInput.value = "";
+    clearFormError(deleteAccountForm);
+    deleteAccountModal.hidden = false;
+    deleteAccountPasswordInput.focus();
+  });
+  deleteAccountCancel.addEventListener("click", () => {
+    deleteAccountModal.hidden = true;
+  });
+  deleteAccountModal.addEventListener("click", (e) => {
+    if (e.target === deleteAccountModal) deleteAccountModal.hidden = true;
+  });
+
+  deleteAccountForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearFormError(deleteAccountForm);
+    deleteAccountConfirmBtn.disabled = true;
+    deleteAccountConfirmBtn.textContent = "Deleting...";
+    try {
+      const response = await authFetch("/api/auth/me/", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: deleteAccountPasswordInput.value }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const firstError = Object.values(data)[0];
+        throw new Error(
+          Array.isArray(firstError) ? firstError[0] : data.detail || "Could not delete your account."
+        );
+      }
+      // Neutralizes any unsaved Edit/Password form changes so beforeunload's
+      // isDirty() check doesn't throw up a native "leave site?" prompt on
+      // the way out, right after the account was just deleted on purpose.
+      savedSnapshot = {
+        firstName: firstNameInput.value,
+        middleInitial: middleInitialInput.value,
+        lastName: lastNameInput.value,
+        email: emailInput.value,
+        mobile: mobileInput.value,
+        address: addressInput.value,
+      };
+      deleteAccountModal.hidden = true;
+      deleteAccountDoneModal.hidden = false;
+    } catch (err) {
+      showFormError(deleteAccountForm, err.message);
+    } finally {
+      deleteAccountConfirmBtn.disabled = false;
+      deleteAccountConfirmBtn.textContent = "Delete My Account";
+    }
+  });
+
+  deleteAccountDoneConfirm.addEventListener("click", () => {
+    logOut();
+    window.location.href = "/citizen/login.html";
   });
 
   // ---- Leaving with unsaved changes ----

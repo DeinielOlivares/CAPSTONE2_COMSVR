@@ -218,6 +218,145 @@ button {
   border-bottom-color: var(--accent);
 }
 
+/* Login and Sign Up each have two copies for guests: one inline in the top
+   row (desktop), one inside the hamburger dropdown after Submit Suggestion
+   (mobile) — see the guest-nav wiring in main.js. Only one of each pair is
+   ever visible at a time; the mobile breakpoint and .navbar--compact below
+   flip which. Declared here (ahead of both) so these unconditional rules
+   don't win the cascade over them by sheer source order despite equal
+   specificity. */
+.navbar__links-login,
+.navbar__links-signup {
+  display: none;
+}
+
+/* A logged-in citizen's dropdown leads with the logo + brand name (see
+   navbar--authed in main.js) — desktop-hidden like the pair above, for the
+   same reason. */
+.navbar__links-brand {
+  display: none;
+}
+
+.navbar__links-brand .navbar__logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+/* A logged-in citizen's dropdown also ends with Logout (see navbar--authed
+   in main.js) — desktop-hidden like the pair above, for the same reason. */
+.navbar__links-logout {
+  display: none;
+}
+
+.navbar__links-logout a {
+  opacity: 0.75;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin-top: 4px;
+}
+
+.navbar__links-logout a:hover {
+  opacity: 1;
+}
+
+/* The dropdown has room for the subtitle that .navbar__brand-text small
+   hides below 1100px up in the cramped top row — shown again here
+   regardless of width (specificity alone beats that rule; this is already
+   display: none outside the dropdown's own mobile-only context anyway). */
+.navbar__links-brand .navbar__brand-text small {
+  display: block;
+}
+
+/* Same collapsed-into-hamburger treatment as the mobile media query further
+   down, but triggered by actual overflow (see syncNavCompact in main.js)
+   instead of a fixed viewport width — above the mobile breakpoint the links
+   would otherwise wrap onto a second row rather than fit in one. */
+.navbar--compact {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.navbar--compact .navbar__hamburger {
+  display: block;
+}
+
+.navbar--compact .navbar__links {
+  display: flex;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  background: var(--navy);
+  box-shadow: var(--shadow);
+  border-top: 0 solid rgba(255, 255, 255, 0.15);
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+}
+
+.navbar--compact .navbar__links.is-open {
+  max-height: 600px;
+  opacity: 1;
+  padding: 10px 0;
+  border-top-width: 1px;
+}
+
+.navbar--compact .navbar__links a {
+  display: block;
+  /* The dropdown now spans edge-to-edge (position: absolute, no longer
+     inset by .navbar's own 28px side padding) — matched here so link text
+     still lines up under the brand/hamburger above it. */
+  padding: 10px 28px;
+}
+
+.navbar--compact .navbar__links-signup {
+  display: block;
+}
+
+.navbar--compact .navbar__links-login {
+  display: block;
+}
+
+.navbar--compact .navbar__links-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 28px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.navbar--compact .navbar__links-logout {
+  display: block;
+}
+
+/* Login (and, for a guest, the inline Sign Up next to it) move into the
+   dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+.navbar--compact .navbar__profile--login {
+  display: none;
+}
+
+/* Logged-in citizen: no Login/Sign Up to show, so the brand makes way for
+   the hamburger on the left (leaving just notifications + account on the
+   right) — it reappears inside the dropdown instead, see
+   .navbar__links-brand below and navbar--authed in main.js. */
+.navbar--compact.navbar--authed .navbar__brand {
+  display: none;
+}
+
+.navbar--compact.navbar--authed .navbar__hamburger {
+  margin-left: 0;
+}
+
+.navbar--compact.navbar--authed .navbar__bell {
+  margin-left: auto;
+}
+
 /* Inverted chip: navbar itself is navy, so the bell's own background flips
    to white (with a navy icon) rather than sitting flat against the navbar. */
 .navbar__bell {
@@ -341,13 +480,21 @@ button {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
+}
+
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
 }
 
 .field {
   margin-bottom: 16px;
   text-align: left;
+}
+
+.field--narrow {
+  max-width: 140px;
 }
 
 .field label {
@@ -374,8 +521,20 @@ button {
   box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
 }
 
+.field input.field-invalid,
+.field select.field-invalid {
+  border-color: #c0392b;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
 .combobox {
   position: relative;
+  min-width: 0;
 }
 
 .combobox__list {
@@ -427,6 +586,7 @@ button {
    blowing the native popup past the edge of the page. */
 .combobox__trigger {
   width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -858,6 +1018,13 @@ label.geo-toggle {
   color: var(--accent);
 }
 
+/* Login's "Don't Have an Account?" — underlined (not just on hover, like the
+   rest of .form-footer) so it reads as a second, equally-valid action
+   instead of easy-to-miss fine print under the Login button. */
+.form-footer__cta {
+  text-decoration: underline;
+}
+
 .form-back {
   display: inline-block;
   margin-top: 16px;
@@ -996,6 +1163,13 @@ label.geo-toggle {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* My Reports / My Concerns put the Order button at the right end of the
+   heading row, so the panel opens leftward instead of running off-screen. */
+.reports-toolbar .filters-dropdown__panel {
+  left: auto;
+  right: 0;
 }
 
 .filters-dropdown__panel[hidden] {
@@ -1194,6 +1368,66 @@ label.geo-toggle {
   color: var(--text-muted);
 }
 
+/* ---------- Skeleton loading placeholders ----------
+   A shimmering gray bar standing in for text/content that's still loading,
+   instead of a bare "Loading..." string, so a slow connection shows
+   something that already roughly matches the real layout rather than a
+   layout jump once data arrives. See skeletonTableRows()/skeletonCards()
+   in main.js. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--plain-bg) 50%, var(--border) 75%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  height: 0.85em;
+  width: 100%;
+}
+
+.skeleton-text + .skeleton-text {
+  margin-top: 8px;
+}
+
+.skeleton-text--short {
+  width: 35%;
+}
+
+.skeleton-text--medium {
+  width: 65%;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-card:first-child {
+  border-top: none;
+}
+
+.skeleton-block {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+}
+
 /* ---------- Ordinance detail ---------- */
 
 .detail-card {
@@ -1214,18 +1448,39 @@ label.geo-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  color: var(--text);
+  box-shadow: 0 2px 6px rgba(20, 60, 30, 0.08);
   margin-bottom: 18px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.detail-back:hover {
-  background: #f2f1ec;
+.detail-back svg {
+  transition: transform 0.15s ease;
+}
+
+.detail-back:hover,
+.detail-back:focus-visible {
+  background: var(--plain-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.detail-back:hover svg,
+.detail-back:focus-visible svg {
+  transform: translateX(-2px);
+}
+
+.detail-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .detail-title {
   font-size: 1.4rem;
   font-weight: 700;
   margin: 0 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--accent);
 }
 
 .detail-meta {
@@ -1255,11 +1510,17 @@ label.geo-toggle {
   margin-bottom: 26px;
 }
 
+/* Matches the Home page's Latest Ordinances list (.latest-ord-rows/__row):
+   a bordered white box with each field as a divided row, rather than the
+   solid-fill blocks this used before. */
 .detail-info-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   margin-bottom: 26px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .detail-info-block {
@@ -1267,28 +1528,36 @@ label.geo-toggle {
   flex-wrap: wrap;
   gap: 6px 10px;
   align-items: baseline;
-  background: var(--navy);
-  color: var(--white);
-  border-radius: 8px;
   padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
 }
 
+.detail-info-stack .detail-info-block:last-child {
+  border-bottom: none;
+}
+
 .detail-info-block__label {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+  color: var(--text-muted);
   flex-shrink: 0;
   width: 120px;
 }
 
 .detail-info-block__value {
-  color: var(--white);
+  color: var(--text);
 }
 
 .detail-info-block--description {
   display: block;
   font-size: 0.88rem;
   line-height: 1.6;
+}
+
+.detail-info-block--description .detail-info-block__label {
+  display: block;
+  margin-bottom: 8px;
+  width: auto;
 }
 
 .detail-info-block--description p:last-child {
@@ -1439,11 +1708,19 @@ label.geo-toggle {
   max-width: 1060px;
 }
 
+/* minmax(0, 1fr), not plain 1fr: a 1fr column refuses to shrink below its
+   widest unbreakable content, so one long single-line value (the chosen
+   ordinance's name, which is nowrap + ellipsis) stretched the whole form
+   column past the page instead of being cut off with "…". */
 .plain-page__layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 24px;
   align-items: start;
+}
+
+.plain-page__layout > * {
+  min-width: 0;
 }
 
 /* Sticks just below the (also sticky) navbar while the page scrolls, so the
@@ -1493,7 +1770,7 @@ label.geo-toggle {
 
 @media (max-width: 900px) {
   .plain-page__layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* One column: the panel sits below the form, so it just scrolls with it. */
@@ -2206,7 +2483,7 @@ label.geo-toggle {
   width: 100%;
 }
 
-/* Submitted — grey */
+/* New Submission — grey */
 .status-badge--submitted {
   background: #e2e2e2;
   border: 1px solid #b8b8b8;
@@ -2592,9 +2869,7 @@ label.geo-toggle {
   color: var(--navy);
 }
 
-.profile-sidebar__cancel {
-  display: block;
-  text-align: center;
+.profile-sidebar__delete {
   margin-top: 24px;
 }
 
@@ -2670,28 +2945,87 @@ label.geo-toggle {
     display: block;
   }
 
-  /* Collapsed into a dropdown panel under the top row (brand/hamburger/
-     bell/profile), opened by .navbar__hamburger toggling .is-open — see
-     the mobile nav block in main.js. */
+  /* Overlays the page content below instead of pushing it down — position:
+     absolute (anchored to .navbar, which is position: sticky) takes it out
+     of the flex flow, so the navbar itself stays single-row height while
+     this floats over whatever's underneath it. Always display: flex
+     (rather than none/flex) so max-height/opacity can actually transition
+     — display itself can't be animated. */
   .navbar__links {
-    display: none;
-    order: 4;
-    width: 100%;
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
-    margin: 10px 0 4px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    background: var(--navy);
+    box-shadow: var(--shadow);
+    border-top: 0 solid rgba(255, 255, 255, 0.15);
+    transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
   }
 
   .navbar__links.is-open {
-    display: flex;
+    max-height: 600px;
+    opacity: 1;
+    padding: 10px 0;
+    border-top-width: 1px;
   }
 
   .navbar__links a {
     display: block;
-    padding: 10px 4px;
+    /* The dropdown now spans edge-to-edge (position: absolute, no longer
+       inset by .navbar's own 28px side padding) — matched here so link
+       text still lines up under the brand/hamburger above it. */
+    padding: 10px 28px;
+  }
+
+  .navbar__links-signup {
+    display: block;
+  }
+
+  .navbar__links-login {
+    display: block;
+  }
+
+  .navbar__links-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 28px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    margin-bottom: 4px;
+  }
+
+  .navbar__links-logout {
+    display: block;
+  }
+
+  /* Login (and, for a guest, the inline Sign Up next to it) move into the
+     dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+  .navbar__profile--login {
+    display: none;
+  }
+
+  /* Logged-in citizen: no Login/Sign Up to show, so the brand makes way
+     for the hamburger on the left (leaving just notifications + account
+     on the right) — it reappears inside the dropdown instead, see
+     .navbar__links-brand below and navbar--authed in main.js. */
+  .navbar--authed .navbar__brand {
+    display: none;
+  }
+
+  .navbar--authed .navbar__hamburger {
+    margin-left: 0;
+  }
+
+  .navbar--authed .navbar__bell {
+    margin-left: auto;
   }
 
   .info-grid {
@@ -2699,7 +3033,7 @@ label.geo-toggle {
   }
 
   .form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     /* Each stacked .field already carries its own margin-bottom; without
        this, the grid's row-gap (meant for the desktop 2-column layout)
        stacks on top of it too, doubling the space between fields that
@@ -2783,7 +3117,11 @@ label.geo-toggle {
 
   .notif-dropdown {
     width: 260px;
-    right: -60px;
+    /* Flush with the bell instead of shifted further right (the previous
+       -60px pushed it past the viewport edge, clipping "Clear All" and the
+       right side of the panel — see max-width below, which only caps the
+       panel's own size, not how far right this offset shoves it). */
+    right: 0;
   }
 
   .profile-layout {
@@ -2939,10 +3277,6 @@ label.geo-toggle {
     padding: 10px 14px;
   }
 
-  .navbar__brand span {
-    display: none;
-  }
-
   .navbar__controls {
     gap: 8px;
   }
@@ -3037,10 +3371,6 @@ label.geo-toggle {
     padding: 10px 14px;
   }
 
-  .navbar__brand span {
-    display: none;
-  }
-
   .auth-card {
     padding: 20px 16px 18px;
   }
@@ -3077,10 +3407,6 @@ label.geo-toggle {
 
   .navbar {
     padding: 10px 14px;
-  }
-
-  .navbar__brand span {
-    display: none;
   }
 
   .auth-card {
@@ -3828,69 +4154,6 @@ label.geo-toggle {
   white-space: pre-line;
   line-height: 1.6;
   font-size: 0.95rem;
-}
-
-.home-notifications {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
-  overflow: hidden;
-}
-
-.home-notifications__item {
-  display: grid;
-  grid-template-columns: 1fr 120px 28px;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.95rem;
-}
-
-.home-notifications__item:last-child {
-  border-bottom: none;
-}
-
-.home-notifications__time {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.home-notifications__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-}
-
-.home-notifications__clear {
-  border: none;
-  background: none;
-  color: var(--accent, #c8553d);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: 4px 0;
-}
-
-.home-notifications__clear:hover {
-  text-decoration: underline;
-}
-
-.home-notifications__dismiss {
-  border: none;
-  background: none;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0 4px;
-  margin-left: 4px;
 }
 
 .home-latest {

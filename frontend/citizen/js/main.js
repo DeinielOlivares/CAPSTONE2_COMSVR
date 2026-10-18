@@ -5,6 +5,29 @@
 // dev and once deployed — no hardcoded domain to update later.
 const API_BASE = "/api/auth";
 
+// ---- Skeleton loading placeholders (see .skeleton* in style.css) ----
+// Used in place of a bare "Loading..." string so a slow connection shows
+// something that already roughly matches the real layout, instead of a
+// layout jump once data arrives.
+
+// `count` <tr> rows for a <tbody>, each with `columns` cells containing a
+// shimmering bar.
+function skeletonTableRows(count, columns) {
+  const row = `<tr>${Array.from({ length: columns }, () => `<td><span class="skeleton skeleton-text"></span></td>`).join("")}</tr>`;
+  return Array.from({ length: count }).fill(row).join("");
+}
+
+// `count` card-style blocks for a simple list container — two bars each,
+// standing in for a title line and a shorter meta line underneath it.
+function skeletonCards(count) {
+  const card = `
+    <div class="skeleton-card">
+      <span class="skeleton skeleton-text skeleton-text--medium"></span>
+      <span class="skeleton skeleton-text skeleton-text--short"></span>
+    </div>`;
+  return Array.from({ length: count }).fill(card).join("");
+}
+
 // JWT tokens + basic profile info are kept in sessionStorage by default —
 // cleared automatically when the tab closes — or in localStorage when the
 // person checked "Stay signed in" at login, so it survives closing the tab.
@@ -81,7 +104,7 @@ const STAFF_POSITION_HOME = {
   Investigator: "/staff/reports.html",
 };
 
-// Works out where to send someone right after apiLogin/apiCompleteStaffSetup
+// Works out where to send someone right after apiLogin/apiCompleteAccountSetup
 // resolves — reads the just-stored user (see storeAuthSession) rather than
 // needing role/position passed around separately.
 function loginHome(role) {
@@ -352,7 +375,7 @@ async function refreshAccessToken() {
   }
 }
 
-// Shared by apiLogin and apiCompleteStaffSetup below — both endpoints
+// Shared by apiLogin and apiCompleteAccountSetup below — both endpoints
 // return the same {access, refresh, user} shape, so both just hand their
 // response here to actually persist the session.
 // remember: "Stay signed in" checkbox — false/omitted means the session
@@ -369,9 +392,13 @@ function storeAuthSession(data, remember) {
     JSON.stringify({
       name: data.user.name,
       firstName: data.user.first_name,
+      middleInitial: data.user.middle_initial,
       lastName: data.user.last_name,
-      initials: data.user.name
-        .split(" ")
+      // First + last initials specifically — data.user.name now may have a
+      // middle initial in between (see User.get_full_name), which splitting
+      // the full name by space would pick up instead of the last name.
+      initials: [data.user.first_name, data.user.last_name]
+        .filter(Boolean)
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
@@ -415,42 +442,63 @@ async function apiLogin(email, password, remember) {
   return storeAuthSession(await response.json(), remember);
 }
 
-// Staff account setup (Barangay Staff/Administrator accounts an admin
-// created with just an email + role — see accounts/serializers.py's
-// AdminCreateUserSerializer) — frontend/staff/account-setup.html's flow.
+// Account setup — the first-login screen for every account someone else
+// created (Barangay Staff/Administrator accounts an Administrator made, and
+// Barangay Citizen accounts made by an Administrator or the Secretary). The
+// account has no password until its owner finishes setup from the one-time
+// link emailed to them — see accounts/setup_links.py.
 
-// Step 1: emails a code to an account still waiting on setup. The answer is the
-// same whether or not the email matches one — the backend deliberately doesn't
-// reveal which staff emails exist — so the UI just tells the person to check
-// their inbox. The code is then checked with apiVerifyPasswordResetCode.
-async function apiRequestStaffSetupCode(email) {
+// Opening the link: checks it's still valid and returns the account's
+// details to pre-fill (blank for staff/invited citizens). Throws with the
+// backend's "expired or already used" message otherwise.
+async function apiCheckSetupLink(uid, token) {
   let response;
   try {
-    response = await fetch(`${API_BASE}/staff-setup/request-code/`, {
+    response = await fetch(`${API_BASE}/account-setup/check/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ uid, token }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "This setup link isn't valid.");
+  return data;
+}
+
+// Emails a fresh link (killing older ones), by { email } typed on the page or
+// { uid } from an expired link. The answer is the same whether or not
+// anything was sent — the backend deliberately doesn't reveal which emails
+// have accounts — so the UI just tells the person to check their inbox.
+async function apiRequestSetupLink(body) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/account-setup/request-link/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
   } catch {
     throw new Error("Could not reach the server. Check your connection and try again.");
   }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.detail || "Could not send a setup code. Please try again.");
+    throw new Error(data.detail || "Could not send a setup link. Please try again.");
   }
   return response.json();
 }
 
-// Step 2: supplies name/phone/password, and logs the account straight in —
+// Submits the details + chosen password and logs the account straight in —
 // same session-storing behavior as apiLogin, since the response is shaped
-// identically (see StaffAccountSetupView).
-async function apiCompleteStaffSetup(email, code, details) {
+// identically (see AccountSetupView).
+async function apiCompleteAccountSetup(uid, token, details) {
   let response;
   try {
-    response = await fetch(`${API_BASE}/staff-setup/`, {
+    response = await fetch(`${API_BASE}/account-setup/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code, ...details }),
+      body: JSON.stringify({ uid, token, ...details }),
     });
   } catch {
     throw new Error("Could not reach the server. Check your connection and try again.");
@@ -458,7 +506,9 @@ async function apiCompleteStaffSetup(email, code, details) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const firstError = Object.values(data)[0];
-    throw new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not complete account setup."));
+    const err = new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not complete account setup."));
+    err.fields = data;
+    throw err;
   }
   return storeAuthSession(await response.json(), false);
 }
@@ -484,6 +534,26 @@ async function apiRegister(formData) {
     throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not create your account.");
   }
 
+  return response.json();
+}
+
+// Sign Up step 1 calls this before moving to step 2's ID photo upload, so a
+// duplicate email/phone is caught on the same page it was typed into.
+// Returns the field -> message map on a conflict ({} means available),
+// rather than throwing, since the caller needs to know which field(s).
+async function apiCheckAvailability(email, contact_number) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/check-availability/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, contact_number }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (response.ok) return {};
+  if (response.status !== 400) throw new Error("Could not check that information. Please try again.");
   return response.json();
 }
 
@@ -589,6 +659,32 @@ function clearFormError(form) {
   if (errEl) errEl.remove();
 }
 
+// Highlights one input/select red with an inline message underneath it —
+// for mistakes tied to a specific field (invalid street, duplicate email or
+// phone) rather than the whole form, so the person knows exactly what to
+// fix without re-reading every field.
+function markFieldInvalid(input, message) {
+  if (!input) return;
+  input.classList.add("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  let errEl = field.querySelector(".field-error");
+  if (!errEl) {
+    errEl = document.createElement("p");
+    errEl.className = "field-error";
+    field.appendChild(errEl);
+  }
+  errEl.textContent = message;
+  input.addEventListener("input", () => clearFieldInvalid(input), { once: true });
+}
+
+function clearFieldInvalid(input) {
+  if (!input) return;
+  input.classList.remove("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  const errEl = field.querySelector(".field-error");
+  if (errEl) errEl.remove();
+}
+
 // Backs the floating "Ask a Question" button (askQuestionFab), wired below —
 // present on every citizen page, not just FAQs.
 async function askQuestion(question) {
@@ -653,6 +749,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
 function getPasswordRequirementError(pw, attrs = {}) {
   const status = getPasswordRuleStatus(pw, attrs);
   if (!status.length) return "Password must be at least 8 characters.";
+  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
+  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
+  if (!status.special) return "Password needs at least 1 special character.";
   if (!status.numeric) return "Password can't be entirely numbers.";
   if (!status.common) return "That password is too common. Please choose a less predictable one.";
   if (!status.similar) return "Password is too similar to your name or email.";
@@ -765,6 +864,21 @@ const PUBLIC_PORTAL_PAGES = [
 
 function enforcePortalAccess() {
   const path = window.location.pathname;
+
+  // A Staff/Admin session leaking into the Citizen Portal (e.g. a staff
+  // member still logged in on the Staff Portal edits the URL over to
+  // /citizen/...) must not render as a logged-in citizen — that'd show
+  // their staff account's name/avatar and let citizen-only actions go
+  // through as them. Unlike the Staff/Admin side below, this doesn't
+  // redirect away: Citizen pages allow guest browsing, so clearing the
+  // mismatched session and falling through just leaves the normal guest
+  // view (Login/Sign Up in the navbar, citizen-gated actions prompt login).
+  if (path.startsWith("/citizen/")) {
+    const user = getCurrentUser();
+    if (user && user.role !== "citizen") logOut();
+    return;
+  }
+
   const isStaffOrAdmin = path.startsWith("/staff/") || path.startsWith("/admin/");
   if (!isStaffOrAdmin) return;
 
@@ -777,6 +891,21 @@ function enforcePortalAccess() {
   if (!isLoggedIn() || !user || user.role !== portal) {
     window.location.href = `/${portal}/index.html`;
   }
+}
+
+// Swaps the browser tab's favicon — there's no <link rel="icon"> in any
+// page's <head>, so the tab just shows the browser's own default icon
+// until this runs. Called once with the portal's static default logo.png
+// right away, then again with the admin-uploaded one once branding loads
+// below, same best-effort pattern as the navbar logo.
+function setFavicon(url) {
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
 }
 
 // Pulls the navbar brand name + logo from Admin's Website Branding settings
@@ -809,6 +938,7 @@ function applySiteBranding() {
         document.querySelectorAll(".navbar__logo").forEach((el) => {
           el.style.backgroundImage = `url("${branding.site_logo_url}")`;
         });
+        setFavicon(branding.site_logo_url);
       }
     })
     .catch(() => {});
@@ -827,12 +957,13 @@ function trackNavbarHeight() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setFavicon("assets/logo.png");
   applySiteBranding();
   trackNavbarHeight();
   document.querySelectorAll(".navbar__brand").forEach((brand) => {
     brand.style.cursor = "pointer";
     brand.addEventListener("click", () => {
-      window.location.href = "/citizen/home.html";
+      window.location.href = "/citizen/about.html";
     });
   });
   expireStaleSession();
@@ -840,13 +971,23 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPasswordHints();
   setupPasswordVisibilityToggles();
 
-  // Sign Up's Street field: a type-to-filter combobox over the fixed
-  // STREETS list (streets-data.js), same pattern as File Report's location
-  // field. Guarded on STREETS existing since not every page that loads
-  // main.js also loads streets-data.js.
-  if (typeof STREETS !== "undefined") {
-    wireStreetCombobox("signupStreet", "signupStreetList");
-    wireStreetCombobox("profileStreet", "profileStreetList");
+  // Sign Up's Street field: a type-to-filter combobox over the real street
+  // list (streets-data.js, now API-backed — see ensureStreetsLoaded), same
+  // pattern as File Report's location field. Guarded on streets-data.js
+  // being loaded at all, since not every page that loads main.js does.
+  // Awaited in its own IIFE rather than making this whole (very large)
+  // DOMContentLoaded handler async, so the fetch doesn't hold up every
+  // other unrelated bit of wiring below it.
+  if (typeof ensureStreetsLoaded === "function") {
+    ensureStreetsLoaded()
+      .then(() => {
+        wireStreetCombobox("signupStreet", "signupStreetList");
+        wireStreetCombobox("profileStreet", "profileStreetList");
+        wireStreetCombobox("setupStreet", "setupStreetList");
+      })
+      .catch(() => {
+        // Best-effort — the comboboxes just show no options if this fails.
+      });
   }
 
   // Prevent full page reload on forms that don't have a real backend yet;
@@ -875,10 +1016,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (form.dataset.signupStep1 !== undefined) {
         const password = form.querySelector('[name="password"]');
         const confirmPassword = form.querySelector('[name="confirmPassword"]');
-        const firstName = form.querySelector('[name="first_name"]').value.trim();
-        const lastName = form.querySelector('[name="last_name"]').value.trim();
-        const email = form.querySelector('[name="email"]').value.trim();
+        const firstNameField = form.querySelector('[name="first_name"]');
+        const lastNameField = form.querySelector('[name="last_name"]');
+        const middleInitialField = form.querySelector('[name="middle_initial"]');
+        const emailField = form.querySelector('[name="email"]');
+        const phoneField = form.querySelector('[name="phone"]');
+        const firstName = firstNameField.value.trim();
+        const lastName = lastNameField.value.trim();
+        const middleInitial = middleInitialField ? middleInitialField.value.trim() : "";
+        const email = emailField.value.trim();
         clearFormError(form);
+        [emailField, phoneField, form.querySelector('[name="address"]')].forEach(clearFieldInvalid);
+        clearFieldInvalid(document.getElementById("signupStreet"));
         if (password.value !== confirmPassword.value) {
           showFormError(form, "Passwords do not match.");
           return;
@@ -906,8 +1055,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // above) rather than free text, so it has to actually match an
         // entry — typing something and not clicking an option shouldn't
         // silently go through as if it were a valid street.
-        if (!isValidPhMobile(form.querySelector('[name="phone"]').value)) {
-          showFormError(form, "Enter a valid mobile number, like 09XXXXXXXXX.");
+        if (!isValidPhMobile(phoneField.value)) {
+          markFieldInvalid(phoneField, "Enter a valid mobile number, like 09XXXXXXXXX.");
           return;
         }
 
@@ -916,9 +1065,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const street = streetField ? streetField.value.trim() : "";
         const blockLot = blockLotField ? blockLotField.value.trim() : "";
         if (streetField && typeof STREETS !== "undefined" && !STREETS.includes(street)) {
-          showFormError(form, "Please select a street from the list.");
+          markFieldInvalid(streetField, "Please select a street from the list.");
           return;
         }
+
+        const contactNumber = phoneField.value.trim();
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        let availability;
+        try {
+          availability = await apiCheckAvailability(email, contactNumber);
+        } catch (err) {
+          showFormError(form, err.message);
+          submitBtn.disabled = false;
+          return;
+        }
+        submitBtn.disabled = false;
+        if (availability.email) markFieldInvalid(emailField, availability.email[0]);
+        if (availability.contact_number) markFieldInvalid(phoneField, availability.contact_number[0]);
+        if (availability.email || availability.contact_number) return;
 
         sessionStorage.setItem(
           SIGNUP_DRAFT_KEY,
@@ -926,8 +1091,9 @@ document.addEventListener("DOMContentLoaded", () => {
             email,
             password: password.value,
             first_name: firstName,
+            middle_initial: middleInitial,
             last_name: lastName,
-            contact_number: form.querySelector('[name="phone"]').value.trim(),
+            contact_number: contactNumber,
             address: streetField ? `${blockLot}, ${street}` : form.querySelector('[name="address"]').value.trim(),
           })
         );
@@ -1114,116 +1280,130 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ---- Staff account setup (frontend/staff/account-setup.html) ----
-  // Step 1: email -> a code is emailed (if the email has an account waiting on
-  // setup; the page can't tell, by design). Step 2: enter the code. Step 3:
-  // name/phone/password, then logs the account straight in. Guarded on the
-  // forms existing since this only ever runs on account-setup.html.
-  const staffSetupEmailForm = document.getElementById("staffSetupEmailForm");
-  const staffSetupCodeForm = document.getElementById("staffSetupCodeForm");
-  const staffSetupDetailsForm = document.getElementById("staffSetupDetailsForm");
-  if (staffSetupEmailForm && staffSetupCodeForm && staffSetupDetailsForm) {
+  // ---- Account setup / first-login screen (account-setup.html) ----
+  // Opened from the emailed link (#uid=...&token=...): checks the link, then
+  // shows the details form — pre-filled for a citizen an Administrator
+  // created with their details — plus the new password. Opened without a
+  // link (the login page's "First time here?"), or with an expired one, it
+  // offers to email a new link instead. Guarded on the forms existing since
+  // this only ever runs on account-setup.html.
+  const setupRequestForm = document.getElementById("setupRequestForm");
+  const setupDetailsForm = document.getElementById("setupDetailsForm");
+  if (setupRequestForm && setupDetailsForm) {
+    const setupLoading = document.getElementById("setupLoading");
+    const setupSent = document.getElementById("setupSent");
+    const setupInvalid = document.getElementById("setupInvalid");
+    const linkParams = new URLSearchParams(window.location.hash.slice(1));
+    const uid = linkParams.get("uid");
+    const token = linkParams.get("token");
     let setupEmail = "";
-    let setupCode = "";
-    const setupEmailField = document.getElementById("setupEmail");
-    const setupCodeField = document.getElementById("setupCode");
 
-    async function sendCodeAndAdvance(email) {
-      const submitBtn = staffSetupEmailForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupEmailForm);
+    // Take the token out of the address bar and history right away, so it
+    // isn't left behind in the browser or caught in a screenshot.
+    if (uid || token) history.replaceState(null, "", window.location.pathname + window.location.search);
+
+    function showSetupStep(step) {
+      [setupLoading, setupRequestForm, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
+        el.hidden = el !== step;
+      });
+    }
+
+    function fillSetupDetails(details) {
+      setupEmail = details.email;
+      document.getElementById("setupAccountEmail").textContent = details.email;
+      document.getElementById("setupHintEmail").value = details.email;
+      document.getElementById("setupFirstName").value = details.first_name || "";
+      document.getElementById("setupMiddleInitial").value = details.middle_initial || "";
+      document.getElementById("setupLastName").value = details.last_name || "";
+      document.getElementById("setupPhone").value = details.contact_number || "";
+      // Citizen address is stored as sign-up formats it: "Block, Lot, Street".
+      const streetField = document.getElementById("setupStreet");
+      if (streetField && details.address) {
+        const split = details.address.lastIndexOf(", ");
+        const street = split === -1 ? "" : details.address.slice(split + 2);
+        if (STREETS.includes(street)) {
+          streetField.value = street;
+          document.getElementById("setupBlockLot").value = details.address.slice(0, split);
+        } else {
+          document.getElementById("setupBlockLot").value = details.address;
+        }
+      }
+    }
+
+    // The citizen street list loads asynchronously; wait for it before
+    // splitting a pre-filled address into street + block/lot.
+    const streetsReady =
+      typeof ensureStreetsLoaded === "function" ? ensureStreetsLoaded().catch(() => {}) : Promise.resolve();
+
+    if (uid && token) {
+      showSetupStep(setupLoading);
+      apiCheckSetupLink(uid, token)
+        .then((details) => streetsReady.then(() => details))
+        .then((details) => {
+          fillSetupDetails(details);
+          showSetupStep(setupDetailsForm);
+          document.getElementById("setupLastName").focus();
+        })
+        .catch((err) => {
+          document.getElementById("setupInvalidMessage").textContent = err.message;
+          showSetupStep(setupInvalid);
+        });
+    } else {
+      const emailFromQuery = new URLSearchParams(window.location.search).get("email");
+      if (emailFromQuery) document.getElementById("setupEmail").value = emailFromQuery;
+      showSetupStep(setupRequestForm);
+    }
+
+    setupRequestForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("setupEmail").value.trim();
+      const submitBtn = setupRequestForm.querySelector('button[type="submit"]');
+      clearFormError(setupRequestForm);
       if (!email) {
-        showFormError(staffSetupEmailForm, "Enter the email your account was created with.");
+        showFormError(setupRequestForm, "Enter the email your account was created with.");
         return;
       }
-
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
       try {
-        await apiRequestStaffSetupCode(email);
-        setupEmail = email;
-        document.getElementById("setupCodeEmail").textContent = email;
-        staffSetupEmailForm.hidden = true;
-        staffSetupCodeForm.hidden = false;
-        setupCodeField.focus();
+        await apiRequestSetupLink({ email });
+        showSetupStep(setupSent);
       } catch (err) {
-        showFormError(staffSetupEmailForm, err.message);
+        showFormError(setupRequestForm, err.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Send Code";
-      }
-    }
-
-    // Coming from the Staff Portal's own login form (Password left blank —
-    // see main.js's login handler above) skips retyping the email: it's
-    // passed along in the URL. The code is only sent once they confirm here,
-    // not automatically, so following a link can't trigger emails.
-    const emailFromQuery = new URLSearchParams(window.location.search).get("email");
-    if (emailFromQuery) setupEmailField.value = emailFromQuery;
-    if (typeof STREETS !== "undefined") wireStreetCombobox("setupStreet", "setupStreetList");
-    // The link in the account-creation email already has a code sent, so go
-    // straight to the code step rather than sending another (which would
-    // invalidate the one in the email).
-    if (emailFromQuery && new URLSearchParams(window.location.search).get("sent")) {
-      setupEmail = emailFromQuery;
-      document.getElementById("setupCodeEmail").textContent = emailFromQuery;
-      staffSetupEmailForm.hidden = true;
-      staffSetupCodeForm.hidden = false;
-      setupCodeField.focus();
-    }
-
-    staffSetupEmailForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      sendCodeAndAdvance(setupEmailField.value.trim());
-    });
-
-    document.getElementById("setupResendCode").addEventListener("click", async (e) => {
-      e.preventDefault();
-      clearFormError(staffSetupCodeForm);
-      try {
-        await apiRequestStaffSetupCode(setupEmail);
-        showFormError(staffSetupCodeForm, "A new code has been sent. Only the newest one works.");
-      } catch (err) {
-        showFormError(staffSetupCodeForm, err.message);
+        submitBtn.textContent = "Email Me a Setup Link";
       }
     });
 
-    staffSetupCodeForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const submitBtn = staffSetupCodeForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupCodeForm);
-      const code = setupCodeField.value.trim();
-      if (code.length !== 6) {
-        showFormError(staffSetupCodeForm, "Enter the 6-digit code from the email.");
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Checking...";
+    document.getElementById("setupNewLinkBtn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
       try {
-        await apiVerifyPasswordResetCode(setupEmail, code);
-        setupCode = code;
-        staffSetupCodeForm.hidden = true;
-        staffSetupDetailsForm.hidden = false;
+        // The expired link still says whose it was, so no need to retype the email.
+        await apiRequestSetupLink(uid ? { uid } : { email: setupEmail });
+        showSetupStep(setupSent);
       } catch (err) {
-        showFormError(staffSetupCodeForm, err.message);
+        document.getElementById("setupInvalidMessage").textContent = err.message;
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Verify Code";
+        btn.disabled = false;
       }
     });
 
-    staffSetupDetailsForm.addEventListener("submit", async (e) => {
+    setupDetailsForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const lastName = document.getElementById("setupLastName");
       const firstName = document.getElementById("setupFirstName");
+      const middleInitial = document.getElementById("setupMiddleInitial");
       const phone = document.getElementById("setupPhone");
       const password = document.getElementById("setupPassword");
       const confirmPassword = document.getElementById("setupConfirmPassword");
-      const submitBtn = staffSetupDetailsForm.querySelector('button[type="submit"]');
-      clearFormError(staffSetupDetailsForm);
+      const submitBtn = setupDetailsForm.querySelector('button[type="submit"]');
+      clearFormError(setupDetailsForm);
+      clearFieldInvalid(phone);
 
       if (password.value !== confirmPassword.value) {
-        showFormError(staffSetupDetailsForm, "Passwords do not match.");
+        showFormError(setupDetailsForm, "Passwords do not match.");
         return;
       }
       const passwordError = getPasswordRequirementError(password.value, {
@@ -1232,29 +1412,29 @@ document.addEventListener("DOMContentLoaded", () => {
         email: setupEmail,
       });
       if (passwordError) {
-        showFormError(staffSetupDetailsForm, passwordError);
+        showFormError(setupDetailsForm, passwordError);
         return;
       }
 
       // Citizen setup also asks for the address (sign-up's format: "Block, Lot, Street").
       const streetField = document.getElementById("setupStreet");
-      const blockLotField = document.getElementById("setupBlockLot");
       let address;
       if (streetField) {
+        clearFieldInvalid(streetField);
         const street = streetField.value.trim();
-        const blockLot = blockLotField.value.trim();
         if (!STREETS.includes(street)) {
-          showFormError(staffSetupDetailsForm, "Please select a street from the list.");
+          markFieldInvalid(streetField, "Please select a street from the list.");
           return;
         }
-        address = `${blockLot}, ${street}`;
+        address = `${document.getElementById("setupBlockLot").value.trim()}, ${street}`;
       }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Setting up...";
       try {
-        const role = await apiCompleteStaffSetup(setupEmail, setupCode, {
+        const role = await apiCompleteAccountSetup(uid, token, {
           first_name: firstName.value.trim(),
+          middle_initial: middleInitial.value.trim(),
           last_name: lastName.value.trim(),
           contact_number: phone.value.trim(),
           password: password.value,
@@ -1262,7 +1442,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         window.location.href = loginHome(role) || "index.html";
       } catch (err) {
-        showFormError(staffSetupDetailsForm, err.message);
+        if (err.fields && err.fields.contact_number) {
+          markFieldInvalid(phone, err.fields.contact_number[0]);
+        } else {
+          showFormError(setupDetailsForm, err.message);
+        }
         submitBtn.disabled = false;
         submitBtn.textContent = "Complete Setup";
       }
@@ -1546,6 +1730,8 @@ document.addEventListener("DOMContentLoaded", () => {
     navHamburger.innerHTML = "&#9776;";
     navBrand.insertAdjacentElement("afterend", navHamburger);
 
+    const navbarEl = navLinks.closest(".navbar");
+
     const closeNavMenu = () => {
       navLinks.classList.remove("is-open");
       navHamburger.setAttribute("aria-expanded", "false");
@@ -1563,11 +1749,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target.closest("a")) closeNavMenu();
     });
 
+    // Above the ~860px mobile breakpoint, .navbar__links lays out as a
+    // normal (non-hamburger) flex row that wraps onto a second line once
+    // the links no longer fit — e.g. a window narrower than "desktop" but
+    // still wider than the mobile breakpoint. Rather than let that wrap
+    // happen, detect it (first and last link landing at different
+    // offsetTop means it wrapped) and switch to the same collapsed
+    // hamburger treatment the mobile media query uses, via .navbar--compact
+    // (see style.css) — so it "compresses" like the mobile view instead of
+    // stacking onto a second row.
+    function syncNavCompact() {
+      if (!navbarEl || window.innerWidth <= 860) return; // CSS media query already handles this width
+      navbarEl.classList.remove("navbar--compact");
+      // Guests don't see the [data-auth-only] links (My Reports, My
+      // Concerns/Suggestions) — they're still in the DOM, just [hidden], so
+      // an unfiltered querySelectorAll would include their offsetTop (0,
+      // since a hidden element isn't laid out) and always read as "wrapped"
+      // against the visible ones, even at a wide desktop width.
+      const anchors = Array.from(navLinks.querySelectorAll("a")).filter((a) => a.offsetParent !== null);
+      const wrapped = anchors.length > 1 && anchors[0].offsetTop !== anchors[anchors.length - 1].offsetTop;
+      navbarEl.classList.toggle("navbar--compact", wrapped);
+    }
+    syncNavCompact();
+    window.addEventListener("load", syncNavCompact); // fonts/images can still shift link widths after first paint
+
     // Rotating a tablet/resizing past the mobile breakpoint while the menu
     // is open would otherwise leave it stuck open once desktop styles
     // (where .navbar__links is always visible) no longer apply .is-open.
     window.addEventListener("resize", () => {
       if (window.innerWidth > 860) closeNavMenu();
+      syncNavCompact();
     });
   }
 
@@ -1605,18 +1816,85 @@ document.addEventListener("DOMContentLoaded", () => {
   if (profileBtn && profileModal) {
     if (loggedIn && user) {
       renderAvatar(profileBtn, user);
+      // Mobile: with no Login/Sign Up to show, the brand/logo makes way for
+      // the hamburger so the right side is just notifications + account —
+      // see .navbar--authed in style.css (both the real mobile breakpoint
+      // and the .navbar--compact fallback). It reappears as the first row
+      // of the hamburger dropdown instead, cloned from the real brand
+      // element so it stays in sync with it.
+      const navbarEl = profileBtn.closest(".navbar");
+      if (navbarEl) {
+        navbarEl.classList.add("navbar--authed");
+        const brand = navbarEl.querySelector(".navbar__brand");
+        if (navLinks && brand) {
+          const brandItem = document.createElement("li");
+          brandItem.className = "navbar__links-brand";
+          brandItem.style.cursor = "pointer";
+          brandItem.innerHTML = brand.innerHTML;
+          // Same destination as the top-row brand's own click handler
+          // (set up earlier in this same DOMContentLoaded handler) — that
+          // one only targets .navbar__brand, not this clone.
+          brandItem.addEventListener("click", () => {
+            window.location.href = "/citizen/about.html";
+          });
+          navLinks.insertBefore(brandItem, navLinks.firstChild);
+        }
+        // Logout, after My Concerns/Suggestions — same confirmation modal
+        // as the profile popup's own Log Out button (#logoutBtn), just
+        // reachable from the dropdown too.
+        if (navLinks) {
+          const logoutItem = document.createElement("li");
+          logoutItem.className = "navbar__links-logout";
+          const logoutLink = document.createElement("a");
+          logoutLink.href = "#";
+          logoutLink.innerHTML = "&#8618; Logout";
+          logoutLink.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            const confirmModal = document.getElementById("logoutConfirmModal");
+            if (confirmModal) confirmModal.hidden = false;
+          });
+          logoutItem.appendChild(logoutLink);
+          navLinks.appendChild(logoutItem);
+        }
+      }
     } else {
+      const loginActive = window.location.pathname.startsWith("/citizen/login");
+      const signUpActive = window.location.pathname.endsWith("/signup.html");
+
+      // Desktop/wide: Login + Sign Up sit next to each other in the top
+      // row, outside the main link list — both hidden below the mobile
+      // breakpoint (see .navbar__profile--login in style.css), where they
+      // move into the hamburger dropdown instead (below).
       profileBtn.textContent = "Login";
       profileBtn.classList.add("navbar__profile--login");
-      if (window.location.pathname.startsWith("/citizen/login")) {
-        profileBtn.classList.add("active");
-      }
+      if (loginActive) profileBtn.classList.add("active");
+
       const signUpLink = document.createElement("a");
       signUpLink.href = "/citizen/signup.html";
       signUpLink.textContent = "Sign Up";
       signUpLink.className = "navbar__profile--login";
-      if (window.location.pathname.endsWith("/signup.html")) signUpLink.classList.add("active");
+      if (signUpActive) signUpLink.classList.add("active");
       profileBtn.insertAdjacentElement("afterend", signUpLink);
+
+      // Mobile: Login and Sign Up live inside the hamburger dropdown after
+      // Submit Suggestion instead (appended last — My Reports/My
+      // Concerns/Suggestions are [hidden] for guests, so these land right
+      // after Submit Suggestion visually) — hidden above the mobile
+      // breakpoint (see .navbar__links-login/.navbar__links-signup).
+      if (navLinks) {
+        const addDropdownLink = (className, href, text, active) => {
+          const item = document.createElement("li");
+          item.className = className;
+          const link = document.createElement("a");
+          link.href = href;
+          link.textContent = text;
+          if (active) link.classList.add("active");
+          item.appendChild(link);
+          navLinks.appendChild(item);
+        };
+        addDropdownLink("navbar__links-login", "/citizen/login.html", "Login", loginActive);
+        addDropdownLink("navbar__links-signup", "/citizen/signup.html", "Sign Up", signUpActive);
+      }
     }
 
     const openProfileModal = () => {

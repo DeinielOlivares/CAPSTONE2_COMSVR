@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from accounts.models import log_action
 from accounts.views import IsAdmin
 
-from .models import AboutLogo, BarangayProfile, CouncilMember, LegalDocument
+from .models import AboutLogo, BarangayProfile, CouncilMember, LegalDocument, Street
 from .serializers import (
     AboutLogoSerializer,
     BarangayProfileSerializer,
@@ -16,6 +16,7 @@ from .serializers import (
     CouncilMemberSerializer,
     LegalDocumentSerializer,
     ReorderSerializer,
+    StreetSerializer,
 )
 
 PROFILE_FIELD_LABELS = {
@@ -133,6 +134,50 @@ class BoundaryView(APIView):
         else:
             log_action(request.user, "Removed the barangay map boundary")
         return Response({"boundary": profile.boundary})
+
+
+class StreetListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/site/streets/ — every barangay street (name + lat/lng). Public:
+    the Street combobox on Sign Up/File Report/My Profile needs it, and Sign
+    Up/guest File Report have no session yet. The staff incident heatmap
+    also reads it for each street's plot point.
+    POST — adds a new one. Administrator only, from the Map Boundary page
+    (click the map to place it, same interaction as the boundary outline).
+    """
+
+    queryset = Street.objects.all()
+    serializer_class = StreetSerializer
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
+
+    def perform_create(self, serializer):
+        street = serializer.save()
+        log_action(self.request.user, f"Added street \"{street.name}\" to the map")
+
+
+class StreetDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    PATCH/DELETE /api/site/streets/<id>/ — rename/reposition or remove a
+    street. Administrator only. Report.location is free text (see
+    reports.models.Report), so deleting one never touches past reports that
+    cited it.
+    """
+
+    queryset = Street.objects.all()
+    serializer_class = StreetSerializer
+    permission_classes = [IsAdmin]
+
+    def perform_update(self, serializer):
+        street = serializer.save()
+        log_action(self.request.user, f"Updated street \"{street.name}\"")
+
+    def perform_destroy(self, instance):
+        log_action(self.request.user, f"Removed street \"{instance.name}\" from the map")
+        instance.delete()
 
 
 def _delete_file(field):

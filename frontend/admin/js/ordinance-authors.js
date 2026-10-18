@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
-  tbody.innerHTML = `<tr><td colspan="4" class="ordinances-empty">Loading authors...</td></tr>`;
+  tbody.innerHTML = skeletonTableRows(4, 4);
   try {
     await ensureAllOrdinanceAuthorsLoaded();
     render();

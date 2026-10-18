@@ -30,7 +30,7 @@ async function renderPdfPreview(container, url) {
   container._pdfPreviewToken = token;
   const stale = () => container._pdfPreviewToken !== token;
 
-  container.innerHTML = '<p class="pdf-preview__fallback">Loading preview...</p>';
+  container.innerHTML = '<div class="skeleton skeleton-block"></div>';
 
   try {
     if (typeof pdfjsLib === "undefined") throw new Error("PDF.js not loaded");

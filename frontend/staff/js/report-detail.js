@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   claimBtn.addEventListener("click", async () => {
-    if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE)) return;
+    if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE, CLAIM_CONFIRM_OPTIONS)) return;
     claimBtn.disabled = true;
     try {
       report = await claimReport(report.id);
@@ -199,14 +199,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderTimeline(status, dateSubmitted, dateUpdated) {
+    // Fixed labels rather than the Status dropdown's names: the timeline is
+    // the report's record, so its first stage reads "Submitted" (the
+    // dropdown's "New Submission"), and Resolved and With Remarks share the
+    // last one.
     const steps = [
       { label: "Submitted", description: "The report was submitted." },
-      { label: "Under Review", description: "The report is being reviewed" },
+      { label: "Under Review", description: "The report is being reviewed." },
       { label: "In Action", description: "Appropriate actions are being taken." },
-      { label: "Resolved/With Remarks", description: "Report is finished and closed." },
+      { label: "Resolved/With Remarks", description: "The report is finished and closed." },
     ];
-    // Submitted/Under Review/In Action are stages 1-3; Resolved and With
-    // Remarks both complete the 4th.
+    // New Submission/Under Review/In Action are stages 1-3; Resolved and
+    // With Remarks both complete the 4th.
     const completedSteps = isReportClosed(status) ? steps.length : STATUSES_ORDERED.indexOf(status) + 1;
 
     timelineItems.innerHTML = steps
@@ -274,7 +278,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       statusPill.hidden = false;
       statusSelect.hidden = true;
       renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
-      return true;
+          return true;
     } catch (err) {
       siteAlert(err.message);
       return false;

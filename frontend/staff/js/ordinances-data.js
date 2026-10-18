@@ -97,6 +97,15 @@ async function readFirstError(response, fallback) {
     if (Array.isArray(firstError)) throw new Error(firstError[0]);
     if (typeof firstError === "string") throw new Error(firstError);
   }
+  // The system's own refusals always come back as JSON with a reason (handled
+  // above). A 403 with no JSON body was sent by something in front of it —
+  // the hosting provider's firewall rejecting the request's contents — so
+  // say that, rather than leaving it looking like a permissions problem.
+  if (!data && response.status === 403) {
+    throw new Error(
+      `${fallback} The request was blocked before it reached the system (403) — usually the host's security filter reacting to something in the text or the file.`
+    );
+  }
   throw new Error(`${fallback} (server responded ${response.status})`);
 }
 

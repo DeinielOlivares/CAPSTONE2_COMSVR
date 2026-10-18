@@ -13,7 +13,10 @@
 //     remarks, investigator (name or null), dateFiled (Date),
 //     attachments (urls) }
 
-const REPORT_FORM_STATUSES = ["Submitted", "Under Review", "In Action", "Resolved", "With Remarks"];
+const REPORT_FORM_STATUSES = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
+// The citizen portal labels the first status "Submitted"; on the form it's
+// the status's own name, same as the staff Status dropdown.
+const REPORT_FORM_STATUS_ALIASES = { Submitted: "New Submission" };
 const REPORT_FORM_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
 const REPORT_FORM_LOGOS = {
   left: "/citizen/drawables/logo-city-of-binan.png",
@@ -281,6 +284,7 @@ function reportFormDraw(ctx, data, images) {
 }
 
 async function downloadReportForm(data) {
+  data = { ...data, status: REPORT_FORM_STATUS_ALIASES[data.status] || data.status };
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
   const photoUrls = (data.attachments || [])

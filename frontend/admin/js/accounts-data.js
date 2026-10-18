@@ -35,17 +35,32 @@ async function updateAccount(id, changes) {
   return response.json();
 }
 
-// Backs the (currently disabled — no email service to actually deliver a
-// reset link yet) "Reset Password" button. Left here, unused, for when
-// that's wired up.
+// Backs the "Reset Password" button (Barangay Staff/Administrator accounts
+// that are already set up): emails the owner a one-time link to choose a
+// new password — see AdminResetPasswordView. The admin never sees it.
 async function resetAccountPassword(id) {
   const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/reset-password/`, {
     method: "POST",
   });
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error("Could not reset this account's password.");
+    throw new Error(data.detail || "Could not reset this account's password.");
   }
-  return response.json();
+  return data;
+}
+
+// Backs the "Resend Setup Link" button (any account still Setup Pending):
+// emails a fresh one-time setup link and kills older ones — see
+// AdminResendSetupLinkView.
+async function resendSetupLink(id) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/resend-setup-link/`, {
+    method: "POST",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Could not resend the setup link.");
+  }
+  return data;
 }
 
 // Disable an account, optionally freeing every report it has claimed in the
@@ -77,23 +92,31 @@ async function createAccount({ email, staffRole }) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const firstError = Object.values(data)[0];
-    throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not create this account.");
+    const err = new Error(Array.isArray(firstError) ? firstError[0] : "Could not create this account.");
+    err.fields = data;
+    throw err;
   }
   return response.json();
 }
 
-// Used by the Create Account form's "Barangay Citizen" account type —
-// creates a full, pre-verified citizen account right away (see
-// accounts/serializers.py's AdminCreateCitizenSerializer).
-async function createCitizenAccount({ email }) {
-  const response = await authFetch(`${ADMIN_API_BASE}/create-citizen/`, {
+// Used by the Create Account form's "Barangay Citizen" account type — the
+// admin enters the citizen's full details directly (see
+// StaffCreateCitizenSerializer); the citizen gets a one-time setup link by
+// email to confirm them and choose their own password. Throws with field errors attached (err.fields) so the caller can
+// highlight the specific email/contact_number field, same pattern as
+// citizen Sign Up's apiCheckAvailability.
+async function createCitizenAccount(details) {
+  const response = await authFetch(`${ADMIN_API_BASE}/create-citizen-direct/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(details),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error((data.email && data.email[0]) || data.detail || "Could not send the invite.");
+    const firstError = Object.values(data)[0];
+    const err = new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not create the account."));
+    err.fields = data;
+    throw err;
   }
   return response.json();
 }
@@ -103,7 +126,7 @@ async function createCitizenAccount({ email }) {
 // StaffReportForfeitView) — for when that Investigator has left or gone
 // inactive. Manage Accounts lists an account's claims with these.
 const CLAIM_STATUS_LABELS = {
-  submitted: "Submitted",
+  submitted: "New Submission",
   under_review: "Under Review",
   in_action: "In Action",
   resolved: "Resolved",

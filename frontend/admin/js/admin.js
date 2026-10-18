@@ -1,5 +1,28 @@
 // Barangay Platero OVRMS — shared behavior for admin pages (sidebar toggle + logout).
 
+// ---- Skeleton loading placeholders (see .skeleton* in style.css) ----
+// Used in place of a bare "Loading..." string so a slow connection shows
+// something that already roughly matches the real layout, instead of a
+// layout jump once data arrives.
+
+// `count` <tr> rows for a <tbody>, each with `columns` cells containing a
+// shimmering bar.
+function skeletonTableRows(count, columns) {
+  const row = `<tr>${Array.from({ length: columns }, () => `<td><span class="skeleton skeleton-text"></span></td>`).join("")}</tr>`;
+  return Array.from({ length: count }).fill(row).join("");
+}
+
+// `count` card-style blocks for a simple list container — two bars each,
+// standing in for a title line and a shorter meta line underneath it.
+function skeletonCards(count) {
+  const card = `
+    <div class="skeleton-card">
+      <span class="skeleton skeleton-text skeleton-text--medium"></span>
+      <span class="skeleton skeleton-text skeleton-text--short"></span>
+    </div>`;
+  return Array.from({ length: count }).fill(card).join("");
+}
+
 const ADMIN_AUTH_STORAGE_KEY = "orms_auth_user";
 const ADMIN_ACCESS_TOKEN_KEY = "orms_access_token";
 const ADMIN_REFRESH_TOKEN_KEY = "orms_refresh_token";
@@ -399,6 +422,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
   });
   return {
     length: pw.length >= 8,
+    lowercase: /[a-z]/.test(pw),
+    uppercase: /[A-Z]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw),
     numeric: pw.length > 0 && !/^\d+$/.test(pw),
     common: pw.length > 0 && !ADMIN_COMMON_PASSWORDS.has(lowerPw),
     similar: pw.length > 0 && !tooSimilar,
@@ -408,6 +434,9 @@ function getPasswordRuleStatus(pw, attrs = {}) {
 function getPasswordRequirementError(pw, attrs = {}) {
   const status = getPasswordRuleStatus(pw, attrs);
   if (!status.length) return "Password must be at least 8 characters.";
+  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
+  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
+  if (!status.special) return "Password needs at least 1 special character.";
   if (!status.numeric) return "Password can't be entirely numbers.";
   if (!status.common) return "That password is too common. Please choose a less predictable one.";
   if (!status.similar) return "Password is too similar to your name or email.";
@@ -484,6 +513,21 @@ function setupPasswordVisibilityToggles() {
   });
 }
 
+// Swaps the browser tab's favicon — there's no <link rel="icon"> in any
+// page's <head>, so the tab just shows the browser's own default icon
+// until this runs. Called once with the portal's static default logo.png
+// right away, then again with the admin-uploaded one once branding loads
+// below, same best-effort pattern as the sidebar logo.
+function setFavicon(url) {
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
+}
+
 // Pulls the navbar/sidebar brand name + logo from Website Branding settings
 // (siteinfo.BarangayProfile.site_name/site_logo — see siteinfo/views.py's
 // BrandingPublicView) so every portal shows the same, admin-editable brand
@@ -514,12 +558,14 @@ function applySiteBranding() {
         document.querySelectorAll(".admin-sidebar__logo").forEach((el) => {
           el.style.backgroundImage = `url("${branding.site_logo_url}")`;
         });
+        setFavicon(branding.site_logo_url);
       }
     })
     .catch(() => {});
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setFavicon("assets/logo.png");
   applySiteBranding();
   setupPasswordVisibilityToggles();
   setupPasswordHints();

@@ -20,6 +20,8 @@ class Announcement(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Set by AnnouncementSerializer.update() — lets the frontend show "(edited)".
+    is_edited = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

@@ -80,6 +80,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return;
   }
+  // Best-effort, unlike the two above — the heatmap/geo summary just can't
+  // place a street-only report precisely if this fails, not worth failing
+  // the whole dashboard over.
+  await ensureStreetsLoaded().catch(() => {});
 
   // Every category a real ordinance defines, plus "Other" only if some
   // report's ordinance text didn't match any of them — computed once so the
@@ -150,7 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function computeStats(reports) {
     const stats = { total: reports.length, new: 0, process: 0, resolved: 0, remarks: 0, withRemarks: 0 };
     reports.forEach((r) => {
-      if (r.status === "Submitted") stats.new++;
+      if (r.status === "New Submission") stats.new++;
       else if (r.status === "Under Review") stats.process++;
       else if (r.status === "Resolved") stats.resolved++;
       else if (r.status === "In Action") stats.remarks++;
@@ -465,7 +469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statusBarChart = document.getElementById("statusBarChart");
 
   const STATUS_BAR_DEFS = [
-    { key: "new", label: "Submitted", modifier: "new" },
+    { key: "new", label: "New Submission", modifier: "new" },
     { key: "process", label: "Under Review", modifier: "process" },
     { key: "remarks", label: "In Action", modifier: "remarks" },
     { key: "resolved", label: "Resolved", modifier: "resolved" },
@@ -913,6 +917,108 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderGraphFilterLabel(cfg);
       renderGraphFilterMenu(cfg);
       cfg.render();
+    });
+  }
+
+  // ---- Download Summary (PDF) — whatever the current filters show,
+  // reusing the exact same per-graph effective period each chart already
+  // renders with, rather than re-deriving anything server-side. ----
+
+  function gatherDashboardSummary() {
+    const topPeriod = topPeriodValue();
+    const curStats = computeStats(getReportsForPeriod(topPeriod));
+    const prevPeriod = getPreviousPeriodValue(topPeriod);
+    const prevStats = prevPeriod ? computeStats(getReportsForPeriod(prevPeriod)) : null;
+
+    const categoryPeriod = effectivePeriod("category");
+    const categorySlices = pieSliceData(getReportsForPeriod(categoryPeriod)).filter((s) => s.count > 0);
+
+    const statusPeriod = effectivePeriod("status");
+    const statusStats = computeStats(getReportsForPeriod(statusPeriod));
+
+    const investigatorPeriod = effectivePeriod("investigator");
+    const investigatorCounts = {};
+    getReportsForPeriod(investigatorPeriod)
+      .filter((r) => r.assignedInvestigator)
+      .forEach((r) => {
+        investigatorCounts[r.assignedInvestigator] = (investigatorCounts[r.assignedInvestigator] || 0) + 1;
+      });
+    const investigators = Object.keys(investigatorCounts)
+      .sort((a, b) => investigatorCounts[b] - investigatorCounts[a])
+      .map((name) => ({ name, count: investigatorCounts[name] }));
+
+    const trendPeriod = effectivePeriod("trend");
+    const trendReports = getReportsForPeriod(trendPeriod);
+    const { start, end } = periodDateRange(trendPeriod);
+    const { unit, buckets } = trendBuckets(start, end);
+    const trendPoints = buckets.map((b) => ({
+      title: b.title,
+      count: trendReports.filter((r) => r.dateSubmitted >= b.start && r.dateSubmitted <= b.end).length,
+    }));
+
+    // Not limited to agingListLimit (the on-screen page size) — a
+    // downloaded summary is meant to be the complete record, not just
+    // whatever currently fits on the card.
+    const now = new Date();
+    const aging = liveReports()
+      .filter((r) => !isReportClosed(r.status))
+      .slice()
+      .sort((a, b) => a.dateSubmitted - b.dateSubmitted)
+      .map((r) => ({
+        ordinance: r.ordinance || "—",
+        location: r.location || "—",
+        days: daysBetween(r.dateSubmitted, now),
+        status: r.status,
+        investigator: r.assignedInvestigator || "Unclaimed",
+      }));
+
+    // Used server-side only to name the downloaded file (see
+    // StaffReportDashboardPdfView) — the PDF's own content still shows
+    // top_period_label, the human-readable version.
+    const topRange = periodDateRange(topPeriod);
+
+    return {
+      top_period_label: labelForPeriodValue(topPeriod),
+      top_period_range: { from: toDateInputValue(topRange.start), to: toDateInputValue(topRange.end) },
+      stats: { current: curStats, previous: prevStats, delta_suffix: periodDeltaSuffix(topPeriod) },
+      category: { period_label: labelForPeriodValue(categoryPeriod), slices: categorySlices },
+      status: { period_label: labelForPeriodValue(statusPeriod), stats: statusStats },
+      investigators: { period_label: labelForPeriodValue(investigatorPeriod), rows: investigators },
+      trend: { period_label: labelForPeriodValue(trendPeriod), unit, points: trendPoints },
+      aging,
+    };
+  }
+
+  const downloadDashboardPdfBtn = document.getElementById("downloadDashboardPdfBtn");
+  if (downloadDashboardPdfBtn) {
+    downloadDashboardPdfBtn.addEventListener("click", async () => {
+      downloadDashboardPdfBtn.disabled = true;
+      downloadDashboardPdfBtn.textContent = "Preparing...";
+      try {
+        const response = await authFetch("/api/reports/staff/dashboard-pdf/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(gatherDashboardSummary()),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.detail || "Could not download the summary.");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filenameFromResponse(response, "reports-summary.pdf");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        siteAlert(err.message);
+      } finally {
+        downloadDashboardPdfBtn.disabled = false;
+        downloadDashboardPdfBtn.textContent = "Download Summary (PDF)";
+      }
     });
   }
 

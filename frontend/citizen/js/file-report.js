@@ -290,6 +290,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Street: type-to-filter street combobox ----
+  // Best-effort — on failure STREETS just stays empty, same as any other
+  // street-data.js consumer; the field degrades to "no matching street".
+  await ensureStreetsLoaded().catch(() => {});
   const locationInput = document.getElementById("reportLocation");
   const locationList = document.getElementById("reportLocationList");
 
@@ -377,9 +380,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   let reportFiledThisVisit = false;
+  const blockLotInput = document.getElementById("reportBlockLot");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearFormError(form);
+    clearFieldInvalid(locationInput);
+    clearFieldInvalid(blockLotInput);
 
     if (!isLoggedIn()) {
       showFormError(form, "Please log in to submit a report.");
@@ -387,13 +393,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!STREETS.includes(locationInput.value.trim())) {
-      showFormError(form, "Please select a street from the list.");
+      markFieldInvalid(locationInput, "Please select a street from the list.");
       return;
     }
 
-    const blockLot = document.getElementById("reportBlockLot").value.trim();
+    const blockLot = blockLotInput.value.trim();
     if (!blockLot) {
-      showFormError(form, "Please enter the Block, Lot, etc.");
+      markFieldInvalid(blockLotInput, "Please enter the Block, Lot, etc.");
       return;
     }
 
@@ -466,7 +472,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (response.status === 429) {
           refreshGateStatus();
         }
-        throw new Error(data.detail || "Could not submit your report.");
+        // Refusals come back as {detail: "..."}, field validation as
+        // {field: ["..."]}. Anything else (a server error page, a request
+        // blocked before it reached the app) has no message, so give the
+        // status code instead of nothing.
+        if (typeof data.detail === "string") throw new Error(data.detail);
+        const firstError = Object.values(data)[0];
+        if (Array.isArray(firstError)) throw new Error(firstError[0]);
+        throw new Error(`Could not submit your report. (server responded ${response.status})`);
       }
       reportFiledThisVisit = true;
       successModal.hidden = false;

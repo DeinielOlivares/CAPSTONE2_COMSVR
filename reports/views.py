@@ -1,6 +1,8 @@
+import re
 import uuid
 from datetime import timedelta
 
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -23,6 +25,7 @@ from orms_backend.emails import (
 )
 
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
+from .pdf import build_dashboard_pdf
 from .serializers import (
     FAQSerializer,
     ConcernFolderSerializer,
@@ -311,6 +314,48 @@ class StaffReportDetailView(APIView):
             send_report_resolved_email(report)
 
         return Response(StaffReportSerializer(report, context={"request": request}).data)
+
+
+class StaffReportDashboardPdfView(APIView):
+    """
+    POST /api/reports/staff/dashboard-pdf/ — downloads the Reports
+    Dashboard's current stats/graphs/open-reports as one PDF (see
+    reports/pdf.py's build_dashboard_pdf). Unlike the two views above, this
+    doesn't touch the Report queryset at all: every number is already
+    computed client-side (reports-dashboard.js's gatherDashboardSummary,
+    the same functions the live dashboard renders with) and posted here as
+    plain JSON — this view just lays it out, rather than re-implementing
+    the dashboard's date-range/per-graph filtering a second time in Python.
+    Same viewing access as the dashboard page itself (every Staff role);
+    only Barangay Captain's nav actually links to that page, but there's
+    nothing here a Secretary/Investigator/Admin couldn't already see live.
+    """
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        payload = request.data or {}
+        try:
+            pdf_bytes = build_dashboard_pdf(payload)
+        except (KeyError, TypeError, ValueError):
+            return Response({"detail": "Could not build the summary from the given data."}, status=400)
+
+        # The dashboard's own top-filter range (reports-dashboard.js's
+        # gatherDashboardSummary sends it alongside the human-readable
+        # label already used inside the PDF) — not re-derived here, since
+        # this view never touches the Report queryset at all. Falls back to
+        # today's date if it's missing or malformed rather than failing the
+        # download over a filename.
+        date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        period_range = payload.get("top_period_range") or {}
+        start, end = period_range.get("from"), period_range.get("to")
+        if date_re.match(start or "") and date_re.match(end or ""):
+            date_part = start if start == end else f"{start}_to_{end}"
+        else:
+            date_part = timezone.localtime(timezone.now()).date().isoformat()
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="reports-summary-{date_part}.pdf"'
+        return response
 
 
 class StaffReportClaimView(APIView):
