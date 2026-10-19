@@ -1,12 +1,18 @@
+import base64
+import io
 import re
+import shutil
+import tempfile
 from datetime import datetime, timedelta
 from unittest import mock
 
 from django.core import mail
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode
+from PIL import Image
 from rest_framework.test import APITestCase
 
 from orms_backend.codes import MAX_CODE_ATTEMPTS
@@ -865,3 +871,134 @@ class CreateAdminCommandTests(APITestCase):
         self.assertTrue(user.check_password(GOOD_PASSWORD))
         self.assertFalse(user.check_password(self.ENV["ADMIN_PASSWORD"]))
         self.assertEqual(User.objects.filter(email__iexact=self.ENV["ADMIN_EMAIL"]).count(), 1)
+
+
+def _png_upload(name="voter-id.png"):
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(buffer, format="PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), "image/png")
+
+
+@override_settings(PASSWORD_HASHERS=FAST_HASHER)
+class SignupEmailVerificationTests(APITestCase):
+    """Sign Up proves the email is real (6-digit code) before the voter's ID is accepted."""
+
+    def setUp(self):
+        media_root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media_root, ignore_errors=True)
+        override = override_settings(
+            MEDIA_ROOT=media_root,
+            DATA_ENCRYPTION_KEY=base64.b64encode(b"k" * 32).decode(),
+            MODIFIED_BLOWFISH_ITERATIONS=10,
+            STORAGES={
+                "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+                "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+            },
+        )
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def _request_code(self, email="new@test.com"):
+        return self.client.post("/api/auth/signup/request-code/", {"email": email}, format="json")
+
+    def _sent_code(self):
+        return re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+
+    def _verify(self, code, email="new@test.com"):
+        return self.client.post("/api/auth/signup/verify-code/", {"email": email, "code": code}, format="json")
+
+    def _register(self, token, email="new@test.com"):
+        return self.client.post(
+            "/api/auth/register/",
+            {
+                "email": email, "password": GOOD_PASSWORD, "first_name": "Ana", "last_name": "Reyes",
+                "contact_number": "09171234567", "address": "Block 1, Lot 2, Main Street",
+                "voter_id_image": _png_upload(), "email_verification_token": token,
+            },
+            format="multipart",
+        )
+
+    def _verified_token(self, email="new@test.com"):
+        self._request_code(email)
+        return self._verify(self._sent_code(), email).data["email_verification_token"]
+
+    def test_code_is_emailed_to_the_typed_address(self):
+        self.assertEqual(self._request_code().status_code, 200)
+        self.assertEqual([m.to for m in mail.outbox], [["new@test.com"]])
+
+    def test_a_taken_email_gets_no_code(self):
+        User.objects.create_user(username="old", email="old@test.com", password=GOOD_PASSWORD)
+        self.assertEqual(self._request_code("OLD@test.com").status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_full_flow_creates_the_account(self):
+        response = self._register(self._verified_token())
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(User.objects.filter(email="new@test.com").exists())
+
+    def test_register_without_verification_is_refused(self):
+        response = self._register("made-up-token")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email_verification_token", response.data)
+        self.assertFalse(User.objects.filter(email="new@test.com").exists())
+
+    def test_token_only_works_for_the_email_it_was_issued_for(self):
+        token = self._verified_token("new@test.com")
+        self.assertEqual(self._register(token, email="other@test.com").status_code, 400)
+
+    def test_token_works_once(self):
+        token = self._verified_token()
+        self.assertEqual(self._register(token).status_code, 201)
+        User.objects.filter(email="new@test.com").delete()
+        self.assertEqual(self._register(token).status_code, 400)
+
+    def test_token_expires(self):
+        token = self._verified_token()
+        later = timezone.now() + timedelta(minutes=61)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            self.assertEqual(self._register(token).status_code, 400)
+
+    def test_wrong_code_is_rejected_and_attempts_are_capped(self):
+        self._request_code()
+        code = self._sent_code()
+        wrong = "000000" if code != "000000" else "111111"
+        for _ in range(MAX_CODE_ATTEMPTS):
+            self.assertEqual(self._verify(wrong).status_code, 400)
+        # Even the right code no longer works after too many wrong guesses.
+        self.assertEqual(self._verify(code).status_code, 400)
+
+    def test_a_new_code_replaces_the_old_one(self):
+        self._request_code()
+        first = self._sent_code()
+        self._request_code()
+        second = self._sent_code()
+        if first != second:
+            self.assertEqual(self._verify(first).status_code, 400)
+        self.assertEqual(self._verify(second).status_code, 200)
+
+    def test_a_code_cannot_be_verified_twice(self):
+        self._request_code()
+        code = self._sent_code()
+        self.assertEqual(self._verify(code).status_code, 200)
+        self.assertEqual(self._verify(code).status_code, 400)
+
+
+@override_settings(PASSWORD_HASHERS=FAST_HASHER, CACHES=REAL_CACHE)
+class SignupCodeThrottleTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _request(self, email):
+        return self.client.post("/api/auth/signup/request-code/", {"email": email}, format="json")
+
+    def test_codes_are_limited_per_email(self):
+        for _ in range(3):
+            self.assertEqual(self._request("new@test.com").status_code, 200)
+        self.assertEqual(self._request("new@test.com").status_code, 429)
+
+    def test_verify_is_limited(self):
+        body = {"email": "new@test.com", "code": "000000"}
+        for _ in range(5):
+            self.assertEqual(self.client.post("/api/auth/signup/verify-code/", body, format="json").status_code, 400)
+        self.assertEqual(self.client.post("/api/auth/signup/verify-code/", body, format="json").status_code, 429)

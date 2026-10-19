@@ -16,3 +16,9 @@ class ResetRequestEmailThrottle(SimpleRateThrottle):
         if not email:
             return None  # nothing to count by; the per-IP limit still applies
         return self.cache_format % {"scope": self.scope, "ident": email}
+
+
+class SignupCodeEmailThrottle(ResetRequestEmailThrottle):
+    """Same per-email limit for Sign Up codes, counted separately from password resets."""
+
+    scope = "signup_code_email"

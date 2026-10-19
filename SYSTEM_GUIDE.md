@@ -207,7 +207,7 @@ view writes an **audit log** entry (`log_action`) and, when needed, sends an
 
 | File | Purpose |
 |---|---|
-| `models.py` | Tables `User`, `VoterVerification`, `PasswordResetCode`, `ProfileEditVerificationCode`, `LoginSession`, `AuditLog`; helper `log_action(user, action)` writes an audit log entry. `User.display_name` (full name or username) and `User.account_type` ("Administrator" / "Barangay Citizen" / position) are used everywhere. |
+| `models.py` | Tables `User`, `VoterVerification`, `PasswordResetCode`, `SignupEmailCode`, `ProfileEditVerificationCode`, `LoginSession`, `AuditLog`; helper `log_action(user, action)` writes an audit log entry. `User.display_name` (full name or username) and `User.account_type` ("Administrator" / "Barangay Citizen" / position) are used everywhere. |
 | `permissions.py` | Who may call an endpoint: `IsAdmin`, `IsStaffOrAdmin`, `IsInvestigatorOrAdmin`, `IsSecretaryOrAdmin`, `IsDocumentManager`, `IsAnnouncementManager` |
 | `serializers.py` | Validation for sign up, account creation, account setup, profile, password change, **login** (`CustomTokenObtainPairSerializer`), Forgot Password, and the admin pages' JSON (`AdminAccountSerializer`, `PendingVerificationSerializer`, `AuditLogSerializer`). Shared checks: `clean_ph_mobile()`, `check_email_available()`, `check_phone_available()`, `validate_staff_role_uniqueness()` |
 | `views.py` | Endpoints under `/api/auth/` (see [section 7](#7-api-reference-every-endpoint)), grouped as: sign up/login/logout · Forgot Password · setup & reset links · My Profile · admin account management · approvals & audit logs |
@@ -293,6 +293,8 @@ the API (`<id>/archive/`, `<id>/unarchive/`, covered by the tests); no page has 
 |---|---|---|---|---|
 | POST | `register/` | Anyone | Citizen sign up (fields + voter's ID photo) | `RegisterView` |
 | POST | `check-availability/` | Anyone | Is the email / phone still free? | `CheckAccountAvailabilityView` |
+| POST | `signup/request-code/` | Anyone | Sign Up: email a 6-digit code to the typed address | `SignupCodeRequestView` |
+| POST | `signup/verify-code/` | Anyone | Sign Up: check the code, returns `email_verification_token` for `register/` | `SignupCodeVerifyView` |
 | POST | `login/` | Anyone | Log in → `{access, refresh, user}` | `LoginView` |
 | POST | `refresh/` | Anyone (with refresh token) | New access token | SimpleJWT `TokenRefreshView` |
 | POST | `logout/` | Logged in | Records the logout time | `LogoutView` |
@@ -558,7 +560,7 @@ function defined in one file can be called from another file loaded on the same 
 | File | What it does | Main functions |
 |---|---|---|
 | `js/common.js` | Helpers every page needs | **Session:** `getCurrentUser`, `isLoggedIn`, `logOut`, `storeAuthSession`, `authFetch` (adds the token, refreshes it when expired) · **Messages:** `showFormError`, `markFieldInvalid`, `siteAlert`, `siteConfirm` · **Lists:** `wireFiltersDropdown`, `createFilterMemory`, `pageSizeFrom`, `skeletonTableRows` · **Forms:** `guardUnsavedForm` ("Save Changes?"), `isValidPhMobile` · **Passwords:** `getPasswordRuleStatus`, `getPasswordRequirementError`, `setupPasswordHints`, `setupPasswordVisibilityToggles` · **Look:** `applySiteBranding`, `setFavicon`, `renderAvatar`, `timeAgo` · **Bell:** `createNotificationStore`, `setupNotificationBell` |
-| `js/auth-pages.js` | Login, Sign Up (2 steps), Forgot Password (3 steps), account setup link, admin-sent reset link — for the citizen and staff portals | `apiLogin`, `apiRegister`, `apiCheckAvailability`, `apiRequestPasswordReset`, `apiVerifyPasswordResetCode`, `apiConfirmPasswordReset`, `apiCheckSetupLink`, `apiCompleteAccountSetup`, `handleLogin`, `handleSignupStep1/2`, `handleForgotRequest/Verify/Confirm`, `wireAccountSetup`, `wireResetLinkForm`, `loginHome` (where each role lands) |
+| `js/auth-pages.js` | Login, Sign Up (3 steps), Forgot Password (3 steps), account setup link, admin-sent reset link — for the citizen and staff portals | `apiLogin`, `apiRegister`, `apiCheckAvailability`, `apiRequestSignupCode`, `apiVerifySignupCode`, `apiRequestPasswordReset`, `apiVerifyPasswordResetCode`, `apiConfirmPasswordReset`, `apiCheckSetupLink`, `apiCompleteAccountSetup`, `handleLogin`, `handleSignupStep1/2`, `handleSignupVerifyEmail`, `handleForgotRequest/Verify/Confirm`, `wireAccountSetup`, `wireResetLinkForm`, `loginHome` (where each role lands) |
 | `js/pagination.js` | Page buttons under every list | `renderPaginationControls` |
 | `js/streets.js` | The street list (from the API) and the street picker | `ensureStreetsLoaded`, `STREETS`, `streetCoordinate`, `wireStreetCombobox` |
 | `js/evidence.js` | Report/concern photo thumbnails and the full-size viewer | `renderEvidence`, `openMediaLightbox` |
@@ -583,7 +585,7 @@ function defined in one file can be called from another file loaded on the same 
 | `privacy-policy.html`, `terms.html` | Legal pages | `legal.js` |
 | `notifications.html` | All notifications | `shared/js/notifications-page.js` |
 | `profile.html` | My Profile (edit, change password, delete account) | `shared/js/streets.js`, `profile.js` |
-| `login.html`, `signup.html`, `verify-signup.html`, `signup-success.html` | Log in / sign up (2 steps) | `shared/js/auth-pages.js` |
+| `login.html`, `signup.html`, `verify-email.html`, `verify-signup.html`, `signup-success.html` | Log in / sign up (3 steps) | `shared/js/auth-pages.js` |
 | `forgot-password.html`, `verify-code.html`, `reset-password.html`, `reset-success.html` | Forgot Password (3 steps) | `shared/js/auth-pages.js` |
 | `account-setup.html` | Finish an account someone else created (from the emailed link) | `shared/js/streets.js`, `shared/js/auth-pages.js` |
 | `index.html` | Redirects to `login.html` | — |
@@ -660,11 +662,17 @@ the bell with two switchable kinds of notifications (new verification requests, 
 
 **Citizen sign-up and approval**
 1. `signup.html` → `handleSignupStep1` (auth-pages.js) checks the passwords and phone, calls
-   `POST /api/auth/check-availability/`, and keeps the fields in sessionStorage.
-2. `verify-signup.html` → `handleSignupStep2` sends everything + the voter's ID photo to
-   `POST /api/auth/register/` (`RegisterSerializer` creates the `User` and a pending
-   `VoterVerification`; the photo is stored encrypted). Administrators are emailed.
-3. Admin › Approve Accounts → `POST /api/auth/admin/verifications/<id>/approve/` sets
+   `POST /api/auth/check-availability/`, emails a 6-digit code with
+   `POST /api/auth/signup/request-code/`, and keeps the fields in sessionStorage.
+2. `verify-email.html` → `handleSignupVerifyEmail` sends the code to
+   `POST /api/auth/signup/verify-code/`, which returns an `email_verification_token`
+   (`SignupEmailCode`; valid 60 minutes, one use). This proves the email is real before any
+   voter's ID is uploaded. Going back to step 1 keeps the token unless the email changes.
+3. `verify-signup.html` → `handleSignupStep2` sends everything + the token + the voter's ID photo to
+   `POST /api/auth/register/` (`RegisterSerializer` refuses a missing/expired token, then creates the
+   `User` and a pending `VoterVerification`; the photo is stored encrypted). Administrators are
+   emailed. An expired token sends the person back to `verify-email.html?expired=1`, which emails a new code.
+4. Admin › Approve Accounts → `POST /api/auth/admin/verifications/<id>/approve/` sets
    `is_verified`; the citizen is emailed and can now log in. (Reject: the reason is emailed and the
    pending account is deleted.)
 

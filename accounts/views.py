@@ -54,6 +54,8 @@ from .serializers import (
     PendingVerificationSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
+    SignupCodeRequestSerializer,
+    SignupCodeVerifySerializer,
     StaffAccountSetupSerializer,
     StaffCreateCitizenSerializer,
     UserSerializer,
@@ -68,7 +70,7 @@ from .setup_links import (
     user_for_reset_link,
     user_from_uid,
 )
-from .throttles import ResetRequestEmailThrottle
+from .throttles import ResetRequestEmailThrottle, SignupCodeEmailThrottle
 
 
 class PublicView(APIView):
@@ -94,6 +96,30 @@ class RegisterView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = serializer.save()
         send_account_created_admin_emails(user, User.objects.filter(role=User.Role.ADMIN, is_active=True))
+
+
+class SignupCodeRequestView(PublicView):
+    """POST /signup/request-code/ — emails a 6-digit code to the Sign Up email (before the ID step)."""
+
+    throttle_classes = [ScopedRateThrottle, SignupCodeEmailThrottle]
+    throttle_scope = "signup_code"
+
+    def post(self, request):
+        serializer = SignupCodeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "We've emailed a 6-digit code to that address."})
+
+
+class SignupCodeVerifyView(PublicView):
+    """POST /signup/verify-code/ — checks the code; returns the token /register/ needs."""
+
+    throttle_scope = "signup_verify"
+
+    def post(self, request):
+        serializer = SignupCodeVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({"email_verification_token": serializer.save()})
 
 
 class CheckAccountAvailabilityView(PublicView):

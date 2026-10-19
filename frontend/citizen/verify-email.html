@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barangay Platero OVRMS — Verify Email</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="/shared/js/common.js"></script>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar__brand">
+      <span class="navbar__logo" aria-hidden="true"></span>
+      <div class="navbar__brand-text"><strong>Barangay Platero</strong><small>Ordinance Violation Reporting and Monitoring System</small></div>
+    </div>
+    <ul class="navbar__links">
+      <li><a href="home.html">Home</a></li>
+      <li><a href="ordinances.html">Ordinances</a></li>
+      <li><a href="file-report.html" data-auth-gate="report">File Report</a></li>
+      <li><a href="submit-suggestion.html" data-auth-gate="suggestion">Submit Suggestion</a></li>
+      <li data-auth-only><a href="my-reports.html">My Reports</a></li>
+      <li data-auth-only><a href="my-concerns.html">My Concerns/Suggestions</a></li>
+    </ul>
+    <span class="navbar__bell" data-auth-only role="button" tabindex="0" id="notifBell">
+      <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
+      <div class="notif-dropdown" id="notifDropdown" hidden>
+        <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
+        <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
+      </div>
+    </span>
+    <div class="navbar__profile" role="button" tabindex="0"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></div>
+  </nav>
+
+  <script>markNavbarIfLoggedIn();</script>
+
+  <section class="plain-hero">
+    <div class="auth-card auth-card--outline auth-card--narrow">
+      <h1 class="auth-card__title">Verify Your Email</h1>
+      <p class="auth-card__subtitle">We've sent a 6-digit code to <strong id="signupVerifyEmailAddress"></strong>. Enter it below to continue. The code expires in 15 minutes.</p>
+      <form data-goto="verify-signup.html" data-signup-verify-email novalidate>
+        <div class="field field--boxed field--code">
+          <label for="code">Code</label>
+          <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="XXXXXX" maxlength="6" required />
+        </div>
+        <button type="submit" class="btn">Verify</button>
+      </form>
+      <p class="form-footer">Didn't get it? Check your spam folder or <a href="#" id="signupResendCode">send a new code</a>.</p>
+      <p class="form-footer" id="signupResendStatus" role="status"></p>
+      <a class="form-back" href="signup.html">&larr; Wrong email? Back to Sign Up</a>
+    </div>
+  </section>
+
+
+  <footer id="siteFooter"></footer>
+  <script src="js/site-footer.js"></script>
+  <script src="/shared/js/auth-pages.js"></script>
+  <script src="js/main.js"></script>
+
+  <!-- Floating "Ask a Question" button — opens askQuestionModal below -->
+  <button type="button" class="fab-ask-question" id="askQuestionFab" title="Ask a Question" aria-label="Ask a Question">?</button>
+
+  <!-- Ask a Question popup -->
+  <div class="modal-overlay" id="askQuestionModal" hidden>
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      <h2>Ask a Question</h2>
+      <p class="auth-card__subtitle">Don't see your answer in the FAQs? Ask directly — a Barangay Official will get back to you, and we'll email you the answer.</p>
+      <form id="askQuestionForm">
+        <div class="field">
+          <label for="questionInput">Your Question</label>
+          <textarea id="questionInput" placeholder="Type your question here..." required></textarea>
+        </div>
+        <button type="submit" class="btn">Submit Question</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirms the question was sent, before the answer email arrives -->
+  <div class="modal-overlay" id="askQuestionSentModal" hidden>
+    <div class="modal-card">
+      <h2>Question Sent!</h2>
+      <p class="auth-card__subtitle">A Barangay Official will review it soon. We'll email you the answer once it's ready.</p>
+      <button type="button" class="btn" data-modal-confirm>Confirm</button>
+    </div>
+  </div>
+
+  <!-- Guests are prompted to sign up / log in before filing a report or suggestion -->
+  <div class="modal-overlay" id="authGateModal" hidden>
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      <h2 id="authGateTitle">Want to Submit a Report?</h2>
+      <div class="auth-gate__row">
+        <p class="auth-gate__label">Don't Have An Account?</p>
+        <a class="btn" href="signup.html">Sign Up now</a>
+      </div>
+      <div class="auth-gate__row">
+        <p class="auth-gate__label">Already Have An Account?</p>
+        <a class="btn" href="index.html">Login now</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile popup: Guest Account, or the logged-in account card -->
+  <div class="modal-overlay" id="profileModal" hidden>
+    <div class="modal-card profile-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      <div id="profileGuestView">
+        <a class="btn" href="index.html">Login</a>
+        <a class="btn btn-muted" href="signup.html">Sign Up</a>
+      </div>
+      <div id="profileUserView" hidden>
+        <div class="profile-card__row">
+          <span class="profile-avatar" id="profileUserInitials"></span>
+          <p class="profile-card__name" id="profileUserName"></p>
+        </div>
+        <a class="btn btn-muted" href="profile.html">View Details</a>
+        <button type="button" class="btn btn-muted" id="logoutBtn">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logout confirmation -->
+  <div class="modal-overlay" id="logoutConfirmModal" hidden>
+    <div class="modal-card">
+      <h2>Continue to Logout?</h2>
+      <div class="btn-row">
+        <button type="button" class="btn" id="logoutYes">Yes</button>
+        <button type="button" class="btn btn-danger" id="logoutNo">No</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

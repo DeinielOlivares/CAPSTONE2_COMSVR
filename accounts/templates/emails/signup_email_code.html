@@ -1,0 +1,11 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">Verify your email address</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi,</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Someone is signing up for a Barangay Platero OVRMS account with this email address. Enter the code below to confirm it's yours:</p>
+<p style="margin:0 0 20px;text-align:center;">
+  <span style="display:inline-block;font-size:28px;letter-spacing:6px;font-weight:bold;color:#16223f;background:#f0eee6;padding:12px 20px;border-radius:6px;">{{ code }}</span>
+</p>
+<p style="margin:0 0 8px;font-size:13px;color:#5b5748;">This code expires in {{ expires_minutes }} minutes.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">If you didn't try to sign up, you can safely ignore this email — no account will be created.</p>
+{% endblock %}

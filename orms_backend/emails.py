@@ -57,6 +57,12 @@ def send_password_reset_email(user, code, expires_minutes):
           user=user, code=code, expires_minutes=expires_minutes)
 
 
+def send_signup_email_code(email, code, expires_minutes):
+    # No account exists yet, so this goes to the address typed on Sign Up.
+    _send(email, "Verify your email address", "signup_email_code",
+          code=code, expires_minutes=expires_minutes)
+
+
 def send_report_verification_code_email(user, code, expires_minutes):
     _send(user.email, "Your report verification code", "report_verification_code",
           user=user, code=code, expires_minutes=expires_minutes)

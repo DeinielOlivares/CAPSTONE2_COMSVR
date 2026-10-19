@@ -168,6 +168,9 @@ REST_FRAMEWORK = {
         "user": "300/min",   # per account
         "login": "10/min",
         "register": "5/hour",
+        "signup_code": "5/hour",
+        "signup_code_email": "3/hour",
+        "signup_verify": "5/min",
         "account_setup": "10/min",
         "account_setup_link": "5/hour",
         "reset_request": "5/hour",

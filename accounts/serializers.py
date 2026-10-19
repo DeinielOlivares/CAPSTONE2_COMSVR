@@ -11,11 +11,13 @@ Sections:
 """
 
 import re
+import secrets
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django.utils.timesince import timesince
@@ -24,10 +26,10 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from orms_backend.codes import CODE_EXHAUSTED, CODE_OK, check_code, generate_code
-from orms_backend.emails import send_password_reset_email
+from orms_backend.emails import send_password_reset_email, send_signup_email_code
 
 from .lockout import LOCKOUT_MINUTES, clear_failed_logins, lockout_minutes_remaining, record_failed_login
-from .models import AuditLog, LoginSession, PasswordResetCode, VoterVerification, log_action
+from .models import AuditLog, LoginSession, PasswordResetCode, SignupEmailCode, VoterVerification, log_action
 
 User = get_user_model()
 
@@ -102,12 +104,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     password = serializers.CharField(write_only=True, validators=[validate_password])
     voter_id_image = serializers.ImageField(write_only=True)
+    # From SignupCodeVerifySerializer: proves the email was confirmed first.
+    email_verification_token = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = [
             "id", "email", "password", "first_name", "middle_initial", "last_name",
-            "contact_number", "address", "voter_id_image",
+            "contact_number", "address", "voter_id_image", "email_verification_token",
         ]
         read_only_fields = ["id"]
 
@@ -117,15 +121,98 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return check_phone_available(value)
 
+    def validate(self, attrs):
+        if not _verified_signup_code(attrs["email"], attrs["email_verification_token"]):
+            raise serializers.ValidationError({"email_verification_token": [SIGNUP_EMAIL_UNVERIFIED]})
+        return attrs
+
     def create(self, validated_data):
+        token = validated_data.pop("email_verification_token")
         voter_id_image = validated_data.pop("voter_id_image")
         password = validated_data.pop("password")
-        # Django requires a username; the email is used so it's always unique.
-        user = User(**validated_data, username=validated_data["email"], role=User.Role.CITIZEN)
-        user.set_password(password)
-        user.save()
-        VoterVerification.objects.create(user=user, voter_id_image=voter_id_image)
+        with transaction.atomic():
+            # Locked so the same verification can't create two accounts at once.
+            signup_code = _verified_signup_code(validated_data["email"], token, lock=True)
+            if not signup_code:
+                raise serializers.ValidationError({"email_verification_token": [SIGNUP_EMAIL_UNVERIFIED]})
+            # Django requires a username; the email is used so it's always unique.
+            user = User(**validated_data, username=validated_data["email"], role=User.Role.CITIZEN)
+            user.set_password(password)
+            user.save()
+            VoterVerification.objects.create(user=user, voter_id_image=voter_id_image)
+            signup_code.expire()
         return user
+
+
+SIGNUP_EMAIL_UNVERIFIED = "Your email verification has expired. Please verify your email again."
+
+
+def _verified_signup_code(email, token, lock=False):
+    """The still-valid SignupEmailCode that `token` was issued for, or None."""
+    if not token:
+        return None
+    codes = SignupEmailCode.objects.filter(
+        email__iexact=email, token=token, verified_at__isnull=False, used_at__isnull=True
+    )
+    if lock:
+        codes = codes.select_for_update()
+    signup_code = codes.first()
+    return signup_code if signup_code and signup_code.is_valid() else None
+
+
+class SignupCodeRequestSerializer(serializers.Serializer):
+    """Sign Up: email a 6-digit code to the address typed on step 1."""
+
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        # Sign Up step 1 already says when an email is taken, so this reveals nothing new.
+        return check_email_available(value)
+
+    def save(self):
+        email = self.validated_data["email"]
+        # Older unused codes stop working; only the newest one is valid.
+        SignupEmailCode.objects.filter(email__iexact=email, used_at__isnull=True).update(used_at=timezone.now())
+        code = generate_code()
+        SignupEmailCode.objects.create(
+            email=email,
+            code=code,
+            expires_at=timezone.now() + timedelta(minutes=SignupEmailCode.CODE_TTL_MINUTES),
+        )
+        send_signup_email_code(email, code, SignupEmailCode.CODE_TTL_MINUTES)
+
+
+class SignupCodeVerifySerializer(serializers.Serializer):
+    """Sign Up: check the emailed code. Wrong guesses are counted (orms_backend/codes.py)."""
+
+    email = serializers.EmailField()
+    code = serializers.CharField()
+
+    def validate(self, attrs):
+        signup_code = (
+            SignupEmailCode.objects.filter(email__iexact=attrs["email"], used_at__isnull=True, verified_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+        if not signup_code or not signup_code.is_valid():
+            raise serializers.ValidationError("Invalid or expired code.")
+        result = check_code(signup_code, attrs["code"])
+        if result == CODE_EXHAUSTED:
+            raise serializers.ValidationError("Too many incorrect attempts. Please request a new code.")
+        if result != CODE_OK:
+            raise serializers.ValidationError("Invalid or expired code.")
+        attrs["signup_code"] = signup_code
+        return attrs
+
+    def save(self):
+        """Marks the code verified and returns the token Sign Up step 2 must send."""
+        signup_code = self.validated_data["signup_code"]
+        signup_code.verified_at = timezone.now()
+        signup_code.token = secrets.token_urlsafe(32)
+        # The code itself expired; the verification now lasts long enough for the ID step.
+        signup_code.expires_at = signup_code.verified_at + timedelta(minutes=SignupEmailCode.VERIFIED_TTL_MINUTES)
+        signup_code.save(update_fields=["verified_at", "token", "expires_at"])
+        return signup_code.token
 
 
 # The four roles an Administrator can give a staff account, and the `role`

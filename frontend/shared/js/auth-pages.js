@@ -1,7 +1,7 @@
 // auth-pages.js — the "account" pages of the citizen and staff portals:
 //
 //   Login .................. login.html (citizen), index.html (staff)
-//   Sign Up (2 steps) ...... signup.html -> verify-signup.html (citizen only)
+//   Sign Up (3 steps) ...... signup.html -> verify-email.html -> verify-signup.html (citizen only)
 //   Forgot Password ........ forgot-password.html -> verify-code.html -> reset-password.html
 //   Account setup .......... account-setup.html (opened from the emailed setup link)
 //   Admin reset link ....... new-password.html (staff only)
@@ -104,6 +104,16 @@ async function apiCheckAvailability(email, contact_number) {
   if (response.ok) return {};
   if (response.status !== 400) throw new Error("Could not check that information. Please try again.");
   return response.json();
+}
+
+// Sign Up email check: emails a 6-digit code to the address typed on step 1.
+function apiRequestSignupCode(email) {
+  return postAuth("signup/request-code/", { email }, "Could not send a verification code.", { useDetail: false });
+}
+
+// Returns { email_verification_token } once the code is right; /register/ needs it.
+function apiVerifySignupCode(email, code) {
+  return postAuth("signup/verify-code/", { email, code }, "Invalid or expired code.", { useDetail: false });
 }
 
 // Sign Up step 2: creates the account (text fields + voter's ID photo).
@@ -265,6 +275,22 @@ async function handleSignupStep1(form) {
   if (availability.contact_number) markFieldInvalid(phoneField, availability.contact_number[0]);
   if (availability.email || availability.contact_number) return;
 
+  // Coming back from a later step with the same email keeps its verification;
+  // a changed email has to be verified again.
+  const previous = readDraft(SIGNUP_DRAFT_KEY);
+  const alreadyVerified = !!(previous && previous.email_verification_token && previous.email === email);
+  if (!alreadyVerified) {
+    setBusy(submitBtn, "Sending code...");
+    try {
+      await apiRequestSignupCode(email);
+    } catch (err) {
+      if (err.fields && err.fields.email) markFieldInvalid(emailField, err.fields.email[0]);
+      else showFormError(form, err.message);
+      setBusy(submitBtn, null, "Next");
+      return;
+    }
+  }
+
   sessionStorage.setItem(
     SIGNUP_DRAFT_KEY,
     JSON.stringify({
@@ -275,9 +301,37 @@ async function handleSignupStep1(form) {
       last_name: lastName,
       contact_number: contactNumber,
       address: streetField ? `${blockLot}, ${street}` : form.querySelector('[name="address"]').value.trim(),
+      ...(alreadyVerified ? { email_verification_token: previous.email_verification_token } : {}),
     })
   );
-  window.location.href = form.dataset.goto;
+  window.location.href = alreadyVerified ? "verify-signup.html" : form.dataset.goto;
+}
+
+// Sign Up email check: the 6-digit code emailed in step 1.
+async function handleSignupVerifyEmail(form) {
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const code = form.querySelector('[name="code"]').value.trim();
+  clearFormError(form);
+
+  const draft = readDraft(SIGNUP_DRAFT_KEY);
+  if (!draft || !draft.email) {
+    window.location.href = "signup.html";
+    return;
+  }
+  if (!/^\d{6}$/.test(code)) {
+    showFormError(form, "Enter the 6-digit code from the email.");
+    return;
+  }
+
+  setBusy(submitBtn, "Verifying...");
+  try {
+    const { email_verification_token } = await apiVerifySignupCode(draft.email, code);
+    sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify({ ...draft, email_verification_token }));
+    window.location.href = form.dataset.goto;
+  } catch (err) {
+    showFormError(form, err.message);
+    setBusy(submitBtn, null, "Verify");
+  }
 }
 
 // Sign Up step 2: step 1's fields + the voter's ID photo create the account.
@@ -289,6 +343,10 @@ async function handleSignupStep2(form) {
   const draft = readDraft(SIGNUP_DRAFT_KEY);
   if (!draft) {
     window.location.href = "signup.html";
+    return;
+  }
+  if (!draft.email_verification_token) {
+    window.location.href = "verify-email.html";
     return;
   }
   if (!fileInput.files.length) {
@@ -316,6 +374,13 @@ async function handleSignupStep2(form) {
     sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
     window.location.href = form.dataset.goto;
   } catch (err) {
+    if (err.fields && err.fields.email_verification_token) {
+      // Took too long (or the token was already used): verify the email again.
+      delete draft.email_verification_token;
+      sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify(draft));
+      window.location.href = "verify-email.html?expired=1";
+      return;
+    }
     showFormError(form, err.message);
     setBusy(submitBtn, null, "Submit");
   }
@@ -397,6 +462,7 @@ async function handleForgotConfirm(form) {
 const FORM_HANDLERS = {
   login: handleLogin,
   signupStep1: handleSignupStep1,
+  signupVerifyEmail: handleSignupVerifyEmail,
   signupStep2: handleSignupStep2,
   forgotRequest: handleForgotRequest,
   forgotVerify: handleForgotVerify,
@@ -463,6 +529,51 @@ function wireSignupTermsGate() {
       sessionStorage.setItem(SIGNUP_TERMS_KEY, "1");
     } catch {}
   });
+}
+
+// Sign Up email check page: shows where the code went, and "Send a new code".
+function wireSignupVerifyEmail() {
+  const form = document.querySelector("form[data-signup-verify-email]");
+  if (!form) return;
+  const draft = readDraft(SIGNUP_DRAFT_KEY);
+  if (!draft || !draft.email) {
+    window.location.href = "signup.html";
+    return;
+  }
+  if (draft.email_verification_token) {
+    window.location.href = form.dataset.goto;
+    return;
+  }
+
+  const emailShown = document.getElementById("signupVerifyEmailAddress");
+  const resendLink = document.getElementById("signupResendCode");
+  const status = document.getElementById("signupResendStatus");
+  if (emailShown) emailShown.textContent = draft.email;
+
+  async function sendNewCode(message) {
+    clearFormError(form);
+    resendLink.hidden = true;
+    status.textContent = "Sending a new code...";
+    try {
+      await apiRequestSignupCode(draft.email);
+      status.textContent = message || "We've sent a new code. Use the newest email — earlier codes no longer work.";
+    } catch (err) {
+      status.textContent = "";
+      showFormError(form, err.message);
+    }
+    resendLink.hidden = false;
+  }
+
+  if (resendLink && status) {
+    resendLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      sendNewCode();
+    });
+    // Sent back from the ID step because the verification ran out.
+    if (new URLSearchParams(window.location.search).has("expired")) {
+      sendNewCode("Your email verification expired, so we've sent you a new code.");
+    }
+  }
 }
 
 // Sign Up step 2: preview of the chosen voter's ID photo.
@@ -743,5 +854,6 @@ document.addEventListener("DOMContentLoaded", () => {
   wireConfirmPasswordCheck();
   wireCodeInputs();
   wireIdPhotoPreview();
+  wireSignupVerifyEmail();
   wireSignupTermsGate();
 });
