@@ -52,14 +52,20 @@ The user approved keeping the work, and it was committed in the batches below.
   - Stale comments that still named removed files (`admin.js`, the old `main.js`) updated.
 - [ ] **Apply migrations to each database.** The local `db.sqlite3` is missing `reports/0021`,
       `siteinfo/0015` and `siteinfo/0016`. Run `python manage.py migrate`.
-- [ ] **Fix `origin/final` too (team decision).** `final` on GitHub still has the conflict markers in
-      `frontend/staff/js/reports-data.js`, so its staff Reports pages are broken until fixed there.
-- [ ] **Owner decision:** the known admin "logged in at undefined" notification bug
-      (SYSTEM_GUIDE.md §14.6). It was left as-is because behavior must not change.
-- [ ] **Owner decision (requirement 4, small):** remove leftover unused/duplicated code:
-      `archiveOrdinanceById()` / `unarchiveOrdinanceById()` in `staff/js/ordinances-data.js` (never
-      called, also unused in the old code), and `checkPickedImage()` / `wireImagePicker()`, which are
-      copied identically in `admin/js/about-setup.js` and `admin/js/website-setup.js`.
+- [x] **Batch 8: Leftover code, admin notification, `final` fix**
+  - Unused `archiveOrdinanceById()`, `unarchiveOrdinanceById()` and `readFirstError()` removed from
+    `staff/js/ordinances-data.js` (no page calls them; the archive API is unchanged and still tested).
+  - The picture checks copied in `admin/js/about-setup.js` and `admin/js/website-setup.js` now live
+    once in `admin/js/image-picker.js`, loaded by both pages. Same results as before for good,
+    too-small and non-image files on every picker.
+  - Admin "New action logs" notification fixed: it showed "… logged in at undefined"; it now shows
+    "Owner (Account type): Action — time" (`checkForNewAuditLogs()` in `admin/js/layout.js`).
+  - Conflict markers on `final`: fixed on branch `fix/final-conflict-markers` (`5c2aaf1`, based on
+    `origin/final`). Only the 8 marker lines are removed. **Not yet on GitHub's `final`** (pushing to
+    the shared branch needs the owner's go-ahead).
+  - `SYSTEM_GUIDE.md` §6.4, §10.3, §14.6 and the function reference updated.
+- [ ] **Push `fix/final-conflict-markers` to `final`** (or open a PR from it). Until then the staff
+      Reports pages on `final` are broken.
 
 ## Latest test results
 
@@ -75,4 +81,4 @@ Not automated in the repository: Firefox/Safari (only Chromium was tested) and r
 
 ## Next step
 
-Owner decisions above, then apply the migrations. No code batches remain.
+Get the `final` fix onto GitHub, then apply the migrations. No code batches remain.

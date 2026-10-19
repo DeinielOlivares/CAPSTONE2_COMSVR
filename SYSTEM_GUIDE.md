@@ -49,7 +49,7 @@ Every account is one row in the `User` table. Two columns decide what a person c
 | Position | Role | Can do |
 |---|---|---|
 | Barangay Captain | staff | Read-only Reports & Concerns dashboards, heatmap, announcements, questions |
-| Secretary | staff | Concerns/Suggestions (remarks, folders), ordinances (upload/edit/archive), announcements, questions, invite citizens |
+| Secretary | staff | Concerns/Suggestions (remarks, folders), ordinances (upload, edit), announcements, questions, invite citizens |
 | Investigator | staff | Claim reports and update their status/remarks, questions |
 | Administrator | admin | Everything in the Admin portal; may also act on reports/concerns |
 
@@ -254,7 +254,8 @@ report becomes Resolved/With Remarks the citizen is emailed.
 | `matching.py` | `suggest_ordinances()`: TF-IDF + cosine similarity between the citizen's description and each ordinance (used by File a Report). Written in plain Python with the same results as scikit-learn's `TfidfVectorizer`, to save server memory |
 | `stop_words.py` | `ENGLISH_STOP_WORDS`: common words ("the", "and", …) that `matching.py` ignores — the same list scikit-learn uses |
 
-Citizens and guests only see **published** (not archived) ordinances.
+Citizens and guests only see **published** (not archived) ordinances. Archiving is done through
+the API (`<id>/archive/`, `<id>/unarchive/`, covered by the tests); no page has an Archive button.
 
 ### 6.5 `siteinfo/` — content the Administrator edits
 
@@ -620,7 +621,7 @@ the browser's localStorage).
   logout, and the bell (new reports for Investigators/Captain, new concerns for Secretary/Captain;
   a brand-new item opens the dropdown and flashes the bell).
 * **Data files:** `reports-data.js` (reports + period/date helpers), `concerns-data.js`
-  (concerns + folders), `ordinances-data.js` (ordinances, upload/edit/archive, authors and
+  (concerns + folders), `ordinances-data.js` (ordinances, upload/edit, authors and
   categories), `questions-data.js`.
 * **Maps:** `heatmap.js` (`createIncidentHeatmap`, `countByLocation`) and `geo-analysis.js`
   (`createGeoAnalysis`, `renderGeoSummary`).
@@ -637,8 +638,8 @@ the browser's localStorage).
 | `reports.html` | Assign unclaimed reports to Investigators; workload per Investigator | `shared/js/pagination.js`, `reports.js` |
 | `questions.html`, `manage-faqs.html` | Answer questions; manage FAQs | `questions-data.js`, `questions-list.js` / `faqs-manage.js` |
 | `ordinance-authors.html` | Ordinance Setup: authors and categories | `ordinance-authors-data.js`, `ordinance-authors.js`, `ordinance-categories-data.js`, `ordinance-categories.js` |
-| `about-setup.html` | About Us: barangay details, council members, logos | `about-setup-data.js`, `about-setup.js` |
-| `website-setup.html` | Brand name/logo, footer, legal pages | `about-setup-data.js`, `website-setup.js` |
+| `about-setup.html` | About Us: barangay details, council members, logos | `about-setup-data.js`, `image-picker.js`, `about-setup.js` |
+| `website-setup.html` | Brand name/logo, footer, legal pages | `about-setup-data.js`, `image-picker.js`, `website-setup.js` |
 | `map-boundary.html` | Barangay outline and streets on the map | `shared/js/streets.js`, `map-boundary.js` |
 | `notifications.html`, `profile.html` | Notifications, My Profile | `shared/js/notifications-page.js` / `admin-profile.js` |
 
@@ -841,11 +842,18 @@ The original code is kept unchanged on the `final` branch; this cleaned-up versi
   messages, sign-up checks, Forgot Password, claiming, posting, unsaved-changes prompts, password
   checklists) behaved identically on the old and new code.
 
-### 14.6 Noticed, but intentionally not changed
+### 14.6 Fixed after the review (2026-10-19)
 
-* Admin "New action logs" notifications read a field (`loggedOnLabel`) that the audit-log API
-  does not send, so they show "logged in at undefined". Left as-is because behavior had to stay
-  identical; the fix would be to use `timeLabel` in `checkForNewAuditLogs` (`admin/js/layout.js`).
+* **Admin "New action logs" notification:** it read a field (`loggedOnLabel`) that the audit-log
+  API does not send, so it showed "… logged in at undefined" for every kind of action.
+  `checkForNewAuditLogs()` (`admin/js/layout.js`) now shows the real entry:
+  "Owner (Account type): Action — time".
+* **Duplicated code:** the picture checks and preview used by About Us Setup and Website Setup
+  (`checkPickedImage()`, `wireImagePicker()` and the upload limits) were copied in both page
+  scripts; they are now one file, `admin/js/image-picker.js`, loaded by both pages.
+* **Unused code:** `archiveOrdinanceById()`, `unarchiveOrdinanceById()` and `readFirstError()` in
+  `staff/js/ordinances-data.js` were never called by any page (no page has an Archive button), so
+  they were removed. The archive API endpoints themselves are unchanged.
 
 ---
 
@@ -913,7 +921,7 @@ EncryptedTextField — a model field that stores text encrypted with the study's
 | 46 | `encrypt_value()` | Plain text -> the JSON string stored in the database. | this file, orms_backend/tests.py |
 | 54 | `is_encrypted()` | True if a stored database value is in the encrypted JSON format (starts with {"salt"). | this file |
 | 58 | `decrypt_value()` | The database's JSON string -> plain text. A value that isn't encrypted yet (written before the column was encrypted) is returned as it is. | this file, orms_backend/tests.py, research/modified_blowfish/verify_system_matches_demo.py |
-| 79 | **`EncryptedTextField`** (class) | Text that is encrypted at rest. Always a `text` column (the stored form is longer than the value); `max_length` still limits the text itself. | this file, accounts/migrations/0014_encrypt_personal_data.py, accounts/migrations/0016_encrypt_more_personal_data.py, accounts/migrations/0018_user_middle_initial.py, accounts/models.py, reports/migrations/0015_encrypt_personal_data.py, +2 more |
+| 79 | **`EncryptedTextField`** (class) | Text that is encrypted at rest. Always a `text` column (the stored form is longer than the value); `max_length` still limits the text itself. | this file, accounts/models.py, reports/models.py |
 | 87 | `EncryptedTextField.from_db_value()` | Django calls this when a row is loaded: decrypts the stored value into plain text. |  |
 | 92 | `EncryptedTextField.get_db_prep_save()` | Django calls this when a row is saved: encrypts the text (blank values stay blank). |  |
 | 99 | `EncryptedTextField._refuse_lookup()` | Raises an error explaining that an encrypted column can't be searched or filtered by the database. |  |
@@ -1013,24 +1021,24 @@ Accounts — database tables for user accounts and signing in.
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 24 | **`User`** (class) | One table for all three portals. `role` decides what the account may do; `position` is the staff member's job title (Barangay Captain, Secretary, Investigator, Administrator). People log in with their email. | this file, accounts/admin.py, accounts/lockout.py, accounts/management/commands/create_admin.py, accounts/migrations/0001_initial.py, accounts/migrations/0007_rename_kapitan_to_barangay_captain.py, +22 more |
+| 24 | **`User`** (class) | One table for all three portals. `role` decides what the account may do; `position` is the staff member's job title (Barangay Captain, Secretary, Investigator, Administrator). People log in with their email. | this file, accounts/admin.py, accounts/lockout.py, accounts/management/commands/create_admin.py, accounts/permissions.py, accounts/serializers.py, +15 more |
 | 63 | `User.get_full_name()` | e.g. "Juan D. Dela Cruz" (the middle initial is added when there is one). |  |
 | 69 | `User.display_name()` | The full name, or the username when no name is on file yet. |  |
 | 74 | `User.account_type()` | The label shown on admin pages: Administrator, Barangay Citizen, or the staff position. |  |
 | 82 | `User.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 86 | **`VoterVerification`** (class) | A citizen's voter's ID photo, reviewed by an Administrator on Approve Accounts. | this file, accounts/admin.py, accounts/management/commands/encrypt_existing_files.py, accounts/migrations/0001_initial.py, accounts/serializers.py, accounts/views.py, +1 more |
+| 86 | **`VoterVerification`** (class) | A citizen's voter's ID photo, reviewed by an Administrator on Approve Accounts. | this file, accounts/admin.py, accounts/management/commands/encrypt_existing_files.py, accounts/serializers.py, accounts/views.py, orms_backend/tests.py |
 | 106 | `VoterVerification.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 110 | **`PasswordResetCode`** (class) | Forgot Password: email -> enter the 6-digit code -> choose a new password. `verified_at` is set when the code is entered correctly; `used_at` when the new password is saved (or when a newer code replaces this one). | this file, accounts/migrations/0005_passwordresetcode.py, accounts/serializers.py, accounts/tests.py |
+| 110 | **`PasswordResetCode`** (class) | Forgot Password: email -> enter the 6-digit code -> choose a new password. `verified_at` is set when the code is entered correctly; `used_at` when the new password is saved (or when a newer code replaces this one). | this file, accounts/serializers.py, accounts/tests.py |
 | 131 | `PasswordResetCode.is_valid()` | True if the code hasn't been used and hasn't expired. |  |
 | 134 | `PasswordResetCode.expire()` | Marks the code as used (sets used_at) so it can't be used again. |  |
 | 138 | `PasswordResetCode.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 142 | **`ProfileEditVerificationCode`** (class) | 6-digit code sent to the email already on file before the account's email, mobile number or address can be changed (see MeView.patch). | this file, accounts/migrations/0011_profile_edit_verification_code.py, accounts/views.py |
+| 142 | **`ProfileEditVerificationCode`** (class) | 6-digit code sent to the email already on file before the account's email, mobile number or address can be changed (see MeView.patch). | this file, accounts/views.py |
 | 161 | `ProfileEditVerificationCode.is_valid()` | True if the code hasn't been used and hasn't expired. |  |
 | 164 | `ProfileEditVerificationCode.expire()` | Marks the code as used (sets used_at) so it can't be used again. |  |
 | 168 | `ProfileEditVerificationCode.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 172 | **`LoginSession`** (class) | One row per login. `logged_out_at` stays empty if the user never pressed Log Out. | this file, accounts/admin.py, accounts/migrations/0003_loginsession.py, accounts/serializers.py, accounts/views.py |
+| 172 | **`LoginSession`** (class) | One row per login. `logged_out_at` stays empty if the user never pressed Log Out. | this file, accounts/admin.py, accounts/serializers.py, accounts/views.py |
 | 183 | `LoginSession.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 187 | **`AuditLog`** (class) | One row per action, shown on Admin > View Audit Logs. owner_name/owner_type are a copy of the account's name and type *at the time of the action*, so the entry still says who did it after the account is renamed or deleted (`user` becomes empty when the account is deleted). | this file, accounts/migrations/0006_auditlog.py, accounts/migrations/0012_auditlog_owner_snapshot.py, accounts/migrations/0017_encrypt_existing_audit_names.py, accounts/serializers.py, accounts/tests.py, +4 more |
+| 187 | **`AuditLog`** (class) | One row per action, shown on Admin > View Audit Logs. owner_name/owner_type are a copy of the account's name and type *at the time of the action*, so the entry still says who did it after the account is renamed or deleted (`user` becomes empty when the account is deleted). | this file, accounts/serializers.py, accounts/tests.py, accounts/views.py, ordinances/tests.py, orms_backend/tests.py, +1 more |
 | 207 | `AuditLog.__str__()` | The text shown for this row in the Django admin and in logs. |  |
 | 211 | `log_action()` | Writes one audit log entry. Called right after an action succeeds. Never raises: a logging problem must not break the request itself. | accounts/lockout.py, accounts/middleware.py, accounts/serializers.py, accounts/views.py, announcements/views.py, +5 more |
 
@@ -1038,7 +1046,7 @@ Accounts — database tables for user accounts and signing in.
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 6 | **`CharacterClassValidator`** (class) | A password needs at least one lowercase letter, one uppercase letter and one special character. Listed in AUTH_PASSWORD_VALIDATORS (settings.py), so it applies everywhere a password is set. The frontend shows the same rules (getPasswordRuleStatus in the portals' main.js). | orms_backend/settings.py |
+| 6 | **`CharacterClassValidator`** (class) | A password needs at least one lowercase letter, one uppercase letter and one special character. Listed in AUTH_PASSWORD_VALIDATORS (settings.py), so it applies everywhere a password is set. The frontend shows the same rules (getPasswordRuleStatus in frontend/shared/js/common.js). | orms_backend/settings.py |
 | 20 | `CharacterClassValidator.validate()` | Raises a validation error listing every missing rule (lowercase, uppercase, special character). |  |
 | 25 | `CharacterClassValidator.get_help_text()` | The rule description Django shows in password help text. |  |
 
@@ -1078,7 +1086,7 @@ Accounts — serializers (they check incoming data and shape outgoing JSON).
 | 114 | `RegisterSerializer.validate_email()` | The email must not already be registered. |  |
 | 117 | `RegisterSerializer.validate_contact_number()` | Valid PH mobile number, not already registered. |  |
 | 120 | `RegisterSerializer.create()` | Creates the citizen account (username = email, role = citizen, password hashed) and a pending VoterVerification holding the uploaded ID photo. |  |
-| 144 | `validate_staff_role_uniqueness()` | Raises if `staff_role` is a one-person role that someone else already holds. | this file, accounts/views.py, admin/create-accounts.js |
+| 144 | `validate_staff_role_uniqueness()` | Raises if `staff_role` is a one-person role that someone else already holds. | this file, accounts/views.py |
 | 155 | `_new_account_without_password()` | Accounts made by someone else start with no password (see accounts/setup_links.py). | this file |
 | 163 | **`AdminCreateUserSerializer`** (class) | Administrator creates a staff/administrator account from just an email and a role. | accounts/views.py |
 | 173 | `AdminCreateUserSerializer.validate_email()` | The email must not already be registered. |  |
@@ -1261,24 +1269,24 @@ Reports — database tables for what citizens submit.
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 24 | **`Report`** (class) | An ordinance-violation report filed by a citizen. | this file, accounts/tests.py, accounts/views.py, admin/map-boundary.html, citizen/about.html, citizen/faqs.html, +53 more |
+| 24 | **`Report`** (class) | An ordinance-violation report filed by a citizen. | this file, accounts/tests.py, accounts/views.py, ordinances/matching.py, ordinances/views.py, orms_backend/codes.py, +10 more |
 | 75 | `Report.__str__()` | The text shown for this row in the Django admin and in logs. |  |
 | 78 | `Report.save()` | On the first save, gives the report its number (next_report_number, e.g. 20260919-3). If two reports get the same number at the same moment, the unique constraint stops one and it retries with the next number (up to 5 tries). |  |
 | 96 | `next_report_number()` | The next unused "YYYYMMDD-N" for `day`. | this file, reports/tests.py |
-| 104 | **`ReportAttachment`** (class) | One photo/video attached to a report. Photos are stored encrypted (encrypted_storage). | this file, accounts/management/commands/encrypt_existing_files.py, orms_backend/tests.py, reports/admin.py, reports/migrations/0001_initial.py, reports/serializers.py |
-| 112 | **`ReportVerificationCode`** (class) | 6-digit code that confirms the account owner is the one filing a report. Needed for a citizen's first report, and again after 30 days without one (see reports/verification.py). | this file, reports/migrations/0008_reportverificationcode.py, reports/serializers.py, reports/tests.py, reports/verification.py, reports/views.py |
+| 104 | **`ReportAttachment`** (class) | One photo/video attached to a report. Photos are stored encrypted (encrypted_storage). | this file, accounts/management/commands/encrypt_existing_files.py, orms_backend/tests.py, reports/admin.py, reports/serializers.py |
+| 112 | **`ReportVerificationCode`** (class) | 6-digit code that confirms the account owner is the one filing a report. Needed for a citizen's first report, and again after 30 days without one (see reports/verification.py). | this file, reports/serializers.py, reports/tests.py, reports/verification.py, reports/views.py |
 | 133 | `ReportVerificationCode.is_valid()` | True if the code hasn't been verified yet and hasn't expired. |  |
 | 136 | `ReportVerificationCode.expire()` | Makes the code expire now (sets expires_at to the current time). |  |
 | 140 | `ReportVerificationCode.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 144 | **`ConcernFolder`** (class) | A category (e.g. "Noise") the Secretary files concerns/suggestions under. | this file, reports/migrations/0003_concernfolder_concern_folder.py, reports/serializers.py, reports/tests.py, reports/views.py |
+| 144 | **`ConcernFolder`** (class) | A category (e.g. "Noise") the Secretary files concerns/suggestions under. | this file, reports/serializers.py, reports/tests.py, reports/views.py |
 | 154 | `ConcernFolder.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 158 | **`Concern`** (class) | A concern or suggestion submitted by a citizen. | this file, citizen/main.js, citizen/my-concern-detail.js, citizen/my-concern-detail.html, citizen/submit-suggestion.html, staff/concern-detail.html, +14 more |
+| 158 | **`Concern`** (class) | A concern or suggestion submitted by a citizen. | this file, orms_backend/tests.py, orms_backend/tests_injection.py, orms_backend/tests_resistance.py, reports/admin.py, reports/serializers.py, +2 more |
 | 181 | `Concern.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 185 | **`ConcernAttachment`** (class) | One photo/video attached to a concern/suggestion. Photos are stored encrypted. | this file, accounts/management/commands/encrypt_existing_files.py, orms_backend/tests.py, reports/admin.py, reports/migrations/0001_initial.py, reports/serializers.py |
-| 192 | **`Question`** (class) | A question a citizen asks from the FAQs page, answered by staff. It counts as answered when `answer` is filled in. Answered questions are kept so an Administrator can turn common ones into FAQs. | this file, admin/manage-faqs.html, citizen/faqs.html, citizen/file-report.html, citizen/forgot-password.html, citizen/home.html, +23 more |
+| 185 | **`ConcernAttachment`** (class) | One photo/video attached to a concern/suggestion. Photos are stored encrypted. | this file, accounts/management/commands/encrypt_existing_files.py, orms_backend/tests.py, reports/admin.py, reports/serializers.py |
+| 192 | **`Question`** (class) | A question a citizen asks from the FAQs page, answered by staff. It counts as answered when `answer` is filled in. Answered questions are kept so an Administrator can turn common ones into FAQs. | this file, orms_backend/tests.py, reports/serializers.py, reports/views.py |
 | 212 | `Question.__str__()` | The text shown for this row in the Django admin and in logs. |  |
 | 216 | `Question.is_answered()` | True once an answer has been written (calculated, not stored). |  |
-| 220 | **`FAQ`** (class) | One entry on the public FAQs page, written by an Administrator. | this file, admin/faqs-manage.js, admin/questions-data.js, admin/manage-faqs.html, citizen/faqs-data.js, citizen/faqs.js, +4 more |
+| 220 | **`FAQ`** (class) | One entry on the public FAQs page, written by an Administrator. | this file, reports/serializers.py, reports/views.py |
 | 233 | `FAQ.__str__()` | The text shown for this row in the Django admin and in logs. |  |
 
 #### `reports/pdf.py`
@@ -1343,7 +1351,7 @@ Anti-abuse rules for File a Report (all checked in ReportListCreateView.create):
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
 | 27 | `_last_report()` | The citizen's most recent report, or None. | this file |
-| 31 | `verification_required()` | True if the citizen must enter an emailed code before filing: no report yet, or the last one is older than 30 days. | citizen/file-report.js, reports/views.py |
+| 31 | `verification_required()` | True if the citizen must enter an emailed code before filing: no report yet, or the last one is older than 30 days. | reports/views.py |
 | 38 | `has_valid_verification()` | True if the citizen verified a code within the last 60 minutes. | reports/views.py |
 | 43 | `cooldown_remaining()` | How long until the citizen may file again (a timedelta), or None. | reports/views.py |
 | 53 | `check_and_apply_abuse_lockout()` | Called right after a report is created: if the citizen filed 5 or more reports in the last 12 hours, disables the account, writes an audit log entry and emails them. | reports/views.py |
@@ -1407,7 +1415,7 @@ Reports — API views (URLs in reports/urls.py, all under /api/).
 | 500 | **`StaffQuestionAnswerView`** (class) | PATCH /questions/staff/<id>/ — answer a question (the citizen is emailed). | reports/urls.py |
 | 505 | `StaffQuestionAnswerView.patch()` | Saves the answer with who answered and when, writes an audit log entry and emails the citizen. |  |
 | 515 | **`FAQListView`** (class) | GET /faqs/ — the public FAQ list (no login needed). | reports/urls.py |
-| 523 | **`AdminFAQListCreateView`** (class) | GET/POST /faqs/admin/ — Administrator manages the FAQ list. | reports/migrations/0010_seed_faqs.py, reports/urls.py |
+| 523 | **`AdminFAQListCreateView`** (class) | GET/POST /faqs/admin/ — Administrator manages the FAQ list. | reports/urls.py |
 | 530 | `AdminFAQListCreateView.perform_create()` | Saves the FAQ and writes an audit log entry. |  |
 | 535 | **`AdminFAQDetailView`** (class) | PATCH/DELETE /faqs/admin/<id>/ — edit or remove an FAQ. | reports/urls.py |
 | 542 | `AdminFAQDetailView.perform_update()` | Saves the edit and writes an audit log entry. |  |
@@ -1437,14 +1445,14 @@ Ordinances — database tables.
 | 18 | `pdf_storage()` | Where ordinance PDFs are saved. On Cloudinary PDFs must be uploaded as "raw" files (Cloudinary blocks public PDF downloads of the normal "image" type); locally they go to the media/ folder. | this file, ordinances/migrations/0002_alter_ordinance_pdf_file.py |
 | 31 | **`OrdinanceQuerySet`** (class) | Adds .published() to Ordinance.objects, so views can write Ordinance.objects.published(). | this file |
 | 32 | `OrdinanceQuerySet.published()` | Not archived — what citizens and guests may see. |  |
-| 37 | **`Ordinance`** (class) | One uploaded ordinance: number, title, author (text), category (text), date approved, description, the PDF, who uploaded it and whether it is archived. | this file, accounts/templates/emails/_base.html, accounts/tests.py, admin/about-setup.html, admin/activity.html, admin/approve-accounts.html, +75 more |
+| 37 | **`Ordinance`** (class) | One uploaded ordinance: number, title, author (text), category (text), date approved, description, the PDF, who uploaded it and whether it is archived. | this file, accounts/tests.py, ordinances/admin.py, ordinances/serializers.py, ordinances/tests.py, ordinances/urls.py, +2 more |
 | 62 | `Ordinance.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 66 | **`OrdinanceAuthor`** (class) | Officials of the Sangguniang Barangay who can author an ordinance. Only used for suggestions in the Author field. Kept (set inactive) when a term ends. Only one active Barangay Captain and one active SK Chairperson are allowed (checked in OrdinanceAuthorSerializer). | this file, ordinances/admin.py, ordinances/migrations/0005_ordinance_author_and_category_choices.py, ordinances/migrations/0007_seed_barangay_platero_council.py, ordinances/serializers.py, ordinances/tests.py, +1 more |
+| 66 | **`OrdinanceAuthor`** (class) | Officials of the Sangguniang Barangay who can author an ordinance. Only used for suggestions in the Author field. Kept (set inactive) when a term ends. Only one active Barangay Captain and one active SK Chairperson are allowed (checked in OrdinanceAuthorSerializer). | this file, ordinances/admin.py, ordinances/serializers.py, ordinances/tests.py, ordinances/views.py |
 | 89 | `OrdinanceAuthor.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 93 | **`OrdinanceCategory`** (class) | The category list, managed by an Administrator. Retired categories are kept but inactive. | this file, ordinances/admin.py, ordinances/migrations/0006_ordinance_category_and_free_text_author.py, ordinances/serializers.py, ordinances/tests.py, ordinances/views.py |
+| 93 | **`OrdinanceCategory`** (class) | The category list, managed by an Administrator. Retired categories are kept but inactive. | this file, ordinances/admin.py, ordinances/serializers.py, ordinances/tests.py, ordinances/views.py |
 | 106 | `OrdinanceCategory.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 110 | **`OrdinanceView`** (class) | A citizen opened this ordinance, so it leaves their "Latest Ordinances" list. | this file, ordinances/migrations/0011_ordinanceview.py, ordinances/views.py |
-| 123 | **`OrdinanceDownload`** (class) | A citizen downloaded this ordinance's PDF. Each citizen may download each ordinance once. | this file, ordinances/migrations/0004_ordinancedownload.py, ordinances/views.py |
+| 110 | **`OrdinanceView`** (class) | A citizen opened this ordinance, so it leaves their "Latest Ordinances" list. | this file, ordinances/views.py |
+| 123 | **`OrdinanceDownload`** (class) | A citizen downloaded this ordinance's PDF. Each citizen may download each ordinance once. | this file, ordinances/views.py |
 
 #### `ordinances/serializers.py`
 
@@ -1524,7 +1532,7 @@ Site information — content an Administrator edits without changing code.
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 19 | **`BarangayProfile`** (class) | Always exactly one row (pk=1) — use BarangayProfile.load(). Shown on About Us, in the site footer, and as the navbar brand on every portal. | this file, siteinfo/migrations/0001_initial.py, siteinfo/migrations/0002_seed_about_us.py, siteinfo/migrations/0004_seed_boundary.py, siteinfo/migrations/0005_refine_boundary.py, siteinfo/migrations/0011_rename_site_from_safespace.py, +5 more |
+| 19 | **`BarangayProfile`** (class) | Always exactly one row (pk=1) — use BarangayProfile.load(). Shown on About Us, in the site footer, and as the navbar brand on every portal. | this file, siteinfo/serializers.py, siteinfo/tests.py, siteinfo/views.py |
 | 46 | `BarangayProfile.save()` | Always saves as row 1 — there is only ever one barangay profile. |  |
 | 51 | `BarangayProfile.load()` | Returns the one profile row, creating it with default values the first time. |  |
 | 55 | `BarangayProfile.__str__()` | The text shown for this row in the Django admin and in logs. |  |
@@ -1532,27 +1540,27 @@ Site information — content an Administrator edits without changing code.
 | 64 | `BarangayProfile.set_boundary()` | Replaces the outline: deletes the old BoundaryPoint rows and creates one row per point (in a transaction). |  |
 | 73 | `BarangayProfile.footer_links()` | The footer links of one kind (quick or legal) as a list of {label, url}. |  |
 | 76 | `BarangayProfile.set_footer_links()` | Replaces the footer links of one kind with the given list (one FooterLink row each). |  |
-| 85 | **`FooterLink`** (class) | One footer link. No rows of a kind = the footer shows its built-in links. | this file, siteinfo/migrations/0016_normalize_json_lists.py, siteinfo/serializers.py |
+| 85 | **`FooterLink`** (class) | One footer link. No rows of a kind = the footer shows its built-in links. | this file, siteinfo/serializers.py |
 | 101 | `FooterLink.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 105 | **`BoundaryPoint`** (class) | One corner of the barangay outline (drawn or uploaded on Admin > Map Boundary). | this file, siteinfo/migrations/0016_normalize_json_lists.py |
-| 117 | **`Street`** (class) | A barangay street: the choices in the Street fields (Sign Up, File a Report, My Profile) and the point where its reports are drawn on the heatmap. Reports keep their location as text, so deleting a street never changes old reports. | this file, admin/create-accounts.html, admin/create-accounts.js, admin/map-boundary.js, admin/map-boundary.html, citizen/account-setup.html, +18 more |
+| 105 | **`BoundaryPoint`** (class) | One corner of the barangay outline (drawn or uploaded on Admin > Map Boundary). | this file |
+| 117 | **`Street`** (class) | A barangay street: the choices in the Street fields (Sign Up, File a Report, My Profile) and the point where its reports are drawn on the heatmap. Reports keep their location as text, so deleting a street never changes old reports. | this file, orms_backend/tests.py, reports/tests.py, siteinfo/serializers.py, siteinfo/views.py |
 | 134 | `Street.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 138 | **`CouncilMember`** (class) | A person in About Us' "Sangguniang Barangay" section. `group` = row, `order` = position in the row. | this file, siteinfo/migrations/0001_initial.py, siteinfo/migrations/0002_seed_about_us.py, siteinfo/serializers.py, siteinfo/tests.py, siteinfo/views.py |
+| 138 | **`CouncilMember`** (class) | A person in About Us' "Sangguniang Barangay" section. `group` = row, `order` = position in the row. | this file, siteinfo/serializers.py, siteinfo/tests.py, siteinfo/views.py |
 | 161 | `CouncilMember.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 165 | **`AboutLogo`** (class) | A seal in About Us' logo strip (barangay, city, current administration). | this file, siteinfo/migrations/0001_initial.py, siteinfo/migrations/0002_seed_about_us.py, siteinfo/serializers.py, siteinfo/tests.py, siteinfo/views.py |
+| 165 | **`AboutLogo`** (class) | A seal in About Us' logo strip (barangay, city, current administration). | this file, siteinfo/serializers.py, siteinfo/tests.py, siteinfo/views.py |
 | 180 | `AboutLogo.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 184 | **`LegalDocument`** (class) | The Privacy Policy or the Terms and Agreements page (rendered by citizen/js/legal.js). | this file, siteinfo/migrations/0008_legal_documents.py, siteinfo/migrations/0010_add_terms_retention_sentence.py, siteinfo/migrations/0012_reword_safespace_in_about_and_legal.py, siteinfo/migrations/0016_normalize_json_lists.py, siteinfo/views.py |
+| 184 | **`LegalDocument`** (class) | The Privacy Policy or the Terms and Agreements page (rendered by citizen/js/legal.js). | this file, siteinfo/views.py |
 | 195 | `LegalDocument.__str__()` | The text shown for this row in the Django admin and in logs. |  |
 | 198 | `LegalDocument.section_list()` | The page's sections as a list of {anchor, heading, body}, in order. |  |
 | 201 | `LegalDocument.set_sections()` | Replaces all sections with the given list (one LegalSection row each). |  |
-| 210 | **`LegalSection`** (class) | One section of a legal page. `body` is plain text where blocks are separated by a blank line: "- " starts a bullet, "1. " a numbered item, "\| a \| b \|" a table row; **bold**, [text](url) and {{address}}/{{email}}/{{phone}}/{{name}} are filled in by the page. | this file, citizen/legal.js, siteinfo/migrations/0016_normalize_json_lists.py |
+| 210 | **`LegalSection`** (class) | One section of a legal page. `body` is plain text where blocks are separated by a blank line: "- " starts a bullet, "1. " a numbered item, "\| a \| b \|" a table row; **bold**, [text](url) and {{address}}/{{email}}/{{phone}}/{{name}} are filled in by the page. | this file |
 
 #### `siteinfo/serializers.py`
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
 | 12 | `validate_image_upload()` | JPG/PNG/WebP up to MAX_IMAGE_BYTES (read at call time, so tests can lower it). | this file, announcements/serializers.py |
-| 17 | `image_url()` | An uploaded file's URL, else the seeded image under the frontend root. | this file, announcements/serializers.py, announcements/tests.py, citizen/home.js, staff/announcements.js |
+| 17 | `image_url()` | An uploaded file's URL, else the seeded image under the frontend root. | this file, announcements/serializers.py, announcements/tests.py |
 | 33 | `validate_footer_link_list()` | Checks a footer link list: at most MAX_FOOTER_LINKS, each with a label (≤ 60) and a URL (≤ 500) that is a page name or an http(s)/mailto/tel address. Returns the trimmed list. | this file |
 | 58 | **`BarangayProfileSerializer`** (class) | The barangay's details and footer text. The two footer link lists are stored as FooterLink rows but sent and received as lists of {"label": ..., "url": ...}. | siteinfo/views.py |
 | 81 | `BarangayProfileSerializer.to_representation()` | Adds the two footer link lists (read from FooterLink rows). With no saved legal links, shows the built-in ones. |  |
@@ -1637,9 +1645,9 @@ Site information — API views (URLs in siteinfo/urls.py, all under /api/site/).
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 7 | **`Announcement`** (class) | An announcement posted by the Secretary, Barangay Captain or Administrator. Shown on the citizen home page and emailed to every citizen when posted. | this file, announcements/migrations/0001_initial.py, announcements/serializers.py, announcements/tests.py, announcements/urls.py, announcements/views.py, +2 more |
+| 7 | **`Announcement`** (class) | An announcement posted by the Secretary, Barangay Captain or Administrator. Shown on the citizen home page and emailed to every citizen when posted. | this file, announcements/serializers.py, announcements/tests.py, announcements/urls.py, announcements/views.py |
 | 27 | `Announcement.__str__()` | The text shown for this row in the Django admin and in logs. |  |
-| 31 | **`AnnouncementView`** (class) | A user has seen this announcement, so its "unread" mark is no longer shown. | announcements/migrations/0001_initial.py, announcements/tests.py, announcements/views.py |
+| 31 | **`AnnouncementView`** (class) | A user has seen this announcement, so its "unread" mark is no longer shown. | announcements/tests.py, announcements/views.py |
 
 #### `announcements/serializers.py`
 
@@ -1675,7 +1683,7 @@ Django's command-line utility for administrative tasks.
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 7 | `main()` | Run administrative tasks. | this file, accounts/password_validators.py, admin/about-setup.html, admin/activity.html, admin/approve-accounts.html, admin/audit-logs.html, +56 more |
+| 7 | `main()` | Run administrative tasks. | this file |
 
 ### 15.3 Shared frontend code (`frontend/shared/js/`)
 
@@ -1754,7 +1762,7 @@ common.js — helpers used by the pages of all three portals (citizen, staff, ad
 | 384 | `pageSizeFrom()` | A "Show" select's value as a page size (null = All). | admin/approve-accounts.js, admin/audit-logs.js, admin/manage-accounts.js, admin/questions-list.js, citizen/my-concerns-list.js, +7 more |
 | 394 | `formHasEntries()` | True if anything in the form differs from how the page loaded it. | this file, staff/upload-ordinance.js |
 | 416 | `guardUnsavedForm()` | Before leaving a form with unsaved entries, shows "Save Changes?" (Save / Discard / Cancel) when a link is clicked, and the browser's own warning when the tab is closed. Returns {allowLeave()} to call before the page navigates by itself. | citizen/file-report.js, citizen/submit-suggestion.js, staff/upload-ordinance.js |
-| 500 | `getPasswordRuleStatus()` | Checks every rule separately: { length: true, lowercase: false, ... }. attrs = the person's firstName/lastName/email (the password can't be too similar). | this file, accounts/password_validators.py, shared/auth-pages.js |
+| 500 | `getPasswordRuleStatus()` | Checks every rule separately: { length: true, lowercase: false, ... }. attrs = the person's firstName/lastName/email (the password can't be too similar). | this file, shared/auth-pages.js |
 | 519 | `getPasswordRequirementError()` | The first broken rule as a message, or null if the password looks fine. | admin/admin-profile.js, citizen/profile.js, shared/auth-pages.js, staff/staff-profile.js |
 | 536 | `setupPasswordHints()` | Live checklist: every <li data-rule="..."> inside a ".password-hint" list gets ticked as soon as its rule is met. The list follows the form's first password field, or the one named in data-password-field="<id>". | admin/layout.js, admin/profile.html, citizen/account-setup.html, citizen/main.js, citizen/profile.html, +6 more |
 | 551 | `update()` *(inside setupPasswordHints)* | Re-checks the password against every rule and ticks/unticks each checklist item. |  |
@@ -2306,7 +2314,7 @@ Ordinance detail (staff): shows an ordinance; the Secretary/Administrator can ed
 
 #### `frontend/staff/js/ordinances-data.js`
 
-ordinances-data.js (staff) — loads all ordinances (archived ones too) and uploads, edits, archives and unarchives them. Changing ordinances needs the Secretary or an Administrator (checked by the server).
+ordinances-data.js (staff) — loads all ordinances (archived ones too) and uploads and edits them. Changing ordinances needs the Secretary or an Administrator (checked by the server).
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
@@ -2320,15 +2328,12 @@ ordinances-data.js (staff) — loads all ordinances (archived ones too) and uplo
 | 93 | `liveOrdinances()` | The loaded ordinances (empty list before loading). | citizen/file-report.js, citizen/ordinances-list.js, staff/geo-analysis-page.js, staff/ordinances-list.js, staff/reports-dashboard.js, +2 more |
 | 97 | `getOrdinanceById()` | One loaded ordinance by id, or null. | citizen/ordinance-detail.js, staff/ordinance-detail.js |
 | 101 | `refreshOrdinanceInCache()` | Reloads one ordinance from the server into the cache. | this file |
-| 109 | `readFirstError()` | Throws the server's message: {detail: "..."} or the first field error; otherwise `fallback` with the HTTP status. | this file |
-| 128 | `fetchOrdinanceAuthors()` | The author list (suggestions for the Author field; any name is still allowed). includeInactive (Administrators only) also returns officials whose term ended. | staff/ordinance-detail.js, staff/upload-ordinance.js |
-| 136 | `fetchOrdinanceCategories()` | The active category names (the Category field must be one of these). | staff/ordinance-detail.js, staff/upload-ordinance.js |
-| 143 | `populateAuthorDatalist()` | Puts the author names into a <datalist> (suggestions for a text input). | staff/ordinance-detail.js |
-| 154 | `populateCategorySelect()` | Fills a <select> with the categories, keeping the current choice if still valid. | staff/ordinance-detail.js, staff/upload-ordinance.js |
-| 176 | `createOrdinance()` | fields: { number, title, author, category, dateApproved (YYYY-MM-DD), description, pdfFile } | this file, staff/upload-ordinance.js |
-| 194 | `updateOrdinanceById()` | Same field shape as createOrdinance, but pdfFile is optional — omit it to keep the existing PDF. | staff/ordinance-detail.js |
-| 210 | `archiveOrdinanceById()` | POSTs /archive/ for one ordinance and updates the cache. (Not called by any page; the page archives through updateOrdinanceById.) | — |
-| 216 | `unarchiveOrdinanceById()` | POSTs /unarchive/ for one ordinance and updates the cache. (Not called by any page.) | — |
+| 109 | `fetchOrdinanceAuthors()` | The author list (suggestions for the Author field; any name is still allowed). includeInactive (Administrators only) also returns officials whose term ended. | staff/ordinance-detail.js, staff/upload-ordinance.js |
+| 117 | `fetchOrdinanceCategories()` | The active category names (the Category field must be one of these). | staff/ordinance-detail.js, staff/upload-ordinance.js |
+| 124 | `populateAuthorDatalist()` | Puts the author names into a <datalist> (suggestions for a text input). | staff/ordinance-detail.js |
+| 135 | `populateCategorySelect()` | Fills a <select> with the categories, keeping the current choice if still valid. | staff/ordinance-detail.js, staff/upload-ordinance.js |
+| 157 | `createOrdinance()` | fields: { number, title, author, category, dateApproved (YYYY-MM-DD), description, pdfFile } | this file, staff/upload-ordinance.js |
+| 175 | `updateOrdinanceById()` | Same field shape as createOrdinance, but pdfFile is optional — omit it to keep the existing PDF. | staff/ordinance-detail.js |
 
 #### `frontend/staff/js/ordinances-list.js`
 
@@ -2587,16 +2592,12 @@ About Us Setup (admin): edits the citizen About Us page — barangay details (al
 | 46 | `isProfileDirty()` *(inside page-load handler)* | True if any barangay detail was changed but not saved. |  |
 | 51 | `commitProfileSave()` *(inside page-load handler)* | Saves the barangay details. Returns true on success. |  |
 | 144 | `askToDelete()` *(inside page-load handler)* | Opens the shared "Delete …?" popup; Confirm runs the given delete action. |  |
-| 172 | `checkPickedImage()` *(inside page-load handler)* | Warnings for a picked image. A hard problem (wrong type, too big) also clears the pick; soft ones (small, not square) just advise. |  |
-| 198 | `wireImagePicker()` *(inside page-load handler)* | Previews a chosen image; returns a function that clears it. `framed`: add the green ring, as About Us does for uploaded portraits. |  |
-| 201 | `show()` *(inside wireImagePicker)* | Shows a picture in the preview (with the green ring for uploaded portraits). |  |
-| 208 | `setWarning()` *(inside wireImagePicker)* | Shows a warning or error under the picture. |  |
-| 251 | `moveItem()` *(inside page-load handler)* | Swap an item with its neighbour inside `list`, then save the whole order. |  |
-| 282 | `sortMembers()` *(inside page-load handler)* | Orders council members by row group (chairman, members, officers), then saved order, then name. |  |
-| 291 | `renderMembers()` *(inside page-load handler)* | Draws the council table with photo, name/position, group and Up/Down/Edit/Hide/Delete buttons. |  |
-| 324 | `openMemberModal()` *(inside page-load handler)* | Opens the Add/Edit Member popup (filled when editing). |  |
-| 435 | `renderLogos()` *(inside page-load handler)* | Draws the logos table with Left/Right/Edit/Hide/Delete buttons. |  |
-| 461 | `openLogoModal()` *(inside page-load handler)* | Opens the Add/Edit Logo popup (filled when editing). |  |
+| 166 | `moveItem()` *(inside page-load handler)* | Swap an item with its neighbour inside `list`, then save the whole order. |  |
+| 197 | `sortMembers()` *(inside page-load handler)* | Orders council members by row group (chairman, members, officers), then saved order, then name. |  |
+| 206 | `renderMembers()` *(inside page-load handler)* | Draws the council table with photo, name/position, group and Up/Down/Edit/Hide/Delete buttons. |  |
+| 239 | `openMemberModal()` *(inside page-load handler)* | Opens the Add/Edit Member popup (filled when editing). |  |
+| 350 | `renderLogos()` *(inside page-load handler)* | Draws the logos table with Left/Right/Edit/Hide/Delete buttons. |  |
+| 376 | `openLogoModal()` *(inside page-load handler)* | Opens the Add/Edit Logo popup (filled when editing). |  |
 
 #### `frontend/admin/js/accounts-data.js`
 
@@ -2696,6 +2697,17 @@ Manage FAQs (admin): add, edit and delete the public FAQs (API calls in question
 | 28 | `renderFaqManageList()` *(inside page-load handler)* | Draws the FAQ list with Edit and Delete buttons. |  |
 | 64 | `openFaqModal()` *(inside page-load handler)* | Opens the FAQ popup, empty to add or filled to edit. |  |
 
+#### `frontend/admin/js/image-picker.js`
+
+image-picker.js — choosing a picture on Admin > About Us Setup (council photos, logos) and Admin > Website Setup (site logo): checks the file against the server's upload limits and shows a preview with warnings. Load before the page's own script.
+
+| Line | Name | What it does | Used by |
+|---:|---|---|---|
+| 13 | `checkPickedImage()` | Warnings for a picked image. A hard problem (wrong type, too big) also clears the pick; soft ones (small, not square) just advise. | this file |
+| 39 | `wireImagePicker()` | Previews a chosen image; returns a function that clears it. `framed`: add the green ring, as About Us does for uploaded portraits. | admin/about-setup.js, admin/website-setup.js |
+| 42 | `show()` *(inside wireImagePicker)* | Shows a picture in the preview (with the green ring for uploaded portraits, not for logos). |  |
+| 49 | `setWarning()` *(inside wireImagePicker)* | Shows a warning, or a red error, under the picture. |  |
+
 #### `frontend/admin/js/layout.js`
 
 layout.js — the page frame of every admin page (sidebar, top bar, profile popup, logout, notification bell). Loaded last on the page, after common.js and the page's own script.
@@ -2709,7 +2721,7 @@ layout.js — the page frame of every admin page (sidebar, top bar, profile popu
 | 60 | `getSeenIds()` | The ids already seen, or null the first time (then nothing is notified, so switching a kind on doesn't flood the bell with every existing item). | this file |
 | 69 | `setSeenIds()` | Saves the ids already notified about (at most 200). | this file |
 | 74 | `checkForNewVerifications()` | Returns how many new pending accounts were found. | this file |
-| 99 | `checkForNewAuditLogs()` | If switched on, notifies about new audit log entries (newest 50). Note: it reads a loggedOnLabel field the API doesn't send, so the text ends in "undefined" — a known, unchanged bug (see section 14.6). | this file |
+| 99 | `checkForNewAuditLogs()` | If switched on, notifies about new audit log entries (the newest 50): "Owner (Account type): Action — time", linking to View Audit Logs. The first check only remembers the existing entries. | this file |
 | 126 | `addNotificationPrefs()` | The two checkboxes added under the bell dropdown's header. | this file |
 | 162 | `wireSidebar()` | Sidebar ☰ button. On small screens (≤900px) the sidebar slides in over the page with a dark backdrop; on large screens it just hides/shows. | this file |
 | 171 | `isSmallScreen()` *(inside wireSidebar)* | True at 900 px wide or less. |  |
@@ -2873,29 +2885,25 @@ Website Setup (admin): the brand name and logo, the site footer's text and links
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
 | 5 | `escapeHtml()` *(inside page-load handler)* | Makes text safe to put inside HTML. |  |
-| 17 | `checkPickedImage()` *(inside page-load handler)* | Warnings for a picked image. A hard problem (wrong type, too big) also clears the pick; soft ones (small, not square) just advise. |  |
-| 43 | `wireImagePicker()` *(inside page-load handler)* | Previews a chosen image; returns a function that clears it. `framed`: add the green ring, as About Us does for uploaded portraits. |  |
-| 46 | `show()` *(inside wireImagePicker)* | Shows a picture in the preview. |  |
-| 53 | `setWarning()` *(inside wireImagePicker)* | Shows a warning or error under the picture. |  |
-| 111 | `fillBrandingForm()` *(inside page-load handler)* | Fills the Branding form (site name and logo) from the saved values. |  |
-| 117 | `isBrandingDirty()` *(inside page-load handler)* | True if the site name or logo was changed but not saved. |  |
-| 123 | `commitBrandingSave()` *(inside page-load handler)* | Saves the branding. Returns true on success. |  |
-| 170 | `renderFooterEditor()` *(inside page-load handler)* | Draws the editable list of footer links (label, URL, Up/Down/Remove; legal links also get "Edit page text"). |  |
-| 194 | `readFooterEditor()` *(inside page-load handler)* | Keeps typed values before a structural change (add/move/remove) re-renders the list. |  |
-| 206 | `currentFooterValues()` *(inside page-load handler)* | The footer values as saved (used to detect and discard unsaved changes). |  |
-| 217 | `isFooterDirty()` *(inside page-load handler)* | True if the footer text or links differ from the saved values. |  |
-| 222 | `fillFooterForm()` *(inside page-load handler)* | Fills the footer form (tagline, notice, both link lists) and remembers it as saved. |  |
-| 266 | `commitFooterSave()` *(inside page-load handler)* | Saves the footer. Returns true on success. |  |
-| 270 | `clean()` *(inside commitFooterSave)* | Trims every link and drops empty rows. |  |
-| 303 | `isSetupDirty()` *(inside page-load handler)* | True if Branding or Footer has unsaved changes. |  |
-| 378 | `renderLegalEditor()` *(inside page-load handler)* | Draws the legal page's sections (heading + text) with Up/Down/Remove buttons. |  |
-| 406 | `readLegalEditor()` *(inside page-load handler)* | Keeps typed text before any add/move/remove re-renders the editor. |  |
-| 414 | `fillLegalForm()` *(inside page-load handler)* | Fills the legal page editor (effective date + sections) and remembers it as saved. |  |
-| 421 | `legalState()` *(inside page-load handler)* | The editor's current content as one text, to compare with the saved state. |  |
-| 428 | `hasUnsavedLegalChanges()` *(inside page-load handler)* | True if the legal page editor has unsaved changes. |  |
-| 433 | `requestCloseLegal()` *(inside page-load handler)* | Closes the legal editor, or first asks to discard unsaved changes. |  |
-| 441 | `openLegalEditor()` *(inside page-load handler)* | Opens the editor for the Privacy Policy or Terms and loads its sections. |  |
-| 486 | `saveLegal()` *(inside page-load handler)* | Saves the effective date and the non-empty sections (PUT /api/site/legal/<key>/admin/). Returns true on success. |  |
+| 27 | `fillBrandingForm()` *(inside page-load handler)* | Fills the Branding form (site name and logo) from the saved values. |  |
+| 33 | `isBrandingDirty()` *(inside page-load handler)* | True if the site name or logo was changed but not saved. |  |
+| 39 | `commitBrandingSave()` *(inside page-load handler)* | Saves the branding. Returns true on success. |  |
+| 86 | `renderFooterEditor()` *(inside page-load handler)* | Draws the editable list of footer links (label, URL, Up/Down/Remove; legal links also get "Edit page text"). |  |
+| 110 | `readFooterEditor()` *(inside page-load handler)* | Keeps typed values before a structural change (add/move/remove) re-renders the list. |  |
+| 122 | `currentFooterValues()` *(inside page-load handler)* | The footer values as saved (used to detect and discard unsaved changes). |  |
+| 133 | `isFooterDirty()` *(inside page-load handler)* | True if the footer text or links differ from the saved values. |  |
+| 138 | `fillFooterForm()` *(inside page-load handler)* | Fills the footer form (tagline, notice, both link lists) and remembers it as saved. |  |
+| 182 | `commitFooterSave()` *(inside page-load handler)* | Saves the footer. Returns true on success. |  |
+| 186 | `clean()` *(inside commitFooterSave)* | Trims every link and drops empty rows. |  |
+| 219 | `isSetupDirty()` *(inside page-load handler)* | True if Branding or Footer has unsaved changes. |  |
+| 294 | `renderLegalEditor()` *(inside page-load handler)* | Draws the legal page's sections (heading + text) with Up/Down/Remove buttons. |  |
+| 322 | `readLegalEditor()` *(inside page-load handler)* | Keeps typed text before any add/move/remove re-renders the editor. |  |
+| 330 | `fillLegalForm()` *(inside page-load handler)* | Fills the legal page editor (effective date + sections) and remembers it as saved. |  |
+| 337 | `legalState()` *(inside page-load handler)* | The editor's current content as one text, to compare with the saved state. |  |
+| 344 | `hasUnsavedLegalChanges()` *(inside page-load handler)* | True if the legal page editor has unsaved changes. |  |
+| 349 | `requestCloseLegal()` *(inside page-load handler)* | Closes the legal editor, or first asks to discard unsaved changes. |  |
+| 357 | `openLegalEditor()` *(inside page-load handler)* | Opens the editor for the Privacy Policy or Terms and loads its sections. |  |
+| 402 | `saveLegal()` *(inside page-load handler)* | Saves the effective date and the non-empty sections (PUT /api/site/legal/<key>/admin/). Returns true on success. |  |
 
 ### 15.7 Email templates
 
@@ -2936,7 +2944,7 @@ Run them with `python manage.py test`. Each test's name says what it checks; the
 |---:|---|---|
 | 28 | `_raw()` | Helper used by the tests: raw. |
 | 35 | **`EncryptedFieldTests`** | Group of tests: encrypted field. |
-| 36 | `EncryptedFieldTests.setUp()` | Setup. |
+| 36 | `EncryptedFieldTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 43 | `EncryptedFieldTests.test_stored_value_is_ciphertext_and_reads_back_as_text()` | Stored value is ciphertext and reads back as text. |
 | 52 | `EncryptedFieldTests.test_same_text_never_encrypts_the_same_way_twice()` | Same text never encrypts the same way twice. |
 | 61 | `EncryptedFieldTests.test_blank_stays_blank_and_can_still_be_filtered()` | Blank stays blank and can still be filtered. |
@@ -2948,7 +2956,7 @@ Run them with `python manage.py test`. Each test's name says what it checks; the
 | 106 | `EncryptedFieldTests.test_matches_the_algorithm_module()` | Matches the algorithm module. |
 | 115 | `_png_bytes()` | Helper used by the tests: png bytes. |
 | 122 | **`EncryptedStorageTests`** | Group of tests: encrypted storage. |
-| 123 | `EncryptedStorageTests.setUp()` | Setup. |
+| 123 | `EncryptedStorageTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 138 | `EncryptedStorageTests._on_disk()` |  on disk. |
 | 142 | `EncryptedStorageTests.test_voter_id_is_stored_as_ciphertext_under_a_random_name()` | Voter id is stored as ciphertext under a random name. |
 | 156 | `EncryptedStorageTests.test_signed_link_serves_the_decrypted_image()` | Signed link serves the decrypted image. |
@@ -2968,7 +2976,7 @@ SQL injection checks: classic injection strings sent through every kind of input
 | Line | Test | What it checks |
 |---:|---|---|
 | 24 | **`SqlInjectionTests`** | Group of tests: sql injection. |
-| 25 | `SqlInjectionTests.setUp()` | Setup. |
+| 25 | `SqlInjectionTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 42 | `SqlInjectionTests._login()` |  login. |
 | 46 | `SqlInjectionTests.test_login_fields_cannot_bypass_authentication()` | Login fields cannot bypass authentication. |
 | 59 | `SqlInjectionTests.test_query_parameters_are_not_executed()` | Query parameters are not executed. |
@@ -2983,7 +2991,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | Line | Test | What it checks |
 |---:|---|---|
 | 15 | **`ResistanceTests`** | Group of tests: resistance. |
-| 16 | `ResistanceTests.setUp()` | Setup. |
+| 16 | `ResistanceTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 29 | `ResistanceTests.test_malformed_json_is_rejected()` | Malformed json is rejected. |
 | 33 | `ResistanceTests.test_missing_fields_are_rejected()` | Missing fields are rejected. |
 | 38 | `ResistanceTests.test_tampered_or_fake_tokens_are_refused()` | Tampered or fake tokens are refused. |
@@ -3000,7 +3008,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | Line | Test | What it checks |
 |---:|---|---|
 | 25 | **`FailedLoginLockoutTests`** | Every login attempt runs the password hasher, and these tests make dozens of them; the default PBKDF2 takes ~0.1s each, so use a fast hasher (tests only, never real accounts). |
-| 26 | `FailedLoginLockoutTests.setUp()` | Setup. |
+| 26 | `FailedLoginLockoutTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 31 | `FailedLoginLockoutTests._login()` |  login. |
 | 34 | `FailedLoginLockoutTests._fail()` |  fail. |
 | 40 | `FailedLoginLockoutTests.test_below_the_limit_does_not_lock()` | Below the limit does not lock. |
@@ -3019,7 +3027,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 135 | `FailedLoginLockoutTests.test_locking_one_account_leaves_others_alone()` | Locking one account leaves others alone. |
 | 142 | `FailedLoginLockoutTests.test_completing_a_password_reset_unlocks_the_account()` | Completing a password reset unlocks the account. |
 | 163 | **`PasswordResetCodeAttemptTests`** | A 6-digit code is only 1,000,000 guesses — each code must die after a few wrong ones. |
-| 166 | `PasswordResetCodeAttemptTests.setUp()` | Setup. |
+| 166 | `PasswordResetCodeAttemptTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 173 | `PasswordResetCodeAttemptTests._verify()` |  verify. |
 | 178 | `PasswordResetCodeAttemptTests._wrong()` |  wrong. |
 | 181 | `PasswordResetCodeAttemptTests.test_code_is_six_digits()` | Code is six digits. |
@@ -3028,7 +3036,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 197 | `PasswordResetCodeAttemptTests.test_requesting_a_new_code_gives_a_working_one()` | Requesting a new code gives a working one. |
 | 204 | `PasswordResetCodeAttemptTests.test_confirm_needs_the_code_to_have_been_verified_first()` | Confirm needs the code to have been verified first. |
 | 214 | **`AuthThrottleTests`** | Group of tests: auth throttle. |
-| 215 | `AuthThrottleTests.setUp()` | Setup. |
+| 215 | `AuthThrottleTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 220 | `AuthThrottleTests._login()` |  login. |
 | 223 | `AuthThrottleTests.test_login_is_limited_per_ip()` | Login is limited per ip. |
 | 230 | `AuthThrottleTests.test_reset_verify_is_limited()` | Reset verify is limited. |
@@ -3036,7 +3044,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 247 | `AuthThrottleTests.test_signup_is_limited()` | Signup is limited. |
 | 252 | `AuthThrottleTests.test_forged_forwarded_for_header_does_not_dodge_the_limit()` | Forged forwarded for header does not dodge the limit. |
 | 274 | **`AccountSetupLinkTests`** | Accounts someone else creates get no password — just a one-time emailed link where the owner fills in their details and chooses their own (see accounts/setup_links.py). Anyone who merely knows the email, or holds an old/used/expired link, must get nowhere. |
-| 282 | `AccountSetupLinkTests.setUp()` | Setup. |
+| 282 | `AccountSetupLinkTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 293 | `AccountSetupLinkTests._create_staff()` |  create staff. |
 | 302 | `AccountSetupLinkTests._create_citizen_direct()` |  create citizen direct. |
 | 312 | `AccountSetupLinkTests._link()` |  link. |
@@ -3065,12 +3073,12 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 481 | `AccountSetupLinkTests.test_citizen_login_does_not_reveal_pending_staff_accounts()` | Citizen login does not reveal pending staff accounts. |
 | 487 | `AccountSetupLinkTests.test_old_code_based_setup_endpoints_are_gone()` | Old code based setup endpoints are gone. |
 | 493 | **`AccountSetupThrottleTests`** | Group of tests: account setup throttle. |
-| 494 | `AccountSetupThrottleTests.setUp()` | Setup. |
+| 494 | `AccountSetupThrottleTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 498 | `AccountSetupThrottleTests._request()` |  request. |
 | 501 | `AccountSetupThrottleTests.test_link_requests_are_limited_per_email()` | Link requests are limited per email. |
 | 506 | `AccountSetupThrottleTests.test_link_requests_are_limited_per_ip()` | Link requests are limited per ip. |
 | 513 | **`PasswordResetEnumerationTests`** | Forgot Password must not reveal whether an email is registered. |
-| 516 | `PasswordResetEnumerationTests.setUp()` | Setup. |
+| 516 | `PasswordResetEnumerationTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 519 | `PasswordResetEnumerationTests._request()` |  request. |
 | 522 | `PasswordResetEnumerationTests.test_registered_and_unregistered_emails_get_identical_responses()` | Registered and unregistered emails get identical responses. |
 | 529 | `PasswordResetEnumerationTests.test_only_a_registered_email_actually_receives_a_code()` | Only a registered email actually receives a code. |
@@ -3079,7 +3087,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 546 | `PasswordResetEnumerationTests.test_a_malformed_email_is_still_rejected()` | A malformed email is still rejected. |
 | 549 | `PasswordResetEnumerationTests.test_verify_gives_the_same_error_for_unknown_emails_and_wrong_codes()` | Verify gives the same error for unknown emails and wrong codes. |
 | 562 | **`DisableDeleteWithClaimsTests`** | Disabling/deleting an Investigator who holds claimed reports — and the audit trail for it. |
-| 565 | `DisableDeleteWithClaimsTests.setUp()` | Setup. |
+| 565 | `DisableDeleteWithClaimsTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 587 | `DisableDeleteWithClaimsTests._claimed()` |  claimed. |
 | 590 | `DisableDeleteWithClaimsTests._logs()` |  logs. |
 | 593 | `DisableDeleteWithClaimsTests.test_disable_and_release_frees_claims_and_logs_each_one()` | Disable and release frees claims and logs each one. |
@@ -3094,12 +3102,12 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 661 | `DisableDeleteWithClaimsTests.test_delete_frees_claims_and_logs_who_did_it()` | Delete frees claims and logs who did it. |
 | 669 | `DisableDeleteWithClaimsTests.test_long_log_entries_are_trimmed_not_dropped()` | Long log entries are trimmed not dropped. |
 | 679 | **`ChangePasswordRulesTests`** | Change Password enforces the same character-class rules as Sign Up. |
-| 684 | `ChangePasswordRulesTests.setUp()` | Setup. |
+| 684 | `ChangePasswordRulesTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 690 | `ChangePasswordRulesTests._change()` |  change. |
 | 695 | `ChangePasswordRulesTests.test_password_missing_character_classes_is_rejected()` | Password missing character classes is rejected. |
 | 703 | `ChangePasswordRulesTests.test_password_meeting_every_rule_is_accepted()` | Password meeting every rule is accepted. |
 | 713 | **`AdminAccountLinkButtonTests`** | Manage Accounts' Resend Setup Link and Reset Password buttons. |
-| 716 | `AdminAccountLinkButtonTests.setUp()` | Setup. |
+| 716 | `AdminAccountLinkButtonTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 732 | `AdminAccountLinkButtonTests._as_admin()` |  as admin. |
 | 738 | `AdminAccountLinkButtonTests._resend()` |  resend. |
 | 741 | `AdminAccountLinkButtonTests._reset()` |  reset. |
@@ -3129,7 +3137,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | Line | Test | What it checks |
 |---:|---|---|
 | 14 | **`ReportVerificationCodeTests`** | The report-filing identity code has the same 1,000,000-guess weakness as Forgot Password. |
-| 17 | `ReportVerificationCodeTests.setUp()` | Setup. |
+| 17 | `ReportVerificationCodeTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 23 | `ReportVerificationCodeTests._send()` |  send. |
 | 26 | `ReportVerificationCodeTests._verify()` |  verify. |
 | 29 | `ReportVerificationCodeTests._live_codes()` |  live codes. |
@@ -3140,12 +3148,12 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 62 | `ReportVerificationCodeTests.test_correct_code_works_after_a_few_wrong_guesses()` | Correct code works after a few wrong guesses. |
 | 69 | `ReportVerificationCodeTests.test_verifying_with_no_code_requested_fails_cleanly()` | Verifying with no code requested fails cleanly. |
 | 74 | **`ReportVerificationThrottleTests`** | Group of tests: report verification throttle. |
-| 75 | `ReportVerificationThrottleTests.setUp()` | Setup. |
+| 75 | `ReportVerificationThrottleTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 81 | `ReportVerificationThrottleTests.test_sending_codes_is_limited()` | Sending codes is limited. |
 | 86 | `ReportVerificationThrottleTests.test_verify_attempts_are_limited()` | Verify attempts are limited. |
 | 91 | `ReportVerificationThrottleTests.test_limit_is_per_user()` | Limit is per user. |
 | 99 | **`ReportStatusClaimGateTests`** | An Investigator can only work (status/remarks) a report they've claimed themselves. |
-| 102 | `ReportStatusClaimGateTests.setUp()` | Setup. |
+| 102 | `ReportStatusClaimGateTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 117 | `ReportStatusClaimGateTests._patch()` |  patch. |
 | 120 | `ReportStatusClaimGateTests.test_unclaimed_report_cannot_be_updated()` | Unclaimed report cannot be updated. |
 | 128 | `ReportStatusClaimGateTests.test_report_claimed_by_someone_else_cannot_be_updated()` | Report claimed by someone else cannot be updated. |
@@ -3158,20 +3166,20 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 194 | `ReportStatusClaimGateTests.test_admin_can_still_update_on_someones_behalf()` | Admin can still update on someones behalf. |
 | 200 | `ReportStatusClaimGateTests.test_non_investigator_staff_are_still_refused_outright()` | Non investigator staff are still refused outright. |
 | 208 | **`BarangayCaptainReportsReadOnlyTests`** | Barangay Captain can view reports but never claim, change status, or leave remarks. |
-| 211 | `BarangayCaptainReportsReadOnlyTests.setUp()` | Setup. |
+| 211 | `BarangayCaptainReportsReadOnlyTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 226 | `BarangayCaptainReportsReadOnlyTests.test_captain_can_view_the_list_and_a_report()` | Captain can view the list and a report. |
 | 230 | `BarangayCaptainReportsReadOnlyTests.test_captain_cannot_claim()` | Captain cannot claim. |
 | 235 | `BarangayCaptainReportsReadOnlyTests.test_captain_cannot_change_status()` | Captain cannot change status. |
 | 240 | `BarangayCaptainReportsReadOnlyTests.test_captain_cannot_leave_remarks()` | Captain cannot leave remarks. |
 | 245 | `BarangayCaptainReportsReadOnlyTests.test_captain_cannot_forfeit_someone_elses_claim()` | Captain cannot forfeit someone elses claim. |
 | 253 | **`ClaimedReportsFilterTests`** | Manage Accounts lists one Investigator's claims via ?assigned_to=<user id>. |
-| 256 | `ClaimedReportsFilterTests.setUp()` | Setup. |
+| 256 | `ClaimedReportsFilterTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 277 | `ClaimedReportsFilterTests.test_filter_returns_only_that_investigators_claims()` | Filter returns only that investigators claims. |
 | 282 | `ClaimedReportsFilterTests.test_no_filter_still_returns_everything()` | No filter still returns everything. |
 | 285 | `ClaimedReportsFilterTests.test_malformed_id_returns_nothing_rather_than_erroring()` | Malformed id returns nothing rather than erroring. |
 | 290 | `ClaimedReportsFilterTests.test_active_filter_leaves_out_closed_claims()` | Active filter leaves out closed claims. |
 | 297 | **`ReportNumberTests`** | Each report gets "YYYYMMDD-N" — the Nth filed that day — for its Download Report file name. |
-| 300 | `ReportNumberTests.setUp()` | Setup. |
+| 300 | `ReportNumberTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 303 | `ReportNumberTests._make()` |  make. |
 | 309 | `ReportNumberTests.test_numbers_count_up_within_a_day()` | Numbers count up within a day. |
 | 315 | `ReportNumberTests.test_number_is_kept_when_an_earlier_report_is_deleted()` | Number is kept when an earlier report is deleted. |
@@ -3179,7 +3187,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 335 | `ReportNumberTests.test_a_clash_takes_the_next_number()` | A clash takes the next number. |
 | 353 | `ReportNumberTests.test_shown_to_the_citizen_and_staff()` | Shown to the citizen and staff. |
 | 364 | **`ReportRemarksAutoReviewTests`** | Remarks saved on a New Submission without moving its status put it Under Review. |
-| 367 | `ReportRemarksAutoReviewTests.setUp()` | Setup. |
+| 367 | `ReportRemarksAutoReviewTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 379 | `ReportRemarksAutoReviewTests._status_after()` |  status after. |
 | 385 | `ReportRemarksAutoReviewTests.test_remarks_with_status_left_as_submitted_moves_to_under_review()` | Remarks with status left as submitted moves to under review. |
 | 388 | `ReportRemarksAutoReviewTests.test_remarks_without_a_status_also_moves_it()` | Remarks without a status also moves it. |
@@ -3187,7 +3195,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 394 | `ReportRemarksAutoReviewTests.test_blank_remarks_leave_it_submitted()` | Blank remarks leave it submitted. |
 | 397 | `ReportRemarksAutoReviewTests.test_only_applies_to_new_submissions()` | Only applies to new submissions. |
 | 403 | **`ConcernAutoReviewTests`** | Group of tests: concern auto review. |
-| 404 | `ConcernAutoReviewTests.setUp()` | Setup. |
+| 404 | `ConcernAutoReviewTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 416 | `ConcernAutoReviewTests._patch()` |  patch. |
 | 422 | `ConcernAutoReviewTests.test_status_cannot_be_set_by_hand()` | Status cannot be set by hand. |
 | 427 | `ConcernAutoReviewTests.test_saving_remarks_marks_it_reviewed()` | Saving remarks marks it reviewed. |
@@ -3195,7 +3203,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 436 | `ConcernAutoReviewTests.test_filing_under_a_category_marks_it_reviewed_and_removing_keeps_it()` | Filing under a category marks it reviewed and removing keeps it. |
 | 450 | `ConcernAutoReviewTests.test_removing_from_a_category_alone_does_not_review_it()` | Removing from a category alone does not review it. |
 | 455 | **`StaffReportAnalysisBaseTests`** | Group of tests: staff report analysis base. |
-| 456 | `StaffReportAnalysisBaseTests.setUp()` | Setup. |
+| 456 | `StaffReportAnalysisBaseTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 467 | `StaffReportAnalysisBaseTests.test_counts_only_approved_active_citizens()` | Counts only approved active citizens. |
 | 473 | `StaffReportAnalysisBaseTests.test_citizens_cannot_read_it()` | Citizens cannot read it. |
 | 477 | `StaffReportAnalysisBaseTests.test_staff_report_list_identifies_the_reporter()` | Staff report list identifies the reporter. |
@@ -3205,14 +3213,14 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | Line | Test | What it checks |
 |---:|---|---|
 | 16 | **`OrdinanceArchiveTests`** | Group of tests: ordinance archive. |
-| 17 | `OrdinanceArchiveTests.setUp()` | Setup. |
+| 17 | `OrdinanceArchiveTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 30 | `OrdinanceArchiveTests.test_public_list_shows_uploader_and_hides_archived()` | Public list shows uploader and hides archived. |
 | 41 | `OrdinanceArchiveTests.test_staff_list_still_sees_archived()` | Staff list still sees archived. |
 | 49 | `OrdinanceArchiveTests.test_secretary_can_archive_and_it_is_logged()` | Secretary can archive and it is logged. |
 | 66 | `OrdinanceArchiveTests.test_captain_cannot_archive()` | Captain cannot archive. |
 | 71 | `OrdinanceArchiveTests.test_anonymous_cannot_archive()` | Anonymous cannot archive. |
 | 76 | **`OrdinanceSuggestTests`** | Group of tests: ordinance suggest. |
-| 77 | `OrdinanceSuggestTests.setUp()` | Setup. |
+| 77 | `OrdinanceSuggestTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 94 | `OrdinanceSuggestTests.test_relevant_query_ranks_matching_ordinance_first()` | Relevant query ranks matching ordinance first. |
 | 101 | `OrdinanceSuggestTests.test_short_query_returns_empty()` | Short query returns empty. |
 | 106 | `OrdinanceSuggestTests.test_missing_query_returns_empty()` | Missing query returns empty. |
@@ -3223,7 +3231,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 134 | `SuggestOrdinancesFunctionTests.test_empty_ordinances_returns_empty()` | Empty ordinances returns empty. |
 | 137 | `SuggestOrdinancesFunctionTests.test_blank_query_returns_empty()` | Blank query returns empty. |
 | 142 | **`OrdinanceAuthorEndpointTests`** | Group of tests: ordinance author endpoint. |
-| 143 | `OrdinanceAuthorEndpointTests.setUp()` | Setup. |
+| 143 | `OrdinanceAuthorEndpointTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 156 | `OrdinanceAuthorEndpointTests.test_secretary_sees_only_active_authors()` | Secretary sees only active authors. |
 | 164 | `OrdinanceAuthorEndpointTests.test_secretary_cannot_see_inactive_even_with_include_inactive()` | Secretary cannot see inactive even with include inactive. |
 | 170 | `OrdinanceAuthorEndpointTests.test_admin_can_see_inactive_with_include_inactive()` | Admin can see inactive with include inactive. |
@@ -3236,7 +3244,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 214 | `OrdinanceAuthorEndpointTests.test_secretary_cannot_edit_or_delete_an_author()` | Secretary cannot edit or delete an author. |
 | 222 | `OrdinanceAuthorEndpointTests.test_admin_can_delete_an_author()` | Admin can delete an author. |
 | 229 | **`OrdinanceAuthorSingleSeatTests`** | Only one active Punong Barangay and one active SK Chairperson at a time (one seat each) — Barangay Kagawad has 7 seats, so no such limit there. |
-| 235 | `OrdinanceAuthorSingleSeatTests.setUp()` | Setup. |
+| 235 | `OrdinanceAuthorSingleSeatTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 245 | `OrdinanceAuthorSingleSeatTests._create()` |  create. |
 | 248 | `OrdinanceAuthorSingleSeatTests.test_cannot_create_a_second_active_captain()` | Cannot create a second active captain. |
 | 254 | `OrdinanceAuthorSingleSeatTests.test_cannot_create_a_second_active_sk_chairperson()` | Cannot create a second active sk chairperson. |
@@ -3247,7 +3255,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 285 | `OrdinanceAuthorSingleSeatTests.test_reactivating_a_former_captain_while_another_is_active_is_rejected()` | Reactivating a former captain while another is active is rejected. |
 | 294 | `OrdinanceAuthorSingleSeatTests.test_deactivating_the_sitting_captain_is_unaffected_by_the_check()` | Deactivating the sitting captain is unaffected by the check. |
 | 299 | **`OrdinanceCategoryEndpointTests`** | Mirrors OrdinanceAuthorEndpointTests — same CRUD/permission shape, different resource. |
-| 302 | `OrdinanceCategoryEndpointTests.setUp()` | Setup. |
+| 302 | `OrdinanceCategoryEndpointTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 313 | `OrdinanceCategoryEndpointTests.test_secretary_sees_only_active_categories()` | Secretary sees only active categories. |
 | 321 | `OrdinanceCategoryEndpointTests.test_admin_can_see_inactive_with_include_inactive()` | Admin can see inactive with include inactive. |
 | 327 | `OrdinanceCategoryEndpointTests.test_captain_cannot_read_the_list()` | Captain cannot read the list. |
@@ -3259,7 +3267,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 357 | `OrdinanceCategoryEndpointTests.test_secretary_cannot_edit_or_delete_a_category()` | Secretary cannot edit or delete a category. |
 | 365 | `OrdinanceCategoryEndpointTests.test_admin_can_delete_a_category()` | Admin can delete a category. |
 | 372 | **`OrdinanceCreateWithAuthorAndCategoryTests`** | The upload/edit endpoints themselves. Author is free text again (no author_id — the roster only backs autocomplete suggestions client-side); category still has to name a currently-active OrdinanceCategory. |
-| 379 | `OrdinanceCreateWithAuthorAndCategoryTests.setUp()` | Setup. |
+| 379 | `OrdinanceCreateWithAuthorAndCategoryTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 387 | `OrdinanceCreateWithAuthorAndCategoryTests._payload()` |  payload. |
 | 395 | `OrdinanceCreateWithAuthorAndCategoryTests.test_create_stores_author_and_category_as_plain_text()` | Create stores author and category as plain text. |
 | 402 | `OrdinanceCreateWithAuthorAndCategoryTests.test_author_is_not_validated_against_the_roster()` | Author is not validated against the roster. |
@@ -3271,7 +3279,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 444 | `OrdinanceCreateWithAuthorAndCategoryTests.test_editing_can_change_just_the_title_and_keeps_author_and_category()` | Editing can change just the title and keeps author and category. |
 | 452 | `OrdinanceCreateWithAuthorAndCategoryTests.test_renaming_a_category_does_not_change_an_already_uploaded_ordinance()` | Renaming a category does not change an already uploaded ordinance. |
 | 461 | **`OrdinanceQuerySetShortcutTests`** | Group of tests: ordinance query set shortcut. |
-| 462 | `OrdinanceQuerySetShortcutTests.setUp()` | Setup. |
+| 462 | `OrdinanceQuerySetShortcutTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 467 | `OrdinanceQuerySetShortcutTests.test_published_shortcut()` | Published shortcut. |
 
 #### `siteinfo/tests.py`
@@ -3281,7 +3289,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 21 | `png()` | Helper used by the tests: png. |
 | 28 | **`AboutUsTests`** | Group of tests: about us. |
 | 30 | `AboutUsTests.tearDownClass()` | Teardownclass. |
-| 34 | `AboutUsTests.setUp()` | Setup. |
+| 34 | `AboutUsTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 40 | `AboutUsTests._logs()` |  logs. |
 | 45 | `AboutUsTests.test_guests_can_read_the_seeded_about_page()` | Guests can read the seeded about page. |
 | 52 | `AboutUsTests.test_hidden_members_and_logos_are_left_off_the_public_page()` | Hidden members and logos are left off the public page. |
@@ -3298,7 +3306,7 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 | 157 | `AboutUsTests.test_partial_multipart_edit_keeps_visibility()` | Partial multipart edit keeps visibility. |
 | 166 | `AboutUsTests.test_has_custom_photo_is_false_for_seeded_and_true_after_upload()` | Has custom photo is false for seeded and true after upload. |
 | 175 | **`BoundaryTests`** | Group of tests: boundary. |
-| 178 | `BoundaryTests.setUp()` | Setup. |
+| 178 | `BoundaryTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 184 | `BoundaryTests.test_anyone_can_read_the_seeded_outline()` | Anyone can read the seeded outline. |
 | 189 | `BoundaryTests.test_only_admins_can_replace_it()` | Only admins can replace it. |
 | 196 | `BoundaryTests.test_admin_saves_it_drops_a_repeated_closing_point_and_logs_it()` | Admin saves it drops a repeated closing point and logs it. |
@@ -3311,14 +3319,14 @@ Resistance checks: malformed, oversized, tampered or unauthorized requests must 
 |---:|---|---|
 | 17 | `_auth()` | Helper used by the tests: auth. |
 | 21 | **`AnnouncementTests`** | Group of tests: announcement. |
-| 22 | `AnnouncementTests.setUp()` | Setup. |
+| 22 | `AnnouncementTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 36 | `AnnouncementTests.test_secretary_can_post_and_every_citizen_is_emailed()` | Secretary can post and every citizen is emailed. |
 | 49 | `AnnouncementTests.test_investigator_cannot_post()` | Investigator cannot post. |
 | 57 | `AnnouncementTests.test_unread_banner_clears_after_marking_viewed()` | Unread banner clears after marking viewed. |
 | 66 | `AnnouncementTests.test_guest_sees_announcements_without_read_state()` | Guest sees announcements without read state. |
 | 74 | `_png()` | Helper used by the tests: png. |
 | 80 | **`AnnouncementEditTests`** | Group of tests: announcement edit. |
-| 81 | `AnnouncementEditTests.setUp()` | Setup. |
+| 81 | `AnnouncementEditTests.setUp()` | Creates the accounts and data the tests in this class start from. |
 | 103 | `AnnouncementEditTests.test_editing_adds_replaces_and_removes_the_picture_without_emailing()` | Editing adds replaces and removes the picture without emailing. |
 | 126 | `AnnouncementEditTests.test_editing_text_alone_keeps_the_picture()` | Editing text alone keeps the picture. |
 
@@ -3331,7 +3339,7 @@ Educational, step-by-step view of modified_blowfish.py's text encryption flow.
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
 | 30 | `show_bytes()` | Print bytes as readable hex while also showing their length. | this file |
-| 35 | `main()` | Encrypts the word "Binan" step by step (random demo key → salt → PBKDF2 key → padding → IV → Blowfish-CBC) and prints every intermediate value, then decrypts it back. | this file, accounts/password_validators.py, admin/about-setup.html, admin/activity.html, admin/approve-accounts.html, admin/audit-logs.html, +56 more |
+| 35 | `main()` | Encrypts the word "Binan" step by step (random demo key → salt → PBKDF2 key → padding → IV → Blowfish-CBC) and prints every intermediate value, then decrypts it back. | this file |
 
 #### `research/modified_blowfish/modified_blowfish.py`
 
@@ -3361,7 +3369,7 @@ Modified Blowfish -- STEP-BY-STEP WALKTHROUGH (for study purposes) -------------
 | 65 | `blowfish_decrypt_block()` | Decrypts exactly one 8-byte block with plain Blowfish (ECB) — the building block of the hand-made CBC. | this file |
 | 72 | `encrypt_walkthrough()` | Show each stage of encrypting a UTF-8 string with manual CBC chaining. | this file |
 | 153 | `decrypt_walkthrough()` | Show each stage of manually decrypting a CBC-encrypted string. | this file |
-| 207 | `main()` | Run the example encryption/decryption round trip. | this file, accounts/password_validators.py, admin/about-setup.html, admin/activity.html, admin/approve-accounts.html, admin/audit-logs.html, +56 more |
+| 207 | `main()` | Run the example encryption/decryption round trip. | this file |
 
 #### `research/modified_blowfish/test_modified_blowfish.py`
 
@@ -3381,6 +3389,6 @@ Shows that the running system and the demo use the same Modified Blowfish algori
 
 | Line | Name | What it does | Used by |
 |---:|---|---|---|
-| 66 | `rule()` | Prints a section heading line. | this file, accounts/permissions.py, accounts/serializers.py, admin/accounts-data.js, admin/admin-profile.js, admin/profile.html, +10 more |
-| 70 | `short()` | Shortens long text for printing. | this file, admin/website-setup.js, citizen/about.html, citizen/faqs.html, citizen/home.js, shared/common.js, +10 more |
-| 75 | `main()` | Runs every check: system-encrypted values decrypt with the study's file, demo-encrypted values decrypt in the system, and both derive the same key; prints MATCH/MISMATCH and the result. | this file, accounts/password_validators.py, admin/about-setup.html, admin/activity.html, admin/approve-accounts.html, admin/audit-logs.html, +56 more |
+| 66 | `rule()` | Prints a section heading line. | this file, accounts/permissions.py, accounts/serializers.py |
+| 70 | `short()` | Shortens long text for printing. | this file, orms_backend/encrypted_storage.py, reports/migrations/0010_seed_faqs.py, reports/verification.py, siteinfo/migrations/0012_reword_safespace_in_about_and_legal.py |
+| 75 | `main()` | Runs every check: system-encrypted values decrypt with the study's file, demo-encrypted values decrypt in the system, and both derive the same key; prints MATCH/MISMATCH and the result. | this file |

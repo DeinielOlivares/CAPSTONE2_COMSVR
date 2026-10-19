@@ -118,7 +118,7 @@ async function checkForNewAuditLogs() {
 
   recent
     .filter((l) => !seen.includes(l.id))
-    .forEach((l) => notificationStore.add(`${l.owner} (${l.type}) logged in at ${l.loggedOnLabel}`, "audit-logs.html"));
+    .forEach((l) => notificationStore.add(`${l.owner} (${l.type}): ${l.action} — ${l.timeLabel}`, "audit-logs.html"));
   setSeenIds(NOTIF_SEEN_LOGINS_KEY, Array.from(new Set(currentIds.concat(seen))));
 }
 

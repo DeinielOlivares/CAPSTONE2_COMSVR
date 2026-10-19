@@ -1,5 +1,5 @@
 // ordinances-data.js (staff) — loads all ordinances (archived ones too) and
-// uploads, edits, archives and unarchives them. Changing ordinances needs
+// uploads and edits them. Changing ordinances needs
 // the Secretary or an Administrator (checked by the server).
 
 let _ordinancesCache = null;
@@ -104,25 +104,6 @@ async function refreshOrdinanceInCache(id) {
   return applyOrdinanceUpdate(mapOrdinance(await response.json()));
 }
 
-// Throws the server's message: {detail: "..."} or the first field error;
-// otherwise `fallback` with the HTTP status.
-async function readFirstError(response, fallback) {
-  const data = await response.json().catch(() => null);
-  if (data) {
-    if (typeof data.detail === "string") throw new Error(data.detail);
-    const firstError = Object.values(data)[0];
-    if (Array.isArray(firstError)) throw new Error(firstError[0]);
-    if (typeof firstError === "string") throw new Error(firstError);
-  }
-  // A 403 without JSON comes from the hosting firewall, not from the system.
-  if (!data && response.status === 403) {
-    throw new Error(
-      `${fallback} The request was blocked before it reached the system (403) — usually the host's security filter reacting to something in the text or the file.`
-    );
-  }
-  throw new Error(`${fallback} (server responded ${response.status})`);
-}
-
 // The author list (suggestions for the Author field; any name is still allowed).
 // includeInactive (Administrators only) also returns officials whose term ended.
 async function fetchOrdinanceAuthors(includeInactive) {
@@ -204,17 +185,4 @@ async function updateOrdinanceById(id, fields) {
   const response = await ordinanceSaveFetch(`/api/ordinances/${encodeURIComponent(id)}/`, { method: "PATCH", body: formData });
   if (!response.ok) await throwOrdinanceSaveError(response);
   return refreshOrdinanceInCache(id);
-}
-
-// Hide an ordinance from citizens / show it again.
-async function archiveOrdinanceById(id) {
-  const response = await authFetch(`/api/ordinances/${encodeURIComponent(id)}/archive/`, { method: "POST" });
-  if (!response.ok) await readFirstError(response, "Could not archive this ordinance.");
-  return applyOrdinanceUpdate(mapOrdinance(await response.json()));
-}
-
-async function unarchiveOrdinanceById(id) {
-  const response = await authFetch(`/api/ordinances/${encodeURIComponent(id)}/unarchive/`, { method: "POST" });
-  if (!response.ok) await readFirstError(response, "Could not unarchive this ordinance.");
-  return applyOrdinanceUpdate(mapOrdinance(await response.json()));
 }
