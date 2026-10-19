@@ -67,7 +67,7 @@ def copy_rows_to_json(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("siteinfo", "0014_seed_streets"),
+        ("siteinfo", "0015_remove_streets_outside_boundary"),
     ]
 
     operations = [

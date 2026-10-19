@@ -94,7 +94,7 @@ More setup details (PostgreSQL, Git workflow) are in [CONTRIBUTING.md](./CONTRIB
 | Frontend | Plain **HTML, CSS and JavaScript** (no framework); Leaflet (maps), PDF.js (PDF preview) |
 | Files | Cloudinary in production, the `media/` folder in development |
 | Email | Brevo SMTP |
-| Other | scikit-learn (ordinance suggestions), ReportLab (dashboard PDF), WhiteNoise (serves the frontend) |
+| Other | ReportLab (dashboard PDF), WhiteNoise (serves the frontend). Ordinance suggestions use plain Python (no extra package) |
 | Hosting | Render (`build.sh`, `Procfile`) |
 
 ---
@@ -250,7 +250,8 @@ report becomes Resolved/With Remarks the citizen is emailed.
 | `models.py` | `Ordinance` (PDF stored with `pdf_storage()`), `OrdinanceAuthor` (suggestion list for the Author field), `OrdinanceCategory` (the allowed categories), `OrdinanceView` (citizen opened it), `OrdinanceDownload` (citizen downloaded it — once per citizen) |
 | `serializers.py` | `OrdinanceSerializer` (adds `pdf_url`, `is_new`, `is_updated`, `is_unread`, `in_latest` for the home page), write serializers (category must be active, PDF must really be a PDF ≤ 20 MB), author/category serializers (only one active Barangay Captain and SK Chairperson) |
 | `views.py` | List/upload, detail/edit, archive/unarchive, download (logged), mark viewed, suggestions, categories, authors |
-| `matching.py` | `suggest_ordinances()`: TF-IDF + cosine similarity between the citizen's description and each ordinance (used by File a Report) |
+| `matching.py` | `suggest_ordinances()`: TF-IDF + cosine similarity between the citizen's description and each ordinance (used by File a Report). Written in plain Python with the same results as scikit-learn's `TfidfVectorizer`, to save server memory |
+| `stop_words.py` | `ENGLISH_STOP_WORDS`: common words ("the", "and", …) that `matching.py` ignores — the same list scikit-learn uses |
 
 Citizens and guests only see **published** (not archived) ordinances.
 
@@ -470,7 +471,7 @@ attachments (`reports_reportattachment`, `reports_concernattachment`), footer li
 (`siteinfo_footerlink`), the barangay outline (`siteinfo_boundarypoint`) and legal page
 sections (`siteinfo_legalsection`). *The last three used to be JSON lists inside a single
 column; this refactor moved them into their own tables (migration
-`siteinfo/migrations/0015_normalize_json_lists.py`, which also copies the existing data).*
+`siteinfo/migrations/0016_normalize_json_lists.py`, which also copies the existing data).*
 
 **2NF — no column depends on only part of a key.**
 Every table has a single-column primary key (`id`), so partial dependencies can't
@@ -767,7 +768,7 @@ The original code is kept unchanged on the `final` branch; this cleaned-up versi
 
 ### 14.1 Database (normalization)
 
-* New migration `siteinfo/migrations/0015_normalize_json_lists.py` moves three JSON-list columns into their
+* New migration `siteinfo/migrations/0016_normalize_json_lists.py` moves three JSON-list columns into their
   own tables (copying existing data, and back again if reversed):
   `BarangayProfile.boundary` → `BoundaryPoint`, `BarangayProfile.footer_quick_links` /
   `footer_legal_links` → `FooterLink`, `LegalDocument.sections` → `LegalSection`.
@@ -790,6 +791,12 @@ The original code is kept unchanged on the `final` branch; this cleaned-up versi
   stray in-function imports. Comments rewritten to be short and direct.
 * **Unchanged:** `orms_backend/modified_blowfish.py` (the algorithm), the encryption wrappers'
   logic, every model field, URL, status code and message.
+* **Team changes merged from `final` (2026-10-19):** `ordinances/matching.py` computes TF-IDF in
+  plain Python (with `stop_words.py`) instead of scikit-learn, which was removed from
+  `requirements.txt`; migration `siteinfo/0015_remove_streets_outside_boundary` deletes the 52
+  streets outside the barangay outline (the 3NF migration became `0016` and runs after it).
+  `ordinances/extraction.py` (an OCR prefill that nothing calls) came back in that merge by
+  accident and was left out again.
 
 ### 14.3 Frontend
 
