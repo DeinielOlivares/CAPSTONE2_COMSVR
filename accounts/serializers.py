@@ -477,8 +477,8 @@ def _locked_message(minutes):
 
 
 SETUP_PENDING_MESSAGE = (
-    "This account hasn't been set up yet. Open the setup link we emailed you, "
-    "or choose \"First time here? Set up your account\" below to get a new one."
+    "This account hasn't been set up yet. Open the setup link we emailed you. "
+    "If it has expired, open it anyway to request a new one."
 )
 
 
