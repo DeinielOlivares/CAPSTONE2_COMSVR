@@ -1,28 +1,17 @@
 import re
 
-from PIL import Image
 from rest_framework import serializers
 
-from .models import AboutLogo, BarangayProfile, CouncilMember, Street
+from orms_backend import validators
 
-MAX_IMAGE_BYTES = 5 * 1024 * 1024
-ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
+from .models import AboutLogo, BarangayProfile, CouncilMember, FooterLink, Street
+
+MAX_IMAGE_BYTES = validators.MAX_IMAGE_BYTES
 
 
 def validate_image_upload(file):
-    """ImageField already rejects non-images; this also caps size and format."""
-    if file.size > MAX_IMAGE_BYTES:
-        raise serializers.ValidationError("Image must be 5 MB or smaller.")
-    try:
-        file.seek(0)
-        fmt = Image.open(file).format
-    except Exception:
-        raise serializers.ValidationError("Upload a valid JPG, PNG or WebP image.")
-    finally:
-        file.seek(0)
-    if fmt not in ALLOWED_IMAGE_FORMATS:
-        raise serializers.ValidationError("Upload a JPG, PNG or WebP image.")
-    return file
+    """JPG/PNG/WebP up to MAX_IMAGE_BYTES (read at call time, so tests can lower it)."""
+    return validators.validate_image_upload(file, max_bytes=MAX_IMAGE_BYTES)
 
 
 def image_url(field, default_path):
@@ -67,6 +56,17 @@ def validate_footer_link_list(links):
 
 
 class BarangayProfileSerializer(serializers.ModelSerializer):
+    """
+    The barangay's details and footer text. The two footer link lists are
+    stored as FooterLink rows but sent and received as lists of
+    {"label": ..., "url": ...}.
+    """
+
+    footer_quick_links = serializers.JSONField(required=False, write_only=True)
+    footer_legal_links = serializers.JSONField(required=False, write_only=True)
+
+    LINK_FIELDS = {"footer_quick_links": FooterLink.Kind.QUICK, "footer_legal_links": FooterLink.Kind.LEGAL}
+
     class Meta:
         model = BarangayProfile
         fields = [
@@ -80,8 +80,10 @@ class BarangayProfileSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # An unsaved legal list shows the built-in links, so Admin edits those
-        # directly rather than starting from an empty box.
+        for field, kind in self.LINK_FIELDS.items():
+            data[field] = instance.footer_links(kind)
+        # No saved legal links yet: show the built-in ones, so the Administrator
+        # edits those instead of starting from an empty list.
         if not data["footer_legal_links"]:
             data["footer_legal_links"] = DEFAULT_FOOTER_LEGAL_LINKS
         return data
@@ -92,14 +94,16 @@ class BarangayProfileSerializer(serializers.ModelSerializer):
     def validate_footer_legal_links(self, value):
         return validate_footer_link_list(value)
 
+    def update(self, instance, validated_data):
+        links = {field: validated_data.pop(field) for field in self.LINK_FIELDS if field in validated_data}
+        instance = super().update(instance, validated_data)
+        for field, value in links.items():
+            instance.set_footer_links(self.LINK_FIELDS[field], value)
+        return instance
+
 
 class BrandingSerializer(serializers.ModelSerializer):
-    """
-    GET: the website's own brand (navbar/sidebar logo + name, all 3 portals
-    — see frontend/*/js/main.js and admin.js). PATCH (Admin only, Website
-    Branding section of About Us Setup): site_logo is multipart; omit it to
-    keep the current logo.
-    """
+    """The website's brand: name and logo shown in every portal's navbar/sidebar."""
 
     site_logo = serializers.ImageField(write_only=True, required=False)
     site_logo_url = serializers.SerializerMethodField()
@@ -122,10 +126,9 @@ MAX_BOUNDARY_POINTS = 2000
 
 class BoundarySerializer(serializers.Serializer):
     """
-    The barangay outline: a list of [lat, lng] points. Anything from 3 to
-    MAX_BOUNDARY_POINTS points, or an empty list to remove the outline.
-    Points must fall roughly around Biñan, Laguna, which catches a file
-    uploaded with its [lng, lat] order the wrong way round.
+    The barangay outline: 3 to MAX_BOUNDARY_POINTS [lat, lng] points, or an
+    empty list to remove it. Every point must be near Biñan, Laguna (this also
+    catches files with latitude and longitude swapped).
     """
 
     boundary = serializers.ListField(
@@ -149,11 +152,7 @@ class BoundarySerializer(serializers.Serializer):
 
 
 class StreetSerializer(serializers.ModelSerializer):
-    """
-    name + a single [lat, lng] point, placed by an Administrator clicking
-    the Map Boundary page's map. Same Biñan bounds check as the boundary
-    outline above, for the same reason (catches an obviously wrong point).
-    """
+    """A street name and its point on the map (must be near Biñan, Laguna)."""
 
     class Meta:
         model = Street
@@ -176,11 +175,9 @@ class StreetSerializer(serializers.ModelSerializer):
 class CouncilMemberSerializer(serializers.ModelSerializer):
     photo = serializers.ImageField(write_only=True, required=False)
     photoUrl = serializers.SerializerMethodField()
-    # The seeded portraits (frontend/citizen/drawables/) have their green ring
-    # drawn into the image; uploads don't, so the page adds one for them.
+    # Uploaded photos get a green ring added by the page (built-in ones already have it).
     hasCustomPhoto = serializers.SerializerMethodField()
-    # Explicit default: in a multipart upload DRF otherwise reads a missing
-    # checkbox as False, silently creating the member hidden.
+    # Default True: in a multipart upload a missing checkbox would otherwise mean False.
     is_visible = serializers.BooleanField(required=False, default=True)
     group_display = serializers.CharField(source="get_group_display", read_only=True)
 

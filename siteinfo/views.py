@@ -1,3 +1,10 @@
+"""
+Site information — API views (URLs in siteinfo/urls.py, all under /api/site/).
+
+Public (no login): about, branding, boundary, streets, legal pages.
+Everything that changes content is Administrator-only.
+"""
+
 from django.db import transaction
 from django.http import Http404
 from rest_framework import generics, permissions
@@ -5,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import log_action
-from accounts.views import IsAdmin
+from accounts.permissions import IsAdmin
 
 from .models import AboutLogo, BarangayProfile, CouncilMember, LegalDocument, Street
 from .serializers import (
@@ -19,6 +26,7 @@ from .serializers import (
     StreetSerializer,
 )
 
+# Field -> the words used in the audit log ("Updated About Us details: phone, email").
 PROFILE_FIELD_LABELS = {
     "name": "name",
     "city": "city",
@@ -36,12 +44,32 @@ PROFILE_FIELD_LABELS = {
 }
 
 
+class AdminWriteMixin:
+    """GET is open to everyone; every other method needs an Administrator."""
+
+    def get_permissions(self):
+        return [permissions.AllowAny()] if self.request.method == "GET" else [IsAdmin()]
+
+
+def _delete_file(field):
+    """Removes an uploaded file from storage (never the built-in images). Never raises."""
+    if field:
+        try:
+            field.delete(save=False)
+        except Exception:
+            pass
+
+
+def _delete_replaced_file(old_name, field):
+    """After an edit: delete the old upload if a new one replaced it."""
+    if old_name and old_name != field.name:
+        field.storage.delete(old_name)
+
+
+# ---- About Us and barangay details ------------------------------------------
+
 class AboutPublicView(APIView):
-    """
-    GET /api/site/about/ — everything the citizen About Us page and site
-    footer show: the barangay's details, the visible council members and the
-    visible logos. Public (guests browse About Us too).
-    """
+    """GET /about/ — everything the About Us page and the site footer need."""
 
     permission_classes = [permissions.AllowAny]
 
@@ -54,7 +82,7 @@ class AboutPublicView(APIView):
 
 
 class BarangayProfileView(APIView):
-    """GET/PATCH /api/site/profile/ — Administrator edits the barangay's details."""
+    """GET/PATCH /profile/ — Administrator edits the barangay's details and footer."""
 
     permission_classes = [IsAdmin]
 
@@ -67,19 +95,15 @@ class BarangayProfileView(APIView):
         serializer = BarangayProfileSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        changed = [label for field, label in PROFILE_FIELD_LABELS.items() if before[field] != serializer.data[field]]
+        after = BarangayProfileSerializer(profile).data
+        changed = [label for field, label in PROFILE_FIELD_LABELS.items() if before[field] != after[field]]
         if changed:
             log_action(request.user, f"Updated About Us details: {', '.join(changed)}")
-        return Response(serializer.data)
-
+        return Response(after)
 
 
 class BrandingPublicView(APIView):
-    """
-    GET /api/site/branding/ — the navbar/sidebar brand name + logo URL, for
-    every portal's main.js/admin.js to apply on load. Public (even a guest
-    on the citizen portal sees the brand).
-    """
+    """GET /branding/ — the navbar/sidebar brand name and logo."""
 
     permission_classes = [permissions.AllowAny]
 
@@ -88,7 +112,7 @@ class BrandingPublicView(APIView):
 
 
 class BrandingView(APIView):
-    """GET/PATCH /api/site/branding/admin/ — Administrator edits the website's own brand."""
+    """GET/PATCH /branding/admin/ — Administrator changes the brand name/logo."""
 
     permission_classes = [IsAdmin]
 
@@ -99,26 +123,17 @@ class BrandingView(APIView):
         profile = BarangayProfile.load()
         serializer = BrandingSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        old_logo = profile.site_logo
-        old_logo_name = old_logo.name if old_logo else None
+        old_logo_name = profile.site_logo.name if profile.site_logo else None
         serializer.save()
-        if old_logo_name and old_logo_name != profile.site_logo.name:
-            profile.site_logo.storage.delete(old_logo_name)
+        _delete_replaced_file(old_logo_name, profile.site_logo)
         log_action(request.user, "Updated the website's brand name/logo")
         return Response(serializer.data)
 
 
-class BoundaryView(APIView):
-    """
-    GET/PUT /api/site/boundary/ — the barangay outline drawn on the staff
-    incident heatmap. Anyone can read it (it's a map outline, and the staff
-    dashboard loads it); only an Administrator can replace it.
-    """
+# ---- Map: barangay outline and streets --------------------------------------
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.AllowAny()]
-        return [IsAdmin()]
+class BoundaryView(AdminWriteMixin, APIView):
+    """GET/PUT /boundary/ — the barangay outline drawn on the maps."""
 
     def get(self, request):
         return Response({"boundary": BarangayProfile.load().boundary})
@@ -127,32 +142,21 @@ class BoundaryView(APIView):
         serializer = BoundarySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         profile = BarangayProfile.load()
-        profile.boundary = serializer.validated_data["boundary"]
-        profile.save(update_fields=["boundary", "updated_at"])
-        if profile.boundary:
-            log_action(request.user, f"Updated the barangay map boundary ({len(profile.boundary)} points)")
+        profile.set_boundary(serializer.validated_data["boundary"])
+        profile.save(update_fields=["updated_at"])
+        points = profile.boundary
+        if points:
+            log_action(request.user, f"Updated the barangay map boundary ({len(points)} points)")
         else:
             log_action(request.user, "Removed the barangay map boundary")
-        return Response({"boundary": profile.boundary})
+        return Response({"boundary": points})
 
 
-class StreetListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/site/streets/ — every barangay street (name + lat/lng). Public:
-    the Street combobox on Sign Up/File Report/My Profile needs it, and Sign
-    Up/guest File Report have no session yet. The staff incident heatmap
-    also reads it for each street's plot point.
-    POST — adds a new one. Administrator only, from the Map Boundary page
-    (click the map to place it, same interaction as the boundary outline).
-    """
+class StreetListCreateView(AdminWriteMixin, generics.ListCreateAPIView):
+    """GET /streets/ — all streets (Sign Up needs them before login).  POST — add one."""
 
     queryset = Street.objects.all()
     serializer_class = StreetSerializer
-
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.AllowAny()]
-        return [IsAdmin()]
 
     def perform_create(self, serializer):
         street = serializer.save()
@@ -160,12 +164,7 @@ class StreetListCreateView(generics.ListCreateAPIView):
 
 
 class StreetDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    PATCH/DELETE /api/site/streets/<id>/ — rename/reposition or remove a
-    street. Administrator only. Report.location is free text (see
-    reports.models.Report), so deleting one never touches past reports that
-    cited it.
-    """
+    """PATCH/DELETE /streets/<id>/ — rename, move or remove a street (Administrator)."""
 
     queryset = Street.objects.all()
     serializer_class = StreetSerializer
@@ -180,17 +179,10 @@ class StreetDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
 
 
-def _delete_file(field):
-    """Best-effort removal of a replaced/deleted upload (never the seeded images)."""
-    if field:
-        try:
-            field.delete(save=False)
-        except Exception:
-            pass
-
+# ---- Council members and logos (About Us) -----------------------------------
 
 class CouncilMemberListCreateView(generics.ListCreateAPIView):
-    """GET (hidden ones too) / POST /api/site/council/ — Administrator only."""
+    """GET (hidden ones too) / POST /council/ — a new member goes to the end of their row."""
 
     queryset = CouncilMember.objects.all()
     serializer_class = CouncilMemberSerializer
@@ -204,7 +196,7 @@ class CouncilMemberListCreateView(generics.ListCreateAPIView):
 
 
 class CouncilMemberDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """PATCH/DELETE /api/site/council/<id>/ — Administrator only."""
+    """PATCH/DELETE /council/<id>/"""
 
     queryset = CouncilMember.objects.all()
     serializer_class = CouncilMemberSerializer
@@ -212,10 +204,9 @@ class CouncilMemberDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         old_photo = serializer.instance.photo if "photo" in serializer.validated_data else None
-        old_file = old_photo.name if old_photo else None
+        old_name = old_photo.name if old_photo else None
         member = serializer.save()
-        if old_file and old_file != member.photo.name:
-            member.photo.storage.delete(old_file)
+        _delete_replaced_file(old_name, member.photo)
         log_action(self.request.user, f"Updated {member.name} ({member.position}) on About Us")
 
     def perform_destroy(self, instance):
@@ -225,7 +216,7 @@ class CouncilMemberDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class AboutLogoListCreateView(generics.ListCreateAPIView):
-    """GET (hidden ones too) / POST /api/site/logos/ — Administrator only."""
+    """GET (hidden ones too) / POST /logos/ — a new logo goes last."""
 
     queryset = AboutLogo.objects.all()
     serializer_class = AboutLogoSerializer
@@ -238,7 +229,7 @@ class AboutLogoListCreateView(generics.ListCreateAPIView):
 
 
 class AboutLogoDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """PATCH/DELETE /api/site/logos/<id>/ — Administrator only."""
+    """PATCH/DELETE /logos/<id>/"""
 
     queryset = AboutLogo.objects.all()
     serializer_class = AboutLogoSerializer
@@ -246,10 +237,9 @@ class AboutLogoDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         old_image = serializer.instance.image if "image" in serializer.validated_data else None
-        old_file = old_image.name if old_image else None
+        old_name = old_image.name if old_image else None
         logo = serializer.save()
-        if old_file and old_file != logo.image.name:
-            logo.image.storage.delete(old_file)
+        _delete_replaced_file(old_name, logo.image)
         log_action(self.request.user, f"Updated logo \"{logo.alt_text}\" on About Us")
 
     def perform_destroy(self, instance):
@@ -259,7 +249,7 @@ class AboutLogoDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class _ReorderView(APIView):
-    """POST {"ids": [...]} — sets `order` to each id's position in the list."""
+    """POST {"ids": [...]} — each item's `order` becomes its position in the list."""
 
     permission_classes = [IsAdmin]
     model = None
@@ -280,25 +270,26 @@ class _ReorderView(APIView):
 
 
 class CouncilMemberReorderView(_ReorderView):
+    """POST /council/reorder/"""
+
     model = CouncilMember
     label = "council members"
 
 
 class AboutLogoReorderView(_ReorderView):
+    """POST /logos/reorder/"""
+
     model = AboutLogo
     label = "logos"
 
 
-class LegalDocumentView(APIView):
-    """
-    GET /api/site/legal/<key>/ — a citizen legal page's sections. Public.
-    PUT /api/site/legal/<key>/admin/ — Administrator replaces the sections.
-    """
+# ---- Legal pages (Privacy Policy, Terms and Agreements) ---------------------
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.AllowAny()]
-        return [IsAdmin()]
+class LegalDocumentView(AdminWriteMixin, APIView):
+    """
+    GET /legal/<key>/        — the page's sections (anyone).
+    PUT /legal/<key>/admin/  — replace them (Administrator).
+    """
 
     def _document(self, key):
         if key not in LegalDocument.Key.values:
@@ -306,9 +297,17 @@ class LegalDocumentView(APIView):
         document, _ = LegalDocument.objects.get_or_create(key=key)
         return document
 
+    @staticmethod
+    def _response(document):
+        return Response({
+            "key": document.key,
+            "effective_date": document.effective_date,
+            "sections": document.section_list(),
+            "updated_at": document.updated_at,
+        })
+
     def get(self, request, key):
-        document = self._document(key)
-        return Response({"key": key, "effective_date": document.effective_date, "sections": document.sections, "updated_at": document.updated_at})
+        return self._response(self._document(key))
 
     def put(self, request, key):
         document = self._document(key)
@@ -316,9 +315,9 @@ class LegalDocumentView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         if "sections" in data:
-            document.sections = data["sections"]
+            document.set_sections(data["sections"])
         if "effective_date" in data:
             document.effective_date = data["effective_date"].strip()
-        document.save(update_fields=["sections", "effective_date", "updated_at"])
+        document.save(update_fields=["effective_date", "updated_at"])
         log_action(request.user, f"Updated the {document.get_key_display()} page")
-        return Response({"key": key, "effective_date": document.effective_date, "sections": document.sections, "updated_at": document.updated_at})
+        return self._response(document)

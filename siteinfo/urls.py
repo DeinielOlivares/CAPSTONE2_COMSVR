@@ -1,3 +1,5 @@
+"""Site information endpoints. Every path here starts with /api/site/."""
+
 from django.urls import path
 
 from . import views
