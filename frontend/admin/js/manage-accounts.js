@@ -12,8 +12,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pagination = document.getElementById("accountsPagination");
   const pageSizeSelect = document.getElementById("accountsPageSize");
 
+  const memory = createFilterMemory("manage_accounts");
+  memory.bindSelect(sortSelect);
+  memory.bindSelect(typeFilter);
+  memory.bindSelect(statusFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
   let accounts = [];
-  let page = 1;
+  let page = memory.get("page", 1);
 
   async function loadAccounts() {
     tbody.innerHTML = skeletonTableRows(5, 4);
@@ -57,6 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 

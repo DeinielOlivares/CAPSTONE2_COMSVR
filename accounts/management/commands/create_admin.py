@@ -7,13 +7,13 @@ User = get_user_model()
 
 class Command(BaseCommand):
     """
-    Creates (or updates) a single Administrator account from environment
-    variables, so a superuser can exist without needing Render Shell access
-    on the free plan. Safe to run on every deploy — it's a no-op once the
-    account already exists with the right role.
+    Creates the first Administrator account from the ADMIN_EMAIL /
+    ADMIN_PASSWORD environment variables, so one can exist without Render
+    Shell access on the free plan. Safe to run on every deploy or restart:
+    once that account exists it is left exactly as it is, so a password the
+    owner later changed is never put back to ADMIN_PASSWORD.
 
-    Requires ADMIN_EMAIL and ADMIN_PASSWORD to be set as environment
-    variables; does nothing if either is missing (e.g. in local dev where
+    Does nothing if either variable is missing (e.g. in local dev where
     you'd rather use `createsuperuser` interactively).
     """
 
@@ -27,16 +27,15 @@ class Command(BaseCommand):
             self.stdout.write("ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping admin creation.")
             return
 
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={"username": email},
-        )
+        if User.objects.filter(email__iexact=email).exists():
+            self.stdout.write(f"Admin account {email} already exists — left unchanged.")
+            return
+
+        user = User(email=email, username=email)
         user.set_password(password)
         user.role = User.Role.ADMIN
         user.is_verified = True
         user.is_staff = True
         user.is_superuser = True
         user.save()
-
-        action = "Created" if created else "Updated"
-        self.stdout.write(self.style.SUCCESS(f"{action} admin account: {email}"))
+        self.stdout.write(self.style.SUCCESS(f"Created admin account: {email}"))

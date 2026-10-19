@@ -52,37 +52,25 @@
   </script>
 
   <div class="plain-page">
-    <div class="plain-page__inner">
+    <div class="plain-page__inner plain-page__inner--wide">
     <div class="detail-card">
-      <a class="detail-back" href="ordinances.html" aria-label="Back to Ordinances">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>
-      </a>
+      <a class="detail-back" href="ordinances.html" aria-label="Back to Ordinances">&#8592;</a>
 
       <div id="detailBody">
         <h1 class="detail-title" id="detailTitle"><span class="skeleton skeleton-text skeleton-text--medium" style="height: 1.4rem;"></span></h1>
 
-        <div class="detail-info-stack">
-          <div class="detail-info-block">
-            <span class="detail-info-block__label">Title</span>
-            <span class="detail-info-block__value" id="detailOrdinanceTitle"></span>
-          </div>
-          <div class="detail-info-block">
-            <span class="detail-info-block__label">Category</span>
-            <span class="detail-info-block__value" id="detailCategory"></span>
-          </div>
-          <div class="detail-info-block">
-            <span class="detail-info-block__label">Authored by</span>
-            <span class="detail-info-block__value" id="detailAuthor"></span>
-          </div>
-          <div class="detail-info-block">
-            <span class="detail-info-block__label">Date Approved</span>
-            <span class="detail-info-block__value" id="detailDate"></span>
-          </div>
-          <div class="detail-info-block detail-info-block--description">
-            <span class="detail-info-block__label">Brief Summary</span>
-            <div class="detail-info-block__value" id="detailDescription"></div>
-          </div>
-        </div>
+        <dl class="detail-meta" id="detailMeta">
+          <dt>Title</dt>
+          <dd id="detailOrdinanceTitle"></dd>
+          <dt>Category</dt>
+          <dd id="detailCategory"></dd>
+          <dt>Authored by</dt>
+          <dd id="detailAuthor"></dd>
+          <dt>Date Approved</dt>
+          <dd id="detailDate"></dd>
+        </dl>
+
+        <div class="detail-description" id="detailDescription"></div>
 
         <div class="pdf-preview" id="pdfPreview" hidden>
           <div class="pdf-preview__frame" id="pdfPreviewFrame" role="document" aria-label="Ordinance PDF preview" tabindex="0"></div>

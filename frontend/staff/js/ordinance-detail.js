@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("detailAuthor").textContent = ordinance.author;
     document.getElementById("detailDate").textContent = ordinance.dateApproved;
     document.getElementById("detailOrdinanceTitle").textContent = ordinance.title;
+    document.getElementById("detailCategory").textContent = ordinance.category || "—";
     document.getElementById("detailUploadedBy").textContent = ordinance.uploadedBy || "—";
 
     detailDescription.innerHTML = "";

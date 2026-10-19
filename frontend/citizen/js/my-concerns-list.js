@@ -13,6 +13,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
 
+  const memory = createFilterMemory("my_concerns");
+  memory.bindSelect(statusFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
   function formatDate(iso) {
     return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   }
@@ -26,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   let concerns = [];
-  let page = 1;
+  let page = memory.get("page", 1);
   // Default display order when both statuses are showing: Submitted first,
   // Reviewed last — newest first within each status.
   function getFiltered() {
@@ -47,6 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const rows = getFiltered();
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 

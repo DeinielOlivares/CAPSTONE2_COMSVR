@@ -160,8 +160,7 @@ class Concern(models.Model):
     description = EncryptedTextField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
     remarks = EncryptedTextField(blank=True)
-    # When the Secretary marked this Reviewed (cleared if it's moved back to
-    # Submitted). updated_at can't stand in for it — assigning a folder or
+    # When this became Reviewed (see StaffConcernDetailView.patch). updated_at can't stand in for it — assigning a folder or
     # editing remarks later moves that — and the Captain's dashboard needs
     # the real figure for "typical time to review".
     reviewed_at = models.DateTimeField(null=True, blank=True)

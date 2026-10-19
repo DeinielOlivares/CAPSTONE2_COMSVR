@@ -234,7 +234,10 @@ class StaffConcernSerializer(serializers.ModelSerializer):
 
 
 class StaffConcernUpdateSerializer(serializers.ModelSerializer):
-    """PATCH-only — status/remarks/folder are the only things Staff/Admin get to change on someone else's concern."""
+    """PATCH-only — remarks/folder are the only things Staff/Admin get to change on someone else's concern.
+
+    Status is read-only: StaffConcernDetailView marks it Reviewed on its own.
+    """
 
     folder = serializers.PrimaryKeyRelatedField(
         queryset=ConcernFolder.objects.all(), required=False, allow_null=True
@@ -243,6 +246,7 @@ class StaffConcernUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Concern
         fields = ["status", "remarks", "folder"]
+        read_only_fields = ["status"]
 
 
 def _staff_role_label(user):

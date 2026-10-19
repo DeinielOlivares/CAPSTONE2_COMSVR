@@ -193,6 +193,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  const unsavedGuard = guardUnsavedForm(form, () => authors.length > 0 || formHasEntries(form));
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     uploadError.hidden = true;
@@ -231,6 +233,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     uploadConfirm.textContent = "Uploading...";
     try {
       await createOrdinance(fields);
+      unsavedGuard.allowLeave();
       window.location.href = "ordinances.html";
     } catch (err) {
       uploadError.textContent = err.message;

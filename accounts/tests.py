@@ -832,3 +832,36 @@ class AdminAccountLinkButtonTests(APITestCase):
         self.staff.is_active = False
         self.staff.save()
         self.assertEqual(self._reset(self.staff).status_code, 400)
+
+
+class CreateAdminCommandTests(APITestCase):
+    """create_admin runs on every deploy/restart, so it must never undo a password change."""
+
+    ENV = {"ADMIN_EMAIL": "first.admin@test.com", "ADMIN_PASSWORD": "Default!Pass#2026"}
+
+    def _run(self):
+        import os
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        with mock.patch.dict(os.environ, self.ENV):
+            call_command("create_admin", stdout=StringIO())
+
+    def test_creates_the_account_the_first_time(self):
+        self._run()
+        user = User.objects.get(email=self.ENV["ADMIN_EMAIL"])
+        self.assertEqual(user.role, User.Role.ADMIN)
+        self.assertTrue(user.check_password(self.ENV["ADMIN_PASSWORD"]))
+
+    def test_a_changed_password_survives_later_runs(self):
+        self._run()
+        user = User.objects.get(email=self.ENV["ADMIN_EMAIL"])
+        user.set_password(GOOD_PASSWORD)
+        user.save()
+
+        self._run()
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(GOOD_PASSWORD))
+        self.assertFalse(user.check_password(self.ENV["ADMIN_PASSWORD"]))
+        self.assertEqual(User.objects.filter(email__iexact=self.ENV["ADMIN_EMAIL"]).count(), 1)

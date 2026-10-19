@@ -12,13 +12,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pagination = document.getElementById("ordinancesPagination");
   const pageSizeSelect = document.getElementById("ordinancesPageSize");
 
-  let pageSize = 5;
-  let currentPage = 1;
+  const memory = createFilterMemory("ordinances");
+  memory.bindSelect(filterField);
+  memory.bindSelect(sortSelect);
+  memory.bindSelect(pageSizeSelect);
+
+  let pageSize = pageSizeFrom(pageSizeSelect, 5);
+  let currentPage = memory.get("page", 1);
   // Only re-filters on Search (or pressing Enter in the field), not on every
   // keystroke — this tracks the query that was actually searched for, kept
   // separate from whatever's currently typed in the box.
-  let appliedQuery = "";
-  let appliedField = filterField.value;
+  let appliedQuery = memory.get("query", "");
+  let appliedField = memory.get("queryField", filterField.value);
+  searchInput.value = appliedQuery;
 
   // Search box placeholder follows the selected filter, suggesting example
   // keywords for that field. Author/No./Category examples are pulled from the
@@ -87,6 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const allRows = getFiltered();
     const totalPages = pageSize ? Math.max(1, Math.ceil(allRows.length / pageSize)) : 1;
     currentPage = Math.min(currentPage, totalPages);
+    memory.set("page", currentPage);
 
     const start = pageSize ? (currentPage - 1) * pageSize : 0;
     const rows = pageSize ? allRows.slice(start, start + pageSize) : allRows;
@@ -134,6 +141,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     e.preventDefault();
     appliedField = filterField.value;
     appliedQuery = searchInput.value.trim().toLowerCase();
+    memory.set("query", appliedQuery);
+    memory.set("queryField", appliedField);
     currentPage = 1;
     render();
   });

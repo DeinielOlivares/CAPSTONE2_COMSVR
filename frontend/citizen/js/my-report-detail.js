@@ -124,8 +124,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         reporter: report.reporter,
         contactNumber: report.contact_number,
         location: report.location,
-        latitude: report.latitude,
-        longitude: report.longitude,
         ordinance: report.ordinance,
         incidentDate: report.incident_date,
         incidentTime: report.incident_time,

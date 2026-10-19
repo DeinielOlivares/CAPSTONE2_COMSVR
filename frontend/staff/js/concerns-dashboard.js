@@ -10,11 +10,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const OVERDUE_DAYS = 7;
   const TOP_ROWS = 6;
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const MONTHS_BACK_COUNT = 5;
-  const QUARTERS_BACK_COUNT = 3;
-  const YEARS_BACK_COUNT = 2;
-
-  const state = { period: "month0" };
+  // The period and the list size are kept for this browser tab (see
+  // createFilterMemory), so coming back from a concern keeps them.
+  const memory = createFilterMemory("concerns_dashboard");
+  const state = { period: memory.get("period", "month0") };
 
   const dashboardMain = document.querySelector(".admin-content");
 
@@ -34,75 +33,61 @@ document.addEventListener("DOMContentLoaded", async () => {
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
   // ---- Periods ----
-  // Same range of choices as the Reports Dashboard's date filter (This
-  // Week, This Month + previous months, This Quarter + previous quarters,
-  // This Year + previous years). periodRanges() returns the current range,
-  // the one before it (for "vs last ..."), and the buckets the trend chart
-  // plots; periodMeta() returns the noun used in sentences like "Received
-  // this month" / "Received in August 2026".
+  // periodRanges() returns the current range, the one before it (for "vs
+  // last ..."; none for All Time), and the buckets the trend chart plots;
+  // periodMeta() returns the words used in "Received this month" etc.
 
-  function buildPeriodOptions() {
-    const opts = [{ value: "week", label: "This Week" }];
-    for (let m = 0; m <= MONTHS_BACK_COUNT; m++) {
-      const { start } = getMonthRange(m);
-      opts.push({
-        value: `month${m}`,
-        label: m === 0 ? "This Month" : start.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-      });
-    }
-    for (let q = 0; q <= QUARTERS_BACK_COUNT; q++) {
-      const { quarter, year } = getQuarterRange(q);
-      opts.push({ value: `quarter${q}`, label: q === 0 ? `This Quarter (Q${quarter} ${year})` : `Q${quarter} ${year}` });
-    }
-    for (let y = 0; y <= YEARS_BACK_COUNT; y++) {
-      const { year } = getYearRange(y);
-      opts.push({ value: `year${y}`, label: y === 0 ? `This Year (${year})` : `${year}` });
-    }
-    opts.push({ value: "all", label: "All Time" });
-    return opts;
-  }
+  const PERIOD_OPTIONS = [
+    { value: "month0", label: "This Month" },
+    { value: "month1", label: "Last Month" },
+    { value: "year0", label: "This Year" },
+    { value: "year1", label: "Last Year" },
+    { value: "all", label: "All Time" },
+  ];
 
   function periodMeta(period) {
-    if (period === "week") return { noun: "this week", previous: "last week" };
-    const [, kind, nStr] = period.match(/^(month|quarter|year)(\d+)$/);
-    const n = Number(nStr);
-    if (n === 0) return { noun: `this ${kind}`, previous: `last ${kind}` };
-    if (kind === "month") {
-      const label = (back) => getMonthRange(back).start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      return { noun: `in ${label(n)}`, previous: `in ${label(n + 1)}` };
-    }
-    if (kind === "quarter") {
-      const label = (back) => {
-        const r = getQuarterRange(back);
-        return `Q${r.quarter} ${r.year}`;
+    return {
+      month0: { noun: "this month", previous: "last month" },
+      month1: { noun: "last month", previous: "the month before" },
+      year0: { noun: "this year", previous: "last year" },
+      year1: { noun: "last year", previous: "the year before" },
+      all: { noun: "overall", previous: null },
+    }[period];
+  }
+
+  function monthBuckets(firstMonth, count, withYear) {
+    return Array.from({ length: count }, (_, i) => {
+      const first = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + i, 1);
+      return {
+        start: first,
+        end: endOfDay(new Date(first.getFullYear(), first.getMonth() + 1, 0)),
+        label: first.toLocaleDateString("en-US", withYear ? { month: "short", year: "2-digit" } : { month: "short" }),
+        title: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
       };
-      return { noun: `in ${label(n)}`, previous: `in ${label(n + 1)}` };
-    }
-    const label = (back) => String(getYearRange(back).year);
-    return { noun: `in ${label(n)}`, previous: `in ${label(n + 1)}` };
+    });
   }
 
   function periodRanges(period) {
-    if (period === "week") {
-      const start = THIS_WEEK_START;
-      return {
-        start,
-        end: endOfDay(addDays(start, 6)),
-        prevStart: addDays(start, -7),
-        prevEnd: endOfDay(addDays(start, -1)),
-        buckets: Array.from({ length: 7 }, (_, i) => {
-          const day = addDays(start, i);
-          return {
-            start: day,
-            end: endOfDay(day),
-            label: day.toLocaleDateString("en-US", { weekday: "short" }),
-            title: day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
-          };
-        }),
-      };
+    if (period === "all") {
+      const now = new Date();
+      const firstDate = liveConcerns().reduce((min, c) => (c.dateSubmitted < min ? c.dateSubmitted : min), now);
+      const firstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      const months = (now.getFullYear() - firstMonth.getFullYear()) * 12 + now.getMonth() - firstMonth.getMonth() + 1;
+      let buckets;
+      if (months <= 24) {
+        buckets = monthBuckets(firstMonth, months, true);
+        // Every other month labelled once there are too many to fit.
+        if (months > 12) buckets.forEach((b, i) => { if (i % 2) b.label = ""; });
+      } else {
+        buckets = Array.from({ length: now.getFullYear() - firstMonth.getFullYear() + 1 }, (_, i) => {
+          const year = firstMonth.getFullYear() + i;
+          return { start: new Date(year, 0, 1), end: endOfDay(new Date(year, 11, 31)), label: String(year), title: String(year) };
+        });
+      }
+      return { start: firstMonth, end: endOfDay(now), prevStart: null, prevEnd: null, buckets };
     }
 
-    const [, kind, nStr] = period.match(/^(month|quarter|year)(\d+)$/);
+    const [, kind, nStr] = period.match(/^(month|year)(\d+)$/);
     const n = Number(nStr);
 
     if (kind === "month") {
@@ -127,27 +112,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       };
     }
 
-    if (kind === "quarter") {
-      const { start, end, quarter, year } = getQuarterRange(n);
-      const prev = getQuarterRange(n + 1);
-      const firstMonth = (quarter - 1) * 3;
-      return {
-        start,
-        end: endOfDay(end),
-        prevStart: prev.start,
-        prevEnd: endOfDay(prev.end),
-        buckets: Array.from({ length: 3 }, (_, i) => {
-          const first = new Date(year, firstMonth + i, 1);
-          return {
-            start: first,
-            end: endOfDay(new Date(year, firstMonth + i + 1, 0)),
-            label: first.toLocaleDateString("en-US", { month: "short" }),
-            title: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-          };
-        }),
-      };
-    }
-
     const { start, end, year } = getYearRange(n);
     const prev = getYearRange(n + 1);
     return {
@@ -155,15 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       end: endOfDay(end),
       prevStart: prev.start,
       prevEnd: endOfDay(prev.end),
-      buckets: Array.from({ length: 12 }, (_, m) => {
-        const first = new Date(year, m, 1);
-        return {
-          start: first,
-          end: endOfDay(new Date(year, m + 1, 0)),
-          label: first.toLocaleDateString("en-US", { month: "short" }),
-          title: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-        };
-      }),
+      buckets: monthBuckets(new Date(year, 0, 1), 12, false),
     };
   }
 
@@ -185,7 +141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   function renderPeriodMenu() {
-    const opts = buildPeriodOptions();
+    const opts = PERIOD_OPTIONS;
     const current = opts.find((o) => o.value === state.period);
     periodLabel.textContent = current ? current.label : "";
     periodMenu.innerHTML = opts
@@ -194,6 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     periodMenu.querySelectorAll("li").forEach((li) => {
       li.addEventListener("click", () => {
         state.period = li.dataset.period;
+        memory.set("period", state.period);
         periodMenu.hidden = true;
         renderAll();
       });
@@ -218,6 +175,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // "▲ 6 vs last month" — plain text plus an arrow, never colour alone.
   function deltaText(current, previous, previousNoun) {
+    if (!previousNoun) return "Since the first submission";
     const diff = current - previous;
     if (diff === 0) return `Same as ${previousNoun}`;
     return `${diff > 0 ? "▲" : "▼"} ${Math.abs(diff)} vs ${previousNoun}`;
@@ -300,8 +258,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(([name, count]) => ({
         name,
         count,
-        delta: topicDelta(count, before.get(name) || 0),
-        title: `${name}: ${count} ${meta.noun}, ${before.get(name) || 0} ${meta.previous}`,
+        delta: meta.previous ? topicDelta(count, before.get(name) || 0) : "",
+        title: meta.previous ? `${name}: ${count} ${meta.noun}, ${before.get(name) || 0} ${meta.previous}` : `${name}: ${count}`,
       }));
 
     const noTopic = received.filter((c) => !c.folderName).length;
@@ -309,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       rows.push({ name: "No topic yet", count: noTopic, muted: true, title: "Not yet filed under a topic by the Secretary" });
     }
 
-    document.getElementById("topicsHint").textContent = rows.length ? `▲▼ change vs ${meta.previous}` : "";
+    document.getElementById("topicsHint").textContent = rows.length && meta.previous ? `▲▼ change vs ${meta.previous}` : "";
     renderBars(document.getElementById("topicBars"), rows, `No concerns or suggestions received ${meta.noun}.`);
     return { now, before };
   }
@@ -368,7 +326,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const diff = count - before;
       if (diff >= 2 && count >= before * 2 && (!jump || diff > jump.diff)) jump = { name, count, before, diff };
     });
-    if (jump) {
+    if (jump && meta.previous) {
       flags.push({
         level: "warn",
         text: `"${jump.name}" is rising: ${jump.count} ${meta.noun}, up from ${jump.before} ${meta.previous}.`,
@@ -527,8 +485,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---- Latest concerns ----
 
-  let latestListLimit = 5;
   const latestPageSizeSelect = document.getElementById("latestPageSize");
+  memory.bindSelect(latestPageSizeSelect);
+  let latestListLimit = pageSizeFrom(latestPageSizeSelect, 5) ?? Infinity;
 
   if (latestPageSizeSelect) {
     latestPageSizeSelect.addEventListener("change", () => {
@@ -564,13 +523,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ---- Wire up ----
 
   function renderAll() {
+    if (!PERIOD_OPTIONS.some((o) => o.value === state.period)) state.period = "month0";
     const ranges = periodRanges(state.period);
     const all = liveConcerns();
     const ctx = {
       meta: periodMeta(state.period),
       ranges,
       received: all.filter((c) => within(c.dateSubmitted, ranges.start, ranges.end)),
-      previousReceived: all.filter((c) => within(c.dateSubmitted, ranges.prevStart, ranges.prevEnd)),
+      previousReceived: ranges.prevStart ? all.filter((c) => within(c.dateSubmitted, ranges.prevStart, ranges.prevEnd)) : [],
       reviewedInPeriod: all.filter((c) => c.status === "Reviewed" && within(c.dateReviewed, ranges.start, ranges.end)),
       waiting: all.filter((c) => c.status !== "Reviewed"),
     };

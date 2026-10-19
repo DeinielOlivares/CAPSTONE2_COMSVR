@@ -13,8 +13,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   let accounts = [];
   // null = "All" (no limit) — the default, since there's usually not enough
   // pending accounts at once to need paging through them.
-  let pageSize = null;
-  let page = 1;
+  const memory = createFilterMemory("approve_accounts");
+  memory.bindSelect(typeFilter);
+  memory.bindSelect(pageSizeSelect);
+  let pageSize = pageSizeFrom(pageSizeSelect, null);
+  let page = memory.get("page", 1);
 
   async function loadAccounts() {
     tbody.innerHTML = skeletonTableRows(5, 4);
@@ -32,6 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 

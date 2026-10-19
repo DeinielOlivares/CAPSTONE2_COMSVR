@@ -301,9 +301,20 @@ class StaffReportDetailView(APIView):
         previous_status = report.status
         serializer = StaffReportUpdateSerializer(report, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        # Remarks left on a New Submission whose status wasn't moved mean the
+        # report is being worked, so it advances to Under Review on its own.
+        data = serializer.validated_data
+        new_remarks = (data.get("remarks") or "").strip()
+        if (
+            previous_status == Report.Status.SUBMITTED
+            and data.get("status", previous_status) == Report.Status.SUBMITTED
+            and new_remarks
+            and new_remarks != (report.remarks or "").strip()
+        ):
+            data["status"] = Report.Status.UNDER_REVIEW
         serializer.save()
 
-        if "status" in request.data and report.status != previous_status:
+        if report.status != previous_status:
             log_action(request.user, f"Updated a report's status to {report.get_status_display()}")
         if "remarks" in request.data:
             log_action(request.user, "Updated a report's remarks")
@@ -322,7 +333,7 @@ class StaffReportDetailView(APIView):
 class StaffReportDashboardPdfView(APIView):
     """
     POST /api/reports/staff/dashboard-pdf/ — downloads the Reports
-    Dashboard's current stats/graphs/open-reports as one PDF (see
+    Dashboard's current stats and breakdowns as one PDF (see
     reports/pdf.py's build_dashboard_pdf). Unlike the two views above, this
     doesn't touch the Report queryset at all: every number is already
     computed client-side (reports-dashboard.js's gatherDashboardSummary,
@@ -466,7 +477,8 @@ class StaffConcernDetailView(APIView):
     GET /api/concerns/staff/<id>/ — full detail of any citizen's concern/
     suggestion; open to every Staff role (Barangay Captain's dashboard
     needs to at least view one).
-    PATCH /api/concerns/staff/<id>/ — updates status/remarks/folder only.
+    PATCH /api/concerns/staff/<id>/ — updates remarks/folder only; status
+    follows from those (see below).
     Secretary/Admin only — Concerns/Suggestions is the Secretary's section
     (see IsSecretaryOrAdmin); Captain's dashboard is read-only.
     """
@@ -486,15 +498,21 @@ class StaffConcernDetailView(APIView):
             )
 
         concern = self.get_object(pk)
-        previous_status = concern.status
         serializer = StaffConcernUpdateSerializer(concern, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        if "status" in request.data and concern.status != previous_status:
-            concern.reviewed_at = timezone.now() if concern.status == Concern.Status.REVIEWED else None
-            concern.save(update_fields=["reviewed_at"])
-            log_action(request.user, f"Updated a concern/suggestion's status to {concern.get_status_display()}")
+        # Status isn't set by hand: a Submitted concern becomes Reviewed once
+        # it's filed under a category or given remarks, and stays Reviewed
+        # even if it's later taken out of its category.
+        acted_on = ("folder" in request.data and concern.folder_id) or (
+            "remarks" in request.data and concern.remarks.strip()
+        )
+        if concern.status == Concern.Status.SUBMITTED and acted_on:
+            concern.status = Concern.Status.REVIEWED
+            concern.reviewed_at = timezone.now()
+            concern.save(update_fields=["status", "reviewed_at"])
+            log_action(request.user, "Marked a concern/suggestion as Reviewed")
         if "remarks" in request.data:
             log_action(request.user, "Updated a concern/suggestion's remarks")
         if "folder" in request.data:

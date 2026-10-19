@@ -38,11 +38,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const isSecretary = currentUser && currentUser.position === "Secretary";
   if (!isSecretary) addFolderBtn.hidden = true;
 
-  let page = 1;
+  const memory = createFilterMemory("concerns");
+  memory.bindSelect(statusFilter);
+  memory.bindSelect(pageSizeSelect);
+  pageSize = pageSizeFrom(pageSizeSelect, pageSize);
+
+  let page = memory.get("page", 1);
   // Only re-filters on Search (or pressing Enter in the field), not on every
   // keystroke — this tracks the query that was actually searched for.
-  let appliedQuery = "";
-  let activeFolderId = null; // null = "All Concerns/Suggestions"
+  let appliedQuery = memory.get("query", "");
+  searchInput.value = appliedQuery;
+  let activeFolderId = memory.get("folder", null); // null = "All Concerns/Suggestions"
   let folderModalMode = "create"; // "create" | "rename"
   let renameTargetId = null;
   let deleteTargetId = null;
@@ -54,6 +60,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
     return;
   }
+
+  // A remembered category that has since been deleted falls back to All.
+  if (activeFolderId && !liveFolders().some((f) => f.id === activeFolderId)) activeFolderId = null;
+  allFoldersBtn.classList.toggle("active", !activeFolderId);
 
   const badgeClass = {
     Submitted: "status-badge--submitted",
@@ -88,6 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     foldersList.querySelectorAll(".folder-chip").forEach((btn) => {
       btn.addEventListener("click", () => {
         activeFolderId = btn.dataset.folder;
+        memory.set("folder", activeFolderId);
         allFoldersBtn.classList.remove("active");
         page = 1;
         renderFolders();
@@ -104,6 +115,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   allFoldersBtn.addEventListener("click", () => {
     activeFolderId = null;
+    memory.set("folder", null);
     allFoldersBtn.classList.add("active");
     page = 1;
     renderFolders();
@@ -186,6 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await deleteFolder(deleteTargetId);
       if (activeFolderId === deleteTargetId) {
         activeFolderId = null;
+        memory.set("folder", null);
         allFoldersBtn.classList.add("active");
       }
       folderDeleteModal.hidden = true;
@@ -226,6 +239,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const rows = getFiltered();
     const totalPages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
     page = Math.min(page, totalPages);
+    memory.set("page", page);
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 
@@ -233,9 +247,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? pageRows
           .map(
             (c) => `
-        <div class="concern-row">
-          <span class="concern-row__title">${truncate(c.concernText, 60)}</span>
+        <div class="concern-row concern-row--with-category">
+          <span class="concern-row__title">${escapeConcernHtml(truncate(c.concernText, 60))}</span>
           <span class="concern-row__date">${formatConcernDate(c.dateSubmitted)}</span>
+          <span class="concern-row__category${c.folderName ? "" : " concern-row__category--none"}">${c.folderName ? escapeConcernHtml(c.folderName) : "No category"}</span>
           <a class="concern-row__link" href="concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a>
           <span class="status-badge ${badgeClass[c.status] || ""}">${c.status}</span>
         </div>`
@@ -252,6 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   searchForm.addEventListener("submit", (e) => {
     e.preventDefault();
     appliedQuery = searchInput.value.trim().toLowerCase();
+    memory.set("query", appliedQuery);
     page = 1;
     render();
   });

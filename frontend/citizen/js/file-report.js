@@ -381,6 +381,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let reportFiledThisVisit = false;
   const blockLotInput = document.getElementById("reportBlockLot");
+  const unsavedGuard = guardUnsavedForm(form);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearFormError(form);
@@ -482,6 +483,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(`Could not submit your report. (server responded ${response.status})`);
       }
       reportFiledThisVisit = true;
+      unsavedGuard.allowLeave();
       successModal.hidden = false;
     } catch (err) {
       showFormError(form, err.message);
