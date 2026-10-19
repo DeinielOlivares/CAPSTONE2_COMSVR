@@ -1,3 +1,5 @@
+"""Announcement endpoints. Every path here starts with /api/announcements/."""
+
 from django.urls import path
 
 from . import views

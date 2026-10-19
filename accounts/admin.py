@@ -7,8 +7,7 @@ from .models import LoginSession, User, VoterVerification
 class CustomUserAdmin(UserAdmin):
     model = User
     list_display = ["email", "username", "role", "is_verified", "is_staff"]
-    # UserAdmin's default also searches first_name/last_name, which are
-    # encrypted columns now and can't be searched by the database.
+    # Not first_name/last_name: those are encrypted and can't be searched.
     search_fields = ["email", "username"]
     fieldsets = UserAdmin.fieldsets + (
         ("Barangay Platero OVRMS fields", {"fields": ("role", "contact_number", "address", "is_verified")}),

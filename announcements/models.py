@@ -6,10 +6,8 @@ from django.db import models
 
 class Announcement(models.Model):
     """
-    A barangay-wide announcement posted by the Secretary or Barangay Captain
-    (Admin too) — shown at the top of the citizen home page, newest first,
-    and emailed to every citizen when posted (see
-    orms_backend.emails.send_announcement_posted_email).
+    An announcement posted by the Secretary, Barangay Captain or Administrator.
+    Shown on the citizen home page and emailed to every citizen when posted.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -20,7 +18,7 @@ class Announcement(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    # Set by AnnouncementSerializer.update() — lets the frontend show "(edited)".
+    # Set when the announcement is edited, so the page can show "(edited)".
     is_edited = models.BooleanField(default=False)
 
     class Meta:
@@ -31,11 +29,7 @@ class Announcement(models.Model):
 
 
 class AnnouncementView(models.Model):
-    """
-    One citizen having seen one Announcement — the home page shows an
-    "unread" banner on an announcement until a row like this exists for
-    (that citizen, that announcement), then it's gone for good.
-    """
+    """A user has seen this announcement, so its "unread" mark is no longer shown."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="announcement_views")

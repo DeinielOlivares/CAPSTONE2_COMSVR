@@ -1,22 +1,17 @@
 """
-Barangay Platero OVRMS — model fields that keep personal data encrypted in the
-database with the study's Modified Blowfish algorithm (see modified_blowfish.py).
+EncryptedTextField — a model field that stores text encrypted with the
+study's Modified Blowfish algorithm (orms_backend/modified_blowfish.py).
 
-A field declared as EncryptedTextField reads and writes ordinary text in Python
-— views, serializers and templates don't change — but what sits in the database
-column is the algorithm's output for that one value: its own random salt (so
-its own derived key), its own random IV, and the ciphertext, e.g.
+In Python the field reads and writes normal text. In the database each value
+is stored as JSON with its own random salt, IV and the ciphertext:
 
     {"salt": "...", "iv": "...", "ciphertext": "...", "iterations": 1000}
 
-The PBKDF2 iteration count is stored with each value so the setting
-(MODIFIED_BLOWFISH_ITERATIONS) can be re-tuned later without making older
-values unreadable.
+The PBKDF2 iteration count is saved with each value, so the setting
+MODIFIED_BLOWFISH_ITERATIONS can change later without breaking old values.
 
-Because every value has a different key and IV, the same text never encrypts
-the same way twice — which is the point, and also means an encrypted column
-can't be searched, filtered or sorted by the database. Trying to raises
-FieldError rather than quietly matching nothing.
+Because the same text never encrypts the same way twice, the database cannot
+search, filter or sort an encrypted column. Trying to raises FieldError.
 """
 
 import base64
@@ -62,9 +57,8 @@ def is_encrypted(stored):
 
 def decrypt_value(stored):
     """
-    The database's JSON string -> plain text. Anything that isn't in the stored
-    format is returned as it is: that's a value written before the column was
-    encrypted, which the data migration (or the next save) then encrypts.
+    The database's JSON string -> plain text. A value that isn't encrypted yet
+    (written before the column was encrypted) is returned as it is.
     """
     if not is_encrypted(stored):
         return stored
@@ -84,9 +78,8 @@ def decrypt_value(stored):
 
 class EncryptedTextField(models.TextField):
     """
-    Text that is encrypted at rest. Always a `text` column, since the stored
-    form is several times longer than the value; `max_length` still limits the
-    text itself (forms and serializers enforce it), as it does on a CharField.
+    Text that is encrypted at rest. Always a `text` column (the stored form is
+    longer than the value); `max_length` still limits the text itself.
     """
 
     description = "Text encrypted with the Modified Blowfish algorithm"
@@ -98,8 +91,7 @@ class EncryptedTextField(models.TextField):
 
     def get_db_prep_save(self, value, connection):
         value = self.to_python(value)
-        # Blank stays blank: nothing to protect, and "is it filled in?" checks
-        # (filter(field="")) keep working.
+        # Blank stays blank, so filter(field="") checks keep working.
         if value is None or value == "":
             return value
         return encrypt_value(value)
@@ -117,24 +109,19 @@ class EncryptedTextField(models.TextField):
         self._refuse_lookup()
 
     def get_lookup(self, lookup_name):
-        # exact/in/isnull are let through as far as get_prep_value above, which
-        # only accepts blank. Pattern lookups (icontains, startswith…) never
-        # call it, so they're refused here.
+        # exact/in/isnull reach get_prep_value (which only allows blank);
+        # every other lookup (icontains, startswith…) is refused here.
         if lookup_name not in ("exact", "in", "isnull"):
             self._refuse_lookup()
         return super().get_lookup(lookup_name)
 
 
-# ---- For the data migrations that encrypt rows written before a column was
-# ---- switched to EncryptedTextField (and decrypt them again on reversal).
+# ---- Used by the data migrations that encrypted existing rows ----
 
 def encrypt_existing_rows(model, field_names):
     """
-    Re-writes every row's `field_names` through the field, which encrypts them.
-    Reading goes through from_db_value, so a value that's still plain text
-    comes out as it is and one that's already encrypted is decrypted first —
-    safe to run more than once. Uses update(), so auto_now timestamps (e.g.
-    Report.updated_at, shown to residents as "last updated") don't move.
+    Re-saves `field_names` of every row through the field, which encrypts them.
+    Safe to run more than once. Uses update() so auto_now timestamps don't change.
     """
     _master_key()  # fail before touching anything if the key is missing
     for row in model.objects.only("pk", *field_names).iterator():

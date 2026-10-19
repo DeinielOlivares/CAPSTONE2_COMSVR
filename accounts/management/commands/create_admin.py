@@ -1,20 +1,18 @@
+from decouple import config
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
-from decouple import config
 
 User = get_user_model()
 
 
 class Command(BaseCommand):
     """
-    Creates the first Administrator account from the ADMIN_EMAIL /
-    ADMIN_PASSWORD environment variables, so one can exist without Render
-    Shell access on the free plan. Safe to run on every deploy or restart:
-    once that account exists it is left exactly as it is, so a password the
-    owner later changed is never put back to ADMIN_PASSWORD.
+    python manage.py create_admin
 
-    Does nothing if either variable is missing (e.g. in local dev where
-    you'd rather use `createsuperuser` interactively).
+    Creates the first Administrator account from the ADMIN_EMAIL and
+    ADMIN_PASSWORD environment variables (useful on hosting without shell
+    access). Safe to run on every deploy: if the account already exists it is
+    left unchanged. Does nothing if either variable is missing.
     """
 
     help = "Creates the initial Administrator account from ADMIN_EMAIL / ADMIN_PASSWORD env vars."

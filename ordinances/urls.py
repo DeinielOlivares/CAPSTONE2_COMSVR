@@ -1,3 +1,5 @@
+"""Ordinance endpoints. Every path here starts with /api/."""
+
 from django.urls import path
 
 from . import views

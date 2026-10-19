@@ -1,26 +1,19 @@
 """
-Barangay Platero OVRMS — file storage that keeps uploaded personal images (voter's ID
-photos, report/concern evidence) encrypted at rest with the study's Modified
-Blowfish algorithm, the same way encrypted_fields.py does for text.
+EncryptedStorage — keeps uploaded personal images (voter's ID photos, report
+and concern evidence photos) encrypted with the Modified Blowfish algorithm.
 
-What lands on disk (or on Cloudinary, as a "raw" file) is one opaque blob per
-upload, under an `enc/` folder with a random name:
+Each upload is saved as one file under an `enc/` folder with a random name:
 
     "MBF1" | PBKDF2 rounds (4 bytes) | salt (16) | IV (8) | ciphertext
 
-and the ciphertext decrypts to a one-line JSON header (the original content
-type) followed by the file's own bytes. So neither the picture, its type, nor
-its original file name can be read from storage without DATA_ENCRYPTION_KEY.
+The ciphertext decrypts to a one-line JSON header (the content type) followed
+by the original file bytes.
 
-Because the stored blob isn't an image any more, a browser can't load it from
-storage directly. `url()` instead hands out a short-lived signed link to
-ProtectedMediaView, which decrypts the file for whoever was just given that
-link by an API they were allowed to call.
+A browser can't show an encrypted file directly, so url() returns a
+short-lived signed link to ProtectedMediaView, which decrypts it on request.
 
-Not encrypted: videos (too large to decrypt on every view — they go to the
-normal storage as before), and files uploaded before this was introduced,
-which keep working from where they are until `manage.py
-encrypt_existing_files` converts them.
+Not encrypted: videos (too large to decrypt on every view) and files uploaded
+before encryption was added (see `manage.py encrypt_existing_files`).
 """
 
 import json
@@ -47,13 +40,12 @@ ENCRYPTED_FOLDER = "enc"
 _HEADER = struct.Struct(f">4sI{modified_blowfish.SALT_LENGTH_BYTES}s{modified_blowfish.IV_LENGTH_BYTES}s")
 
 _SIGNING_SALT = "orms.protected-media"
-# A link stays the same for one window (so the browser can cache the image
-# instead of having it decrypted again on every page load) and keeps working
-# for at least one more window after it was handed out.
+# A link stays the same for one 6-hour window (so browsers can cache the
+# image) and keeps working for at least one more window after that.
 _LINK_WINDOW_SECONDS = 6 * 60 * 60
 
-# Shown in the page as-is; anything else is sent as a download, so an uploaded
-# file can never run as a page from this site's own address.
+# Only these are shown inline; anything else is sent as a download, so an
+# uploaded file can never run as a page on this site.
 _INLINE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
@@ -96,26 +88,23 @@ def _signer():
 
 def protected_url(name):
     window = int(time.time()) // _LINK_WINDOW_SECONDS
-    # Signer rather than signing.dumps: that one stamps the current second
-    # into the token, which would make every link different and uncacheable.
+    # Signer (not signing.dumps) so the token doesn't change every second.
     token = _signer().sign_object({"n": name, "e": (window + 2) * _LINK_WINDOW_SECONDS})
     return reverse("protected_media", args=[token])
 
 
 @deconstructible
 class EncryptedStorage(Storage):
-    """See the module docstring. Wraps the project's normal storage rather than replacing it."""
+    """Wraps the project's normal storage; see the module docstring."""
 
     @property
     def _plain(self):
-        # Where unencrypted files (videos, older uploads) are and always were.
+        # Where unencrypted files (videos, older uploads) live.
         return storages["default"]
 
     @property
     def _blobs(self):
-        # Cloudinary's default "image" type would reject (and try to transform)
-        # an opaque blob, so encrypted files go up as "raw" — same reason and
-        # same check as ordinances.models.pdf_storage.
+        # On Cloudinary, encrypted blobs must be uploaded as "raw" files.
         if settings.STORAGES["default"]["BACKEND"] == "cloudinary_storage.storage.MediaCloudinaryStorage":
             from cloudinary_storage.storage import RawMediaCloudinaryStorage
 
@@ -136,7 +125,7 @@ class EncryptedStorage(Storage):
         if hasattr(content, "seek"):
             content.seek(0)
         blob = encrypt_bytes(content.read(), mimetypes.guess_type(name)[0] or "application/octet-stream")
-        # A random name, so the original file name isn't left readable either.
+        # Random file name, so the original name isn't readable either.
         target = posixpath.join(ENCRYPTED_FOLDER, posixpath.dirname(name), f"{uuid.uuid4().hex}.enc")
         return self._blobs.save(target, ContentFile(blob))
 
@@ -174,11 +163,11 @@ def encrypted_storage():
 
 class ProtectedMediaView(View):
     """
-    GET /api/media/protected/<token>/ — decrypts one encrypted upload and sends
-    it. There's no login check here on purpose: an <img> tag can't send the
-    API's Authorization header, so the signed, expiring link itself is the
-    permission — and those are only ever produced by `url()` above, inside a
-    response to someone already allowed to see that file.
+    GET /api/media/protected/<token>/ — decrypts one encrypted upload.
+
+    No login check: an <img> tag can't send the Authorization header, so the
+    signed, expiring link is the permission. Links are only created by url()
+    inside API responses to people already allowed to see the file.
     """
 
     def get(self, request, token):

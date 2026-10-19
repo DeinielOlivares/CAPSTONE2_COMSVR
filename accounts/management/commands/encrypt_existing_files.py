@@ -14,6 +14,13 @@ TARGETS = [
 
 
 class Command(BaseCommand):
+    """
+    python manage.py encrypt_existing_files [--dry-run] [--keep-originals]
+
+    One-time conversion: encrypts voter's ID photos and report/concern photos
+    that were uploaded before uploads were encrypted.
+    """
+
     help = (
         "Encrypts voter's ID images and report/concern attachments that were uploaded before "
         "those files were stored encrypted (see orms_backend/encrypted_storage.py). Videos are "

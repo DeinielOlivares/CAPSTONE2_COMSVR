@@ -1,3 +1,5 @@
+"""Account endpoints. Every path here starts with /api/auth/ (see orms_backend/urls.py)."""
+
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 

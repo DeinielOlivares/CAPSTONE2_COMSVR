@@ -3,10 +3,9 @@ from rest_framework.throttling import SimpleRateThrottle
 
 class ResetRequestEmailThrottle(SimpleRateThrottle):
     """
-    Limits Forgot Password code requests per *email address*, on top of the
-    per-IP limit (ScopedRateThrottle): an attacker rotating IPs could otherwise
-    still flood one victim's inbox, or keep minting fresh codes — each with its
-    own set of guesses — for that account.
+    Limits code/link requests per *email address* (on top of the per-IP limit),
+    so someone switching IP addresses still can't flood one person's inbox.
+    Rate: "reset_request_email" in settings.REST_FRAMEWORK.
     """
 
     scope = "reset_request_email"
@@ -15,5 +14,5 @@ class ResetRequestEmailThrottle(SimpleRateThrottle):
         data = request.data
         email = str(data.get("email", "")).strip().lower() if hasattr(data, "get") else ""
         if not email:
-            return None  # nothing to key on; the per-IP limit and validation still apply
+            return None  # nothing to count by; the per-IP limit still applies
         return self.cache_format % {"scope": self.scope, "ident": email}

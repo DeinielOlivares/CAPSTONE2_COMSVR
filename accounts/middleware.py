@@ -1,7 +1,6 @@
 """
-Barangay Platero OVRMS — stashes the current request in a thread-local so log_action()
-(accounts/models.py) can read the caller's IP without every one of its ~60
-call sites across the codebase having to thread a request object through.
+Remembers the current request so log_action() (accounts/models.py) can record
+the caller's IP address without every view having to pass the request along.
 """
 
 import threading
@@ -27,9 +26,8 @@ def get_current_request():
 
 def client_ip():
     """
-    The real client address, preferring X-Forwarded-For's first hop (Render
-    and most hosts sit behind a proxy, so REMOTE_ADDR alone would just be
-    that proxy) and falling back to REMOTE_ADDR for local/direct requests.
+    The visitor's IP address. Behind a proxy (like Render) the real address is
+    the first one in X-Forwarded-For; otherwise it's REMOTE_ADDR.
     """
     request = get_current_request()
     if not request:

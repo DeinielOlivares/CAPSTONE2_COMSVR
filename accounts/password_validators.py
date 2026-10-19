@@ -5,11 +5,10 @@ from django.core.exceptions import ValidationError
 
 class CharacterClassValidator:
     """
-    Requires at least one lowercase, one uppercase and one special character.
-    Registered in AUTH_PASSWORD_VALIDATORS (settings.py) so every place a
-    password is set — Sign Up, Change Password, Forgot Password reset, staff
-    account setup — enforces the same rules. Mirrors getPasswordRuleStatus in
-    each portal's frontend JS.
+    A password needs at least one lowercase letter, one uppercase letter and one
+    special character. Listed in AUTH_PASSWORD_VALIDATORS (settings.py), so it
+    applies everywhere a password is set. The frontend shows the same rules
+    (getPasswordRuleStatus in the portals' main.js).
     """
 
     RULES = [

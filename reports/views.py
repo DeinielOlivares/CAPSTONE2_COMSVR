@@ -1,3 +1,13 @@
+"""
+Reports — API views (URLs in reports/urls.py, all under /api/).
+
+Sections:
+  1. Citizen: reports (with anti-abuse checks), concerns, questions
+  2. Staff: reports (view, update, claim/assign, dashboard PDF)
+  3. Staff: concerns/suggestions and their folders
+  4. Staff: answer questions; FAQs
+"""
+
 import re
 import uuid
 from datetime import timedelta
@@ -11,7 +21,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.models import User, log_action
-from accounts.views import IsAdmin, IsInvestigatorOrAdmin, IsSecretaryOrAdmin, IsStaffOrAdmin
+from accounts.permissions import IsAdmin, IsInvestigatorOrAdmin, IsSecretaryOrAdmin, IsStaffOrAdmin
 from orms_backend.codes import generate_code
 from orms_backend.emails import (
     send_question_answered_email,
@@ -27,9 +37,9 @@ from orms_backend.emails import (
 from .models import FAQ, Concern, ConcernFolder, Question, Report, ReportVerificationCode
 from .pdf import build_dashboard_pdf
 from .serializers import (
-    FAQSerializer,
     ConcernFolderSerializer,
     ConcernSerializer,
+    FAQSerializer,
     QuestionSerializer,
     ReportSerializer,
     ReportVerifyCodeSerializer,
@@ -40,33 +50,29 @@ from .serializers import (
     StaffReportSerializer,
     StaffReportUpdateSerializer,
 )
-from .verification import (
-    check_and_apply_abuse_lockout,
-    cooldown_remaining,
-    has_valid_verification,
-    verification_required,
-)
+from .verification import check_and_apply_abuse_lockout, cooldown_remaining, has_valid_verification, verification_required
 
 
-def _staff_recipients():
+def _active_staff():
     return User.objects.filter(role=User.Role.STAFF, is_active=True)
 
 
+# ---------------------------------------------------------------------------
+# 1. Citizen
+# ---------------------------------------------------------------------------
+
 class ReportListCreateView(generics.ListCreateAPIView):
     """
-    GET /api/reports/ — the logged-in citizen's own filed reports (My Reports).
-    POST /api/reports/ — file a new report (File Report page). Gated by
-    reports/verification.py's three anti-abuse checks — see that module's
-    docstring for the full picture.
+    GET  /reports/ — the citizen's own reports (My Reports).
+    POST /reports/ — file a report. Checked first: cooldown, then identity
+                     verification (see reports/verification.py).
     """
+
     serializer_class = ReportSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Report.objects.filter(citizen=self.request.user)
-
-    def get_serializer_context(self):
-        return {"request": self.request}
 
     def create(self, request, *args, **kwargs):
         user = request.user
@@ -81,36 +87,26 @@ class ReportListCreateView(generics.ListCreateAPIView):
 
         if verification_required(user) and not has_valid_verification(user):
             return Response(
-                {
-                    "detail": "Please verify your email before filing this report.",
-                    "verification_required": True,
-                },
+                {"detail": "Please verify your email before filing this report.", "verification_required": True},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         response = super().create(request, *args, **kwargs)
-
         if response.status_code == status.HTTP_201_CREATED:
-            # Consumed on success so the next report needs fresh verification
-            # once REVERIFY_AFTER_DAYS rolls around again.
+            # The verification is used up by this report.
             ReportVerificationCode.objects.filter(user=user, verified_at__isnull=False).delete()
             check_and_apply_abuse_lockout(user)
-
         return response
 
     def perform_create(self, serializer):
         report = serializer.save()
         log_action(self.request.user, f"Submitted a report — {report.ordinance}")
         send_report_submitted_citizen_email(report)
-        send_report_submitted_staff_emails(report, _staff_recipients())
+        send_report_submitted_staff_emails(report, _active_staff())
 
 
 class ReportVerificationStatusView(APIView):
-    """
-    GET /api/reports/verification-status/ — File Report calls this on load
-    to decide whether to show the "verify it's you" gate and/or a cooldown
-    notice before the citizen even starts filling out the form.
-    """
+    """GET /reports/verification-status/ — does File a Report need a code first? Any cooldown left?"""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -124,7 +120,7 @@ class ReportVerificationStatusView(APIView):
 
 
 class ReportSendVerificationView(APIView):
-    """POST /api/reports/send-verification/ — emails a fresh 6-digit code to confirm the report filer's identity."""
+    """POST /reports/send-verification/ — emails a new 6-digit code (older ones stop working)."""
 
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
@@ -132,12 +128,7 @@ class ReportSendVerificationView(APIView):
 
     def post(self, request):
         user = request.user
-        # Kill any earlier unverified codes first, like Forgot Password does —
-        # otherwise every request leaves another live code lying around and each
-        # guess gets that many more chances to match.
-        ReportVerificationCode.objects.filter(user=user, verified_at__isnull=True).update(
-            expires_at=timezone.now()
-        )
+        ReportVerificationCode.objects.filter(user=user, verified_at__isnull=True).update(expires_at=timezone.now())
         code = generate_code()
         ReportVerificationCode.objects.create(
             user=user,
@@ -149,7 +140,7 @@ class ReportSendVerificationView(APIView):
 
 
 class ReportVerifyCodeView(APIView):
-    """POST /api/reports/verify-code/ — checks the code sent by ReportSendVerificationView."""
+    """POST /reports/verify-code/ — checks the code."""
 
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
@@ -163,59 +154,70 @@ class ReportVerifyCodeView(APIView):
 
 
 class ReportDetailView(generics.RetrieveAPIView):
-    """GET /api/reports/<id>/ — one of the logged-in citizen's own reports."""
+    """GET /reports/<id>/ — one of the citizen's own reports."""
+
     serializer_class = ReportSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Report.objects.filter(citizen=self.request.user)
 
-    def get_serializer_context(self):
-        return {"request": self.request}
-
 
 class ConcernListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/concerns/ — the logged-in citizen's own submitted concerns/
-    suggestions (My Concerns/Suggestions).
-    POST /api/concerns/ — submit a new one (Submit Suggestion page).
-    """
+    """GET /concerns/ — the citizen's own concerns.  POST /concerns/ — submit one."""
+
     serializer_class = ConcernSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Concern.objects.filter(citizen=self.request.user)
-
-    def get_serializer_context(self):
-        return {"request": self.request}
 
     def perform_create(self, serializer):
         concern = serializer.save()
         log_action(self.request.user, "Submitted a suggestion")
         send_suggestion_submitted_citizen_email(concern)
-        send_suggestion_submitted_staff_emails(concern, _staff_recipients())
+        send_suggestion_submitted_staff_emails(concern, _active_staff())
 
 
 class ConcernDetailView(generics.RetrieveAPIView):
-    """GET /api/concerns/<id>/ — one of the logged-in citizen's own concerns/suggestions."""
+    """GET /concerns/<id>/ — one of the citizen's own concerns."""
+
     serializer_class = ConcernSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Concern.objects.filter(citizen=self.request.user)
 
-    def get_serializer_context(self):
-        return {"request": self.request}
+
+class QuestionListCreateView(generics.ListCreateAPIView):
+    """GET /questions/ — the citizen's own questions.  POST /questions/ — ask one."""
+
+    serializer_class = QuestionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Question.objects.filter(citizen=self.request.user)
+
+
+# ---------------------------------------------------------------------------
+# 2. Staff: reports
+# ---------------------------------------------------------------------------
+
+def _get_report(pk):
+    return get_object_or_404(Report.objects.select_related("citizen", "assigned_investigator"), pk=pk)
+
+
+def _staff_report_response(report, request):
+    return Response(StaffReportSerializer(report, context={"request": request}).data)
 
 
 class StaffReportListView(generics.ListAPIView):
     """
-    GET /api/reports/staff/ — every citizen's filed reports (Staff/Admin Reports Dashboard).
-    ?assigned_to=<user id> narrows it to the reports that user has claimed —
-    what Manage Accounts uses to list an Investigator's claims for release
-    (see StaffReportForfeitView) — and ?active=1 further to the ones still
-    being worked (not Resolved/With Remarks).
+    GET /reports/staff/ — every report.
+      ?assigned_to=<user id>  only the reports that user has claimed
+      ?active=1               only reports that aren't closed yet
     """
+
     serializer_class = StaffReportSerializer
     permission_classes = [IsStaffOrAdmin]
 
@@ -231,17 +233,9 @@ class StaffReportListView(generics.ListAPIView):
             queryset = queryset.exclude(status__in=Report.CLOSED_STATUSES)
         return queryset
 
-    def get_serializer_context(self):
-        return {"request": self.request}
-
 
 class StaffReportAnalysisBaseView(APIView):
-    """
-    GET /api/reports/staff/analysis-base/ — the denominators the Reports
-    Dashboard's geospatial analysis turns its counts into percentages with
-    ("12 citizens reported — 8% of registered citizens"). Registered means
-    an approved, still-active citizen account, i.e. one that can file a report.
-    """
+    """GET /reports/staff/analysis-base/ — number of approved, active citizens (for percentages)."""
 
     permission_classes = [IsStaffOrAdmin]
 
@@ -252,47 +246,29 @@ class StaffReportAnalysisBaseView(APIView):
 
 class StaffReportDetailView(APIView):
     """
-    GET /api/reports/staff/<id>/ — full detail of any citizen's report; open
-    to every Staff role, since Barangay Captain's Reports Dashboard and
-    Secretary both need to at least view a report.
-    PATCH /api/reports/staff/<id>/ — updates status/remarks only (see
-    StaffReportUpdateSerializer for why nothing else is writable here).
-    Investigator/Admin only — Reports is the Investigator's section (see
-    IsInvestigatorOrAdmin); Captain's dashboard is read-only. An Investigator
-    can only do this on a report they've claimed themselves.
+    GET   /reports/staff/<id>/ — any staff member can view a report.
+    PATCH /reports/staff/<id>/ — change status/remarks. Only the Investigator
+          who claimed the report (or an Administrator) may do this.
     """
+
     permission_classes = [IsStaffOrAdmin]
 
-    def get_object(self, pk):
-        return get_object_or_404(Report.objects.select_related("citizen", "assigned_investigator"), pk=pk)
-
     def get(self, request, pk):
-        report = self.get_object(pk)
-        # Only the Investigator who actually holds this claim "opens" it in
-        # the sense the citizen sees (StaffReportSerializer/report-detail.js)
-        # — a Captain/Secretary/Admin viewing it read-only doesn't move this.
+        report = _get_report(pk)
+        # Only the claiming Investigator's visit is shown to the citizen as "viewed".
         if report.assigned_investigator_id == request.user.id:
             report.investigator_last_viewed_at = timezone.now()
             report.save(update_fields=["investigator_last_viewed_at"])
-        return Response(StaffReportSerializer(report, context={"request": request}).data)
+        return _staff_report_response(report, request)
 
     def patch(self, request, pk):
         if not IsInvestigatorOrAdmin().has_permission(request, self):
-            return Response(
-                {"detail": "Only an Investigator can update a report's status."}, status=403
-            )
+            return Response({"detail": "Only an Investigator can update a report's status."}, status=403)
 
-        report = self.get_object(pk)
-
-        # Working a report — status and remarks are saved together — belongs
-        # to whichever Investigator claimed it (see StaffReportClaimView), so
-        # an unclaimed report, or one another Investigator holds, is
-        # read-only to everyone else. Admin is exempt (and is the only one who
-        # can release a claim, see StaffReportForfeitView): a way to step in
-        # on someone's behalf.
+        report = _get_report(pk)
         if request.user.role != User.Role.ADMIN and report.assigned_investigator_id != request.user.id:
             if report.assigned_investigator_id:
-                holder = report.assigned_investigator.get_full_name() or report.assigned_investigator.username
+                holder = report.assigned_investigator.display_name
                 detail = f"This report is claimed by {holder} — only they can update it."
             else:
                 detail = "Claim this report before updating its status."
@@ -301,8 +277,8 @@ class StaffReportDetailView(APIView):
         previous_status = report.status
         serializer = StaffReportUpdateSerializer(report, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        # Remarks left on a New Submission whose status wasn't moved mean the
-        # report is being worked, so it advances to Under Review on its own.
+
+        # New remarks on a "Submitted" report (status left unchanged) move it to Under Review.
         data = serializer.validated_data
         new_remarks = (data.get("remarks") or "").strip()
         if (
@@ -319,32 +295,22 @@ class StaffReportDetailView(APIView):
         if "remarks" in request.data:
             log_action(request.user, "Updated a report's remarks")
 
-        # Only on the transition INTO Resolved or With Remarks (the status
-        # timeline's last, "Resolved/With Remarks" stage), not every save
-        # while already there — otherwise re-saving the same status would
-        # re-notify every time. Remarks, if any were left, are included in
-        # this same email rather than a separate one (see report_resolved.html).
+        # Email the citizen only when the report *becomes* Resolved / With Remarks.
         if report.status in Report.CLOSED_STATUSES and report.status != previous_status:
             send_report_resolved_email(report)
 
-        return Response(StaffReportSerializer(report, context={"request": request}).data)
+        return _staff_report_response(report, request)
 
 
 class StaffReportDashboardPdfView(APIView):
     """
-    POST /api/reports/staff/dashboard-pdf/ — downloads the Reports
-    Dashboard's current stats and breakdowns as one PDF (see
-    reports/pdf.py's build_dashboard_pdf). Unlike the two views above, this
-    doesn't touch the Report queryset at all: every number is already
-    computed client-side (reports-dashboard.js's gatherDashboardSummary,
-    the same functions the live dashboard renders with) and posted here as
-    plain JSON — this view just lays it out, rather than re-implementing
-    the dashboard's date-range/per-graph filtering a second time in Python.
-    Same viewing access as the dashboard page itself (every Staff role);
-    only Barangay Captain's nav actually links to that page, but there's
-    nothing here a Secretary/Investigator/Admin couldn't already see live.
+    POST /reports/staff/dashboard-pdf/ — "Download Summary (PDF)" on the
+    Reports Dashboard. The browser already computed every number
+    (reports-dashboard.js) and posts them as JSON; this view only lays them out.
     """
+
     permission_classes = [IsStaffOrAdmin]
+    DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
     def post(self, request):
         payload = request.data or {}
@@ -353,16 +319,10 @@ class StaffReportDashboardPdfView(APIView):
         except (KeyError, TypeError, ValueError):
             return Response({"detail": "Could not build the summary from the given data."}, status=400)
 
-        # The dashboard's own top-filter range (reports-dashboard.js's
-        # gatherDashboardSummary sends it alongside the human-readable
-        # label already used inside the PDF) — not re-derived here, since
-        # this view never touches the Report queryset at all. Falls back to
-        # today's date if it's missing or malformed rather than failing the
-        # download over a filename.
-        date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        # File name uses the dashboard's date range, or today's date if it's missing.
         period_range = payload.get("top_period_range") or {}
         start, end = period_range.get("from"), period_range.get("to")
-        if date_re.match(start or "") and date_re.match(end or ""):
+        if self.DATE_RE.match(start or "") and self.DATE_RE.match(end or ""):
             date_part = start if start == end else f"{start}_to_{end}"
         else:
             date_part = timezone.localtime(timezone.now()).date().isoformat()
@@ -373,25 +333,18 @@ class StaffReportDashboardPdfView(APIView):
 
 
 class StaffReportClaimView(APIView):
-    """
-    POST /api/reports/staff/<id>/claim/ — an Investigator claims an
-    unclaimed report, putting their name on it so other Investigators and
-    Barangay Captain can see who's working it (see
-    StaffReportSerializer.assignedInvestigator). Rejects claiming one
-    someone else already has — see StaffReportForfeitView for giving it up.
-    """
+    """POST /reports/staff/<id>/claim/ — an Investigator claims an unclaimed report."""
+
     permission_classes = [IsInvestigatorOrAdmin]
 
     def post(self, request, pk):
-        report = get_object_or_404(Report.objects.select_related("citizen", "assigned_investigator"), pk=pk)
+        report = _get_report(pk)
         if report.assigned_investigator_id and report.assigned_investigator_id != request.user.id:
             return Response(
-                {"detail": f"This report is already claimed by {report.assigned_investigator.get_full_name() or report.assigned_investigator.username}."},
+                {"detail": f"This report is already claimed by {report.assigned_investigator.display_name}."},
                 status=400,
             )
-        # A reassignment (not just the first-ever claim) when whoever held it
-        # before this claim isn't the one claiming it now — see
-        # StaffReportForfeitView, which is what sets previous_investigator.
+        # A *different* Investigator than before means the citizen gets an email.
         reassigned = bool(report.previous_investigator_id) and report.previous_investigator_id != request.user.id
         report.assigned_investigator = request.user
         report.previous_investigator = None
@@ -399,55 +352,39 @@ class StaffReportClaimView(APIView):
         log_action(request.user, f"Claimed a report — {report.ordinance}")
         if reassigned:
             send_report_reassigned_email(report)
-        return Response(StaffReportSerializer(report, context={"request": request}).data)
+        return _staff_report_response(report, request)
 
 
 class StaffReportForfeitView(APIView):
-    """
-    POST /api/reports/staff/<id>/forfeit/ — frees a claimed report so
-    another Investigator can claim it. Administrator-only: once an
-    Investigator claims a report it's theirs for good (they can't give it
-    up themselves), so this is only the escape hatch for a report stuck
-    with someone who's left or gone inactive.
-    """
+    """POST /reports/staff/<id>/forfeit/ — Administrator releases a claim so another Investigator can take it."""
+
     permission_classes = [IsAdmin]
 
     def post(self, request, pk):
-        report = get_object_or_404(Report.objects.select_related("citizen", "assigned_investigator"), pk=pk)
+        report = _get_report(pk)
         holder = report.assigned_investigator
         report.assigned_investigator = None
         report.previous_investigator = holder
         report.save(update_fields=["assigned_investigator", "previous_investigator"])
         if holder:
-            holder_name = holder.get_full_name() or holder.username
-            log_action(request.user, f"Released {holder_name}'s claim on a report — {report.ordinance}")
-        return Response(StaffReportSerializer(report, context={"request": request}).data)
+            log_action(request.user, f"Released {holder.display_name}'s claim on a report — {report.ordinance}")
+        return _staff_report_response(report, request)
 
 
 class StaffReportAssignView(APIView):
-    """
-    POST /api/reports/staff/<id>/assign/ {"investigator_id": "<uuid>"} —
-    Administrator-only: picks an Investigator directly, rather than leaving
-    it to whoever claims it first (see StaffReportClaimView). Works whether
-    the report is unclaimed or already held by someone else — reassigning
-    it like this doesn't need StaffReportForfeitView first.
-    """
+    """POST /reports/staff/<id>/assign/ {"investigator_id": ...} — Administrator picks the Investigator."""
+
     permission_classes = [IsAdmin]
 
     def post(self, request, pk):
-        report = get_object_or_404(Report.objects.select_related("citizen", "assigned_investigator"), pk=pk)
+        report = _get_report(pk)
         investigator_id = request.data.get("investigator_id")
         if not investigator_id:
             return Response({"detail": "investigator_id is required."}, status=400)
 
-        investigator = get_object_or_404(
-            User, pk=investigator_id, role=User.Role.STAFF, position="Investigator"
-        )
+        investigator = get_object_or_404(User, pk=investigator_id, role=User.Role.STAFF, position="Investigator")
         if not investigator.is_active:
-            return Response(
-                {"detail": f"{investigator.get_full_name() or investigator.username}'s account is disabled."},
-                status=400,
-            )
+            return Response({"detail": f"{investigator.display_name}'s account is disabled."}, status=400)
 
         previous_holder = report.assigned_investigator
         reassigned = bool(previous_holder) and previous_holder.id != investigator.id
@@ -455,56 +392,48 @@ class StaffReportAssignView(APIView):
         report.previous_investigator = None
         report.save(update_fields=["assigned_investigator", "previous_investigator"])
 
-        investigator_name = investigator.get_full_name() or investigator.username
-        log_action(request.user, f"Assigned a report to {investigator_name} — {report.ordinance}")
+        log_action(request.user, f"Assigned a report to {investigator.display_name} — {report.ordinance}")
         if reassigned:
             send_report_reassigned_email(report)
-        return Response(StaffReportSerializer(report, context={"request": request}).data)
+        return _staff_report_response(report, request)
 
+
+# ---------------------------------------------------------------------------
+# 3. Staff: concerns/suggestions and folders
+# ---------------------------------------------------------------------------
 
 class StaffConcernListView(generics.ListAPIView):
-    """GET /api/concerns/staff/ — every citizen's submitted concerns/suggestions (Staff/Admin Dashboard)."""
+    """GET /concerns/staff/ — every concern/suggestion."""
+
     queryset = Concern.objects.select_related("citizen", "folder").all()
     serializer_class = StaffConcernSerializer
     permission_classes = [IsStaffOrAdmin]
 
-    def get_serializer_context(self):
-        return {"request": self.request}
-
 
 class StaffConcernDetailView(APIView):
     """
-    GET /api/concerns/staff/<id>/ — full detail of any citizen's concern/
-    suggestion; open to every Staff role (Barangay Captain's dashboard
-    needs to at least view one).
-    PATCH /api/concerns/staff/<id>/ — updates remarks/folder only; status
-    follows from those (see below).
-    Secretary/Admin only — Concerns/Suggestions is the Secretary's section
-    (see IsSecretaryOrAdmin); Captain's dashboard is read-only.
+    GET   /concerns/staff/<id>/ — any staff member can view it.
+    PATCH /concerns/staff/<id>/ — Secretary/Administrator changes remarks or folder.
+          A Submitted concern becomes Reviewed once it gets remarks or a folder.
     """
+
     permission_classes = [IsStaffOrAdmin]
 
     def get_object(self, pk):
         return get_object_or_404(Concern.objects.select_related("citizen", "folder"), pk=pk)
 
     def get(self, request, pk):
-        concern = self.get_object(pk)
-        return Response(StaffConcernSerializer(concern, context={"request": request}).data)
+        return Response(StaffConcernSerializer(self.get_object(pk), context={"request": request}).data)
 
     def patch(self, request, pk):
         if not IsSecretaryOrAdmin().has_permission(request, self):
-            return Response(
-                {"detail": "Only the Secretary can update a concern/suggestion."}, status=403
-            )
+            return Response({"detail": "Only the Secretary can update a concern/suggestion."}, status=403)
 
         concern = self.get_object(pk)
         serializer = StaffConcernUpdateSerializer(concern, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Status isn't set by hand: a Submitted concern becomes Reviewed once
-        # it's filed under a category or given remarks, and stays Reviewed
-        # even if it's later taken out of its category.
         acted_on = ("folder" in request.data and concern.folder_id) or (
             "remarks" in request.data and concern.remarks.strip()
         )
@@ -522,19 +451,13 @@ class StaffConcernDetailView(APIView):
 
 
 class ConcernFolderListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/concerns/folders/ — every folder, with how many concerns are in
-    it; open to every Staff role.
-    POST /api/concerns/folders/ — create a new folder (Concerns/Suggestions
-    sidebar) — Secretary/Admin only, same as everything else on that page.
-    """
+    """GET /concerns/folders/ — any staff.  POST — Secretary/Administrator creates a folder."""
+
     queryset = ConcernFolder.objects.all()
     serializer_class = ConcernFolderSerializer
 
     def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsSecretaryOrAdmin()]
-        return [IsStaffOrAdmin()]
+        return [IsSecretaryOrAdmin()] if self.request.method == "POST" else [IsStaffOrAdmin()]
 
     def perform_create(self, serializer):
         folder = serializer.save()
@@ -542,12 +465,8 @@ class ConcernFolderListCreateView(generics.ListCreateAPIView):
 
 
 class ConcernFolderDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    GET open to every Staff role.
-    PATCH /api/concerns/folders/<id>/ — rename a folder.
-    DELETE /api/concerns/folders/<id>/ — delete a folder; its concerns fall
-    back to unfoldered (see Concern.folder). Both Secretary/Admin only.
-    """
+    """GET — any staff.  PATCH (rename) / DELETE — Secretary/Administrator."""
+
     queryset = ConcernFolder.objects.all()
     serializer_class = ConcernFolderSerializer
 
@@ -566,40 +485,21 @@ class ConcernFolderDetailView(generics.RetrieveUpdateDestroyAPIView):
         log_action(self.request.user, f"Deleted folder '{name}'")
 
 
-class QuestionListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/questions/ — the logged-in citizen's own asked questions, with
-    any answer (FAQs page's "My Questions").
-    POST /api/questions/ — ask a new one (FAQs page's "Ask a Question").
-    """
-    serializer_class = QuestionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Question.objects.filter(citizen=self.request.user)
-
-
-class FAQListView(generics.ListAPIView):
-    """GET /api/faqs/ — the public, curated FAQ list (FAQs page). Open to guests, like Ordinances."""
-    queryset = FAQ.objects.all()
-    serializer_class = FAQSerializer
-    permission_classes = [permissions.AllowAny]
-
+# ---------------------------------------------------------------------------
+# 4. Questions and FAQs
+# ---------------------------------------------------------------------------
 
 class StaffQuestionListView(generics.ListAPIView):
-    """GET /api/questions/staff/ — every citizen's asked question (Staff/Admin Questions page)."""
+    """GET /questions/staff/ — every citizen question."""
+
     queryset = Question.objects.select_related("citizen").all()
     serializer_class = StaffQuestionSerializer
     permission_classes = [IsStaffOrAdmin]
 
 
 class StaffQuestionAnswerView(APIView):
-    """
-    PATCH /api/questions/staff/<id>/ — answers a question. Stays visible
-    (not deleted/hidden) afterward — see Question's docstring — so it keeps
-    showing here, just marked answered, for Admin to spot a pattern worth
-    promoting into a real FAQ (see AdminFAQListCreateView).
-    """
+    """PATCH /questions/staff/<id>/ — answer a question (the citizen is emailed)."""
+
     permission_classes = [IsStaffOrAdmin]
 
     def patch(self, request, pk):
@@ -612,15 +512,17 @@ class StaffQuestionAnswerView(APIView):
         return Response(StaffQuestionSerializer(question).data)
 
 
+class FAQListView(generics.ListAPIView):
+    """GET /faqs/ — the public FAQ list (no login needed)."""
+
+    queryset = FAQ.objects.all()
+    serializer_class = FAQSerializer
+    permission_classes = [permissions.AllowAny]
+
+
 class AdminFAQListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/faqs/admin/ — every FAQ, for the Admin Questions page's "Manage
-    FAQs" section.
-    POST /api/faqs/admin/ — add a new one — either from scratch, or an admin
-    promoting a citizen question that keeps coming up (see Question).
-    Admin-only — Staff can view/answer citizen questions but doesn't curate
-    the public FAQ list.
-    """
+    """GET/POST /faqs/admin/ — Administrator manages the FAQ list."""
+
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
     permission_classes = [IsAdmin]
@@ -631,7 +533,8 @@ class AdminFAQListCreateView(generics.ListCreateAPIView):
 
 
 class AdminFAQDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """PATCH/DELETE /api/faqs/admin/<id>/ — edit or remove an existing FAQ."""
+    """PATCH/DELETE /faqs/admin/<id>/ — edit or remove an FAQ."""
+
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
     permission_classes = [IsAdmin]

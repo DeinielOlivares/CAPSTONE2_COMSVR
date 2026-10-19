@@ -1,3 +1,5 @@
+"""Reports, concerns/suggestions, questions and FAQs. Every path here starts with /api/."""
+
 from django.urls import path
 
 from . import views

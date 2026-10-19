@@ -1,22 +1,12 @@
 """
-Barangay Platero OVRMS — File Report anti-abuse rules: identity verification, a cooldown
-between submissions, and an automatic lockout for rapid-fire filing.
+Anti-abuse rules for File a Report (all checked in ReportListCreateView.create):
 
-Three independent checks, all enforced in ReportListCreateView.create():
-
-  1. Identity verification (verification_required / has_valid_verification):
-     required on a citizen's first-ever report, and again if it's been more
-     than REVERIFY_AFTER_DAYS since their last one — a dormant account
-     suddenly filing again is exactly the case a hijacked/shared account
-     looks like. Cleared by ReportVerifyCodeView, consumed (deleted) once
-     the gated report actually goes through.
-  2. Cooldown (cooldown_remaining): a citizen can't file back-to-back
-     reports faster than COOLDOWN_HOURS apart.
-  3. Abuse lockout (check_and_apply_abuse_lockout): filing
-     ABUSE_MAX_REPORTS within ABUSE_WINDOW_HOURS disables the account
-     automatically (is_active=False, same flag Manage Accounts' Disable
-     User button controls) and emails the citizen to reset their password —
-     an admin has to manually re-enable the account from there afterward.
+1. Identity check — a citizen's first report, and their first report after
+   REVERIFY_AFTER_DAYS without one, needs a 6-digit emailed code first.
+2. Cooldown — at most one report every COOLDOWN_HOURS.
+3. Abuse lockout — filing ABUSE_MAX_REPORTS within ABUSE_WINDOW_HOURS
+   disables the account (an Administrator must enable it again) and the
+   citizen is emailed.
 """
 
 from datetime import timedelta
@@ -34,8 +24,12 @@ ABUSE_WINDOW_HOURS = 12
 ABUSE_MAX_REPORTS = 5
 
 
+def _last_report(user):
+    return Report.objects.filter(citizen=user).order_by("-created_at").first()
+
+
 def verification_required(user):
-    last_report = Report.objects.filter(citizen=user).order_by("-created_at").first()
+    last_report = _last_report(user)
     if not last_report:
         return True
     return timezone.now() - last_report.created_at > timedelta(days=REVERIFY_AFTER_DAYS)
@@ -47,19 +41,17 @@ def has_valid_verification(user):
 
 
 def cooldown_remaining(user):
-    """A timedelta if the citizen is still in cooldown, else None."""
-    last_report = Report.objects.filter(citizen=user).order_by("-created_at").first()
+    """How long until the citizen may file again (a timedelta), or None."""
+    last_report = _last_report(user)
     if not last_report:
         return None
     elapsed = timezone.now() - last_report.created_at
     cooldown = timedelta(hours=COOLDOWN_HOURS)
-    if elapsed < cooldown:
-        return cooldown - elapsed
-    return None
+    return cooldown - elapsed if elapsed < cooldown else None
 
 
 def check_and_apply_abuse_lockout(user):
-    """Call right after a report is successfully created."""
+    """Called right after a report is created."""
     cutoff = timezone.now() - timedelta(hours=ABUSE_WINDOW_HOURS)
     recent_count = Report.objects.filter(citizen=user, created_at__gte=cutoff).count()
     if recent_count >= ABUSE_MAX_REPORTS and user.is_active:

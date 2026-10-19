@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User, log_action
-from accounts.views import IsAnnouncementManager, IsStaffOrAdmin
+from accounts.permissions import IsAnnouncementManager, IsStaffOrAdmin
 from orms_backend.emails import send_announcement_posted_email
 
 from .models import Announcement, AnnouncementView as AnnouncementViewRecord
@@ -16,11 +16,7 @@ def _citizen_recipients():
 
 
 class AnnouncementListView(generics.ListAPIView):
-    """
-    GET /api/announcements/ — every announcement, newest first, for the
-    citizen home page's feed. Public (guests see announcements too — only
-    is_read is specific to a logged-in viewer, and defaults False for them).
-    """
+    """GET /api/announcements/ — all announcements, newest first (no login needed)."""
 
     queryset = Announcement.objects.select_related("posted_by").all()
     serializer_class = AnnouncementSerializer
@@ -49,9 +45,8 @@ class AnnouncementMarkViewedView(APIView):
 
 class StaffAnnouncementListCreateView(generics.ListCreateAPIView):
     """
-    GET /api/announcements/staff/ — every Barangay Staff role can view the
-    list (same as Reports/Concerns dashboards being read-only for non-owners).
-    POST — Secretary/Barangay Captain/Admin only; emails every citizen.
+    GET  /api/announcements/staff/ — any staff member.
+    POST — Secretary/Barangay Captain/Administrator; every citizen is emailed.
     """
 
     queryset = Announcement.objects.select_related("posted_by").all()
@@ -61,9 +56,6 @@ class StaffAnnouncementListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAnnouncementManager()]
         return [IsStaffOrAdmin()]
-
-    def get_serializer_context(self):
-        return {"request": self.request}
 
     def perform_create(self, serializer):
         announcement = serializer.save(posted_by=self.request.user)
@@ -77,9 +69,6 @@ class StaffAnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Announcement.objects.select_related("posted_by").all()
     serializer_class = AnnouncementSerializer
     permission_classes = [IsAnnouncementManager]
-
-    def get_serializer_context(self):
-        return {"request": self.request}
 
     def perform_update(self, serializer):
         announcement = serializer.save()
