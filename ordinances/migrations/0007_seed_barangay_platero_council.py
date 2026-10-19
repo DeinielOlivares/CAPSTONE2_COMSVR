@@ -17,15 +17,15 @@
 from django.db import migrations
 
 COUNCIL = [
-    ("Hon. Nelson D. Ama", "barangay_captain"),
-    ("Hon. Lualhati C. Narvaez", "barangay_kagawad"),
-    ("Hon. Eliseo L. Aurelio Jr.", "barangay_kagawad"),
-    ("Hon. Lota F. Toledo", "barangay_kagawad"),
-    ("Hon. Enriqueta C. Lacson", "barangay_kagawad"),
+    ("Hon. Eliseo \"Jun\" Aurelio Jr.", "barangay_captain"),
+    ("Hon. Albert C. Anasao", "barangay_kagawad"),
     ("Hon. Melvin L. Belan", "barangay_kagawad"),
+    ("Hon. Enriqueta C. Lacson", "barangay_kagawad"),
     ("Hon. Rommel N. Almendral", "barangay_kagawad"),
-    ("Hon. Florencio A. Ama", "barangay_kagawad"),
-    ("Hon. Dan Paul V. Tarzona", "sk_chairperson"),
+    ("Hon. Lualhati C. Narvaez", "barangay_kagawad"),
+    ("Hon. Ruel Paolo C. Alonte", "barangay_kagawad"),
+    ("Hon. Joana Marie R. Marica", "barangay_kagawad"),
+    ("Hon. Anthony Rinmark A. Perez", "barangay_kagawad"),
 ]
 
 
