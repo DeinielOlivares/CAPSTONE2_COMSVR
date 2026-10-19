@@ -1,15 +1,160 @@
-// O.R.M.S. — placeholder account records for the admin "Manage Accounts" page.
-// activityMinutes: 0 means currently active/online; otherwise minutes since last active,
-// used to sort by "Most Recently Active".
+// Barangay Platero OVRMS — Manage Accounts data, backed by the real API.
+// This used to return a hardcoded ACCOUNTS array plus anything saved to
+// localStorage by the Create Account form; it now fetches real accounts
+// from GET /api/auth/admin/users/. The shape returned by that endpoint
+// matches this file's old placeholder objects field-for-field (owner,
+// type, active, lastActiveLabel, activityMinutes, created, updated), so
+// manage-accounts.js and create-accounts.js didn't need to change how
+// they read each account — only how this file fetches them.
 
-const ACCOUNTS = [
-  { id: "000001", owner: "Liza Almoreno", email: "liza.almoreno@gmail.com", type: "Administrator", active: true, activityMinutes: 0, created: "1 Year Ago", updated: "2 Months Ago" },
-  { id: "000002", owner: "Joseph Michael", email: "joseph.michael@gmail.com", type: "Administrator", active: false, lastActiveLabel: "4 Hours Ago", activityMinutes: 240, created: "1 Year Ago", updated: "3 Months Ago" },
-  { id: "2024001", owner: "Eliseo Aurelio Jr.", email: "eliseo.aurelio@gmail.com", type: "Barangay Captain", active: true, activityMinutes: 0, created: "8 Months Ago", updated: "1 Month Ago" },
-  { id: "2024002", owner: "Dan Paul Tarzona", email: "danpaul.tarzona@gmail.com", type: "Secretary", active: true, activityMinutes: 0, created: "8 Months Ago", updated: "1 Month Ago" },
-  { id: "2024015", owner: "Detective Conan", email: "detective.conan@gmail.com", type: "Investigator", active: true, activityMinutes: 0, created: "6 Months Ago", updated: "3 Weeks Ago" },
-  { id: "2024016", owner: "Dexter Morgan", email: "dexter.morgan@gmail.com", type: "Investigator", active: false, lastActiveLabel: "8 Hours Ago", activityMinutes: 480, created: "6 Months Ago", updated: "5 Days Ago" },
-  { id: "2024017", owner: "Bruce Wayne", email: "bruce.wayne@gmail.com", type: "Investigator", active: false, lastActiveLabel: "16 Hours Ago", activityMinutes: 960, created: "5 Months Ago", updated: "16 Hours Ago" },
-  { id: "0000034", owner: "Risa Hontiveros", email: "risa.hontiveros@gmail.com", type: "Barangay Citizen", active: true, activityMinutes: 0, created: "3 Weeks Ago", updated: "3 Weeks Ago" },
-  { id: "0000033", owner: "Bam Aquino", email: "bambam80@gmail.com", type: "Barangay Citizen", active: false, lastActiveLabel: "1 Day Ago", activityMinutes: 1440, created: "7 Days Ago", updated: "7 Days Ago" },
-];
+const ADMIN_API_BASE = "/api/auth/admin";
+
+// Fetches the live account list. Callers should await this and handle the
+// case where it throws (e.g. token expired, network error) rather than
+// assuming it always resolves.
+async function getAllAccounts() {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/`);
+  if (!response.ok) {
+    throw new Error("Could not load accounts. Try refreshing the page.");
+  }
+  return response.json();
+}
+
+// Used by the "Disable/Enable User" button and "Update Role" popup —
+// PATCHes just the changed fields for one account.
+async function updateAccount(id, changes) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not update this account.");
+  }
+  return response.json();
+}
+
+// Backs the "Reset Password" button (Barangay Staff/Administrator accounts
+// that are already set up): emails the owner a one-time link to choose a
+// new password — see AdminResetPasswordView. The admin never sees it.
+async function resetAccountPassword(id) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/reset-password/`, {
+    method: "POST",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Could not reset this account's password.");
+  }
+  return data;
+}
+
+// Backs the "Resend Setup Link" button (any account still Setup Pending):
+// emails a fresh one-time setup link and kills older ones — see
+// AdminResendSetupLinkView.
+async function resendSetupLink(id) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/resend-setup-link/`, {
+    method: "POST",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Could not resend the setup link.");
+  }
+  return data;
+}
+
+// Disable an account. An account still holding active claimed reports must
+// have them released first — releaseClaims frees them in the same request
+// (see AdminAccountDetailView.patch, which refuses it otherwise).
+async function disableAccount(id, { releaseClaims = false } = {}) {
+  return updateAccount(id, { active: false, release_claims: releaseClaims });
+}
+
+// Change a Barangay Staff account's role — same release rule as disabling.
+async function updateAccountRole(id, staffRole, { releaseClaims = false } = {}) {
+  return updateAccount(id, { staff_role: staffRole, release_claims: releaseClaims });
+}
+
+// Used by the "Delete Account" button.
+async function deleteAccount(id) {
+  const response = await authFetch(`${ADMIN_API_BASE}/users/${id}/`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not delete this account.");
+  }
+}
+
+// Used by the Create Account form's "Barangay Staff" account type — creates
+// a Staff/Administrator account with just an email + role (see
+// accounts/serializers.py's AdminCreateUserSerializer).
+async function createAccount({ email, staffRole }) {
+  const response = await authFetch(`${ADMIN_API_BASE}/create-user/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, staff_role: staffRole }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    const err = new Error(Array.isArray(firstError) ? firstError[0] : "Could not create this account.");
+    err.fields = data;
+    throw err;
+  }
+  return response.json();
+}
+
+// Used by the Create Account form's "Barangay Citizen" account type — the
+// admin enters the citizen's full details directly (see
+// StaffCreateCitizenSerializer); the citizen gets a one-time setup link by
+// email to confirm them and choose their own password. Throws with field errors attached (err.fields) so the caller can
+// highlight the specific email/contact_number field, same pattern as
+// citizen Sign Up's apiCheckAvailability.
+async function createCitizenAccount(details) {
+  const response = await authFetch(`${ADMIN_API_BASE}/create-citizen-direct/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(details),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    const err = new Error(data.detail || (Array.isArray(firstError) ? firstError[0] : "Could not create the account."));
+    err.fields = data;
+    throw err;
+  }
+  return response.json();
+}
+
+// Investigator claims: once an Investigator claims a report only an
+// Administrator can release it (see reports/views.py's
+// StaffReportForfeitView) — for when that Investigator has left or gone
+// inactive. Manage Accounts lists an account's claims with these.
+const CLAIM_STATUS_LABELS = {
+  submitted: "New Submission",
+  under_review: "Under Review",
+  in_action: "In Action",
+  resolved: "Resolved",
+  with_remarks: "With Remarks",
+};
+
+// Only the account's active claims — a Resolved/With Remarks report keeps
+// its Investigator's name as the record of who handled it, so it's never
+// listed for release (see accounts/views.py's _active_claims).
+async function getClaimedReports(userId) {
+  const response = await authFetch(`/api/reports/staff/?assigned_to=${encodeURIComponent(userId)}&active=1`);
+  if (!response.ok) {
+    throw new Error("Could not load this account's claimed reports.");
+  }
+  return response.json();
+}
+
+async function releaseReportClaim(reportId) {
+  const response = await authFetch(`/api/reports/staff/${encodeURIComponent(reportId)}/forfeit/`, { method: "POST" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not release this claim.");
+  }
+  return response.json();
+}

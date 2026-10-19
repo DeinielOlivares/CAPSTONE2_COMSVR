@@ -1,0 +1,15 @@
+{% extends "emails/_base.html" %}
+{% block header %}<span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.5px;">Barangay Platero</span><br />
+<span style="color:#e4f5e6;font-size:12px;">Account setup</span>{% endblock %}
+{% block footer %}<span style="color:#8a8578;font-size:11px;">This is an automated message. Please do not reply to this email.</span>{% endblock %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">Set up your account</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hello{% if user.first_name %} {{ user.first_name }}{% endif %},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">The Barangay has created a Barangay Platero OVRMS account for <strong>{{ user.email }}</strong>. Use the button below to confirm your details and choose your own password.</p>
+<p style="margin:0 0 20px;text-align:center;">
+  <a href="{{ setup_url }}" style="display:inline-block;font-size:15px;font-weight:bold;color:#ffffff;background:#057a12;padding:12px 24px;border-radius:6px;text-decoration:none;">Set Up My Account</a>
+</p>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#5b5748;">If the button doesn't work, copy and paste this link into your browser:<br /><a href="{{ setup_url }}" style="word-break:break-all;color:#057a12;">{{ setup_url }}</a></p>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#5b5748;">This link works once and expires in {{ expires_hours }} hours. If it has expired, open it anyway and choose <strong>Email me a new link</strong>.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">If you weren't expecting this, you can safely ignore this email — the account can't be used until someone completes setup with this link.</p>
+{% endblock %}

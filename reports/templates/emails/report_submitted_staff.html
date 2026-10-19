@@ -1,0 +1,11 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">A new report needs review</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">A resident just filed a report:</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;padding:12px 16px;background:#f0eee6;border-left:3px solid #5b7fd1;">
+  <strong>{{ report.ordinance }}</strong><br />
+  {{ report.location }}<br />
+  Filed by {{ report.citizen.first_name }} {{ report.citizen.last_name }}
+</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">Log in to the Staff portal's Reports page to review it.</p>
+{% endblock %}

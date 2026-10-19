@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — View/Edit Report</title>
+  <title>Barangay Platero OVRMS — Report Details</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -11,25 +11,38 @@
   <header class="admin-topbar">
     <div class="admin-topbar__profile">
       <span class="navbar__bell" role="button" tabindex="0" id="notifBell">
-        &#128276;<span class="navbar__badge"></span>
+        <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
         <div class="notif-dropdown" id="notifDropdown" hidden>
-          <h3 class="notif-dropdown__title">Notifications</h3>
-          <ul class="notif-dropdown__list">
-            <li class="notif-dropdown__item"><span>3 new reports submitted</span><span class="notif-dropdown__time">10 minutes ago</span></li>
-            <li class="notif-dropdown__item"><span>Curfew Violation report resolved</span><span class="notif-dropdown__time">1 hour ago</span></li>
-            <li class="notif-dropdown__item"><span>New remarks added to a report</span><span class="notif-dropdown__time">3 hours ago</span></li>
-          </ul>
+          <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
+          <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
         </div>
       </span>
       <button type="button" class="admin-topbar__profile-btn" id="profileBtn">
         <span class="admin-topbar__avatar" aria-hidden="true"></span>
         <span class="admin-topbar__name">
-          <strong>Eliseo Aurelio Jr.</strong>
-          <small>Barangay Chairman</small>
+          <strong></strong>
+          <small></small>
         </span>
       </button>
     </div>
   </header>
+<script>
+  // Fills the topbar name/role and sidebar portal label from the stored login
+  // before first paint — admin.js does the same later, but waiting for it
+  // flashed placeholder text for a moment on every page load.
+  (function () {
+    var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
+    var user;
+    try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
+    if (!user) return;
+    document.querySelectorAll(".admin-topbar__name strong").forEach(function (el) { el.textContent = user.name; });
+    document.querySelectorAll(".admin-topbar__name small").forEach(function (el) { el.textContent = user.position || "Barangay Official"; });
+  })();
+</script>
 
   <div class="report-detail-page">
     <div class="report-detail-layout">
@@ -47,13 +60,8 @@
         </div>
 
         <div class="field">
-          <label for="reportLocation">Specific Location</label>
+          <label for="reportLocation">Address</label>
           <input type="text" id="reportLocation" disabled />
-        </div>
-
-        <div class="field">
-          <label for="reportOrdinance">Ordinance in Violation</label>
-          <select id="reportOrdinance" disabled></select>
         </div>
 
         <div class="form-row">
@@ -68,20 +76,31 @@
         </div>
 
         <div class="field">
+          <label for="reportOrdinance">Ordinance in Violation</label>
+          <select id="reportOrdinance" disabled></select>
+        </div>
+
+        <div class="field">
           <label for="reportNature">Nature of Violation</label>
           <textarea id="reportNature" disabled></textarea>
         </div>
 
-        <div class="evidence-photo" aria-hidden="true">&#128247;</div>
+        <div id="reportEvidence"></div>
       </div>
 
       <div class="report-detail-side">
         <div class="dash-card">
+          <div class="status-edit-row">
+            <span class="status-edit-label">Investigator:</span>
+            <span id="claimLabel"></span>
+          </div>
+          <button type="button" class="btn report-row__claim-btn" id="claimBtn" hidden>Claim Report</button>
+          <p id="claimHint" style="margin: 8px 0 0; font-size: 0.8rem; color: var(--text-muted);" hidden></p>
+        </div>
+
+        <div class="dash-card">
           <h2 class="status-timeline__title">Status Timeline</h2>
           <div id="timelineItems"></div>
-          <div class="status-timeline__notice">
-            &#8505;&#65039; You will be notified once there is an update on your report
-          </div>
         </div>
 
         <div class="dash-card status-edit-card">
@@ -89,21 +108,25 @@
             <span class="status-edit-label">Status:</span>
             <span class="status-pill" id="statusPill"></span>
             <select id="statusSelect" class="reports-filter" hidden></select>
-            <button type="button" class="status-edit-btn" id="statusEditBtn" aria-label="Edit status">&#9999;&#65039;</button>
+            <button type="button" class="status-edit-btn" id="statusEditBtn" aria-label="Edit status"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20H5.5a1.5 1.5 0 01-1.5-1.5V12"/><path d="M17.4 3.6a2.1 2.1 0 013 3L10 17l-4.5 1.2L6.8 13.7z"/></svg></button>
           </div>
 
           <label for="remarksInput" class="status-edit-remarks-label">Remarks:</label>
-          <textarea id="remarksInput" class="status-edit-remarks" placeholder="Enter remarks to be shown to reportee." disabled></textarea>
+          <textarea id="remarksInput" class="status-edit-remarks" placeholder="Enter remarks to be shown to reportee."></textarea>
 
           <button type="button" class="btn" id="saveChangesBtn">Save Changes</button>
         </div>
 
-        <button type="button" class="btn back-to-reports-btn" id="backToReportsBtn">Back to Reports</button>
+        <button type="button" class="btn btn-muted back-to-reports-btn" id="downloadReportBtn" hidden>Download Report</button>
+        <button type="button" class="btn back-to-reports-btn" id="backToReportsBtn">Back</button>
       </div>
+
     </div>
   </div>
 
+  <script src="js/ordinances-data.js"></script>
   <script src="js/reports-data.js"></script>
+  <script src="/citizen/js/report-form-download.js"></script>
   <script src="js/report-detail.js"></script>
   <script src="js/admin.js"></script>
 
@@ -112,13 +135,13 @@
     <div class="modal-card profile-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
       <div class="profile-card__row">
-        <span class="profile-avatar">EA</span>
+        <span class="profile-avatar" id="profileCardInitials"></span>
         <div>
-          <p class="profile-card__name">Eliseo Aurelio Jr.</p>
-          <p class="profile-card__role">Barangay Chairman</p>
+          <p class="profile-card__name" id="profileCardName"></p>
+          <p class="profile-card__role" id="profileCardRole"></p>
         </div>
       </div>
-      <a class="btn btn-muted" href="profile.html">Edit Information</a>
+      <a class="btn btn-muted" href="profile.html">View Details</a>
       <button type="button" class="btn btn-muted" id="profileLogoutBtn">Log Out</button>
     </div>
   </div>
@@ -131,6 +154,14 @@
         <button type="button" class="btn" id="logoutYes">Yes</button>
         <button type="button" class="btn btn-danger" id="logoutNo">No</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Evidence lightbox: clicking a thumbnail overlays the full-size photo/video here -->
+  <div class="modal-overlay" id="mediaLightbox" hidden>
+    <div class="modal-card media-lightbox-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      <div class="media-lightbox__body" id="mediaLightboxBody"></div>
     </div>
   </div>
 

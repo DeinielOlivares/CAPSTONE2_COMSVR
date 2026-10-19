@@ -1,426 +1,555 @@
-// O.R.M.S. — Concerns/Suggestions Dashboard behavior: week filter, status
-// filter, pagination, category pie, and an enlargeable heatmap. Mirrors
-// reports-dashboard.js but runs against the CONCERNS mock data.
+// Barangay Platero OVRMS — Concerns/Suggestions Dashboard (Barangay Captain, read-only).
+//
+// An oversight view rather than a work queue (that's the Secretary's
+// concerns.html): what residents are raising, whether it's being answered,
+// and what needs following up. One period selector drives every section.
+// "Topic" is the folder the Secretary files a concern under (see
+// concerns-data.js); "reviewed" timing uses Concern.reviewed_at.
 
-document.addEventListener("DOMContentLoaded", () => {
-  const PAGE_SIZE = 5;
-  const WEEK_OPTIONS_COUNT = 8;
-  const MONTHS_BACK_COUNT = 5;
+document.addEventListener("DOMContentLoaded", async () => {
+  const OVERDUE_DAYS = 7;
+  const TOP_ROWS = 6;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // The period and the list size are kept for this browser tab (see
+  // createFilterMemory), so coming back from a concern keeps them.
+  const memory = createFilterMemory("concerns_dashboard");
+  const state = { period: memory.get("period", "month0") };
 
-  const state = {
-    weekOffset: 0,
-    statusFilter: "all",
-    page: 1,
-    categoryPeriod: "week",
-    heatmapPeriod: "week0",
-  };
+  const dashboardMain = document.querySelector(".admin-content");
 
-  function buildPeriodOptions() {
-    const opts = [{ value: "week", label: "This Week" }];
-    for (let m = 0; m <= MONTHS_BACK_COUNT; m++) {
-      const { start } = getMonthRange(m);
-      opts.push({
-        value: `month${m}`,
-        label: m === 0 ? "This Month" : start.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-      });
-    }
-    return opts;
+  try {
+    await Promise.all([ensureConcernsLoaded(), ensureFoldersLoaded()]);
+  } catch (err) {
+    if (dashboardMain) dashboardMain.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    return;
   }
 
-  function buildHeatmapPeriodOptions() {
-    const opts = [];
-    for (let i = 0; i < WEEK_OPTIONS_COUNT; i++) {
-      const { label, start } = getWeekRange(i);
-      const short = i === 0 ? "This Week" : i === 1 ? "Last Week" : `Week of ${formatConcernDate(start)}`;
-      const full = i === 0 ? `This Week — ${label}` : i === 1 ? `Last Week — ${label}` : label;
-      opts.push({ value: `week${i}`, label: full, short });
-    }
-    for (let m = 0; m <= MONTHS_BACK_COUNT; m++) {
-      const { start } = getMonthRange(m);
-      const short = m === 0 ? "This Month" : start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      opts.push({ value: `month${m}`, label: short, short });
-    }
-    return opts;
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text == null ? "" : String(text);
+    return div.innerHTML;
   }
 
-  function hashString(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-    return h;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  // ---- Periods ----
+  // periodRanges() returns the current range, the one before it (for "vs
+  // last ..."; none for All Time), and the buckets the trend chart plots;
+  // periodMeta() returns the words used in "Received this month" etc.
+
+  const PERIOD_OPTIONS = [
+    { value: "month0", label: "This Month" },
+    { value: "month1", label: "Last Month" },
+    { value: "year0", label: "This Year" },
+    { value: "year1", label: "Last Year" },
+    { value: "all", label: "All Time" },
+  ];
+
+  function periodMeta(period) {
+    return {
+      month0: { noun: "this month", previous: "last month" },
+      month1: { noun: "last month", previous: "the month before" },
+      year0: { noun: "this year", previous: "last year" },
+      year1: { noun: "last year", previous: "the year before" },
+      all: { noun: "overall", previous: null },
+    }[period];
   }
 
-  // ---- Dropdown open/close ----
-
-  const allDropdowns = Array.from(document.querySelectorAll(".dash-dropdown"));
-
-  function closeAllDropdowns() {
-    allDropdowns.forEach((d) => {
-      const menu = d.querySelector(".dash-dropdown-menu");
-      if (menu) menu.hidden = true;
+  function monthBuckets(firstMonth, count, withYear) {
+    return Array.from({ length: count }, (_, i) => {
+      const first = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + i, 1);
+      return {
+        start: first,
+        end: endOfDay(new Date(first.getFullYear(), first.getMonth() + 1, 0)),
+        label: first.toLocaleDateString("en-US", withYear ? { month: "short", year: "2-digit" } : { month: "short" }),
+        title: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      };
     });
   }
 
-  allDropdowns.forEach((dropdown) => {
-    const btn = dropdown.querySelector(".dash-dropdown__btn");
-    const menu = dropdown.querySelector(".dash-dropdown-menu");
-    if (!btn || !menu) return;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const wasHidden = menu.hidden;
-      closeAllDropdowns();
-      menu.hidden = !wasHidden;
-    });
+  function periodRanges(period) {
+    if (period === "all") {
+      const now = new Date();
+      const firstDate = liveConcerns().reduce((min, c) => (c.dateSubmitted < min ? c.dateSubmitted : min), now);
+      const firstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      const months = (now.getFullYear() - firstMonth.getFullYear()) * 12 + now.getMonth() - firstMonth.getMonth() + 1;
+      let buckets;
+      if (months <= 24) {
+        buckets = monthBuckets(firstMonth, months, true);
+        // Every other month labelled once there are too many to fit.
+        if (months > 12) buckets.forEach((b, i) => { if (i % 2) b.label = ""; });
+      } else {
+        buckets = Array.from({ length: now.getFullYear() - firstMonth.getFullYear() + 1 }, (_, i) => {
+          const year = firstMonth.getFullYear() + i;
+          return { start: new Date(year, 0, 1), end: endOfDay(new Date(year, 11, 31)), label: String(year), title: String(year) };
+        });
+      }
+      return { start: firstMonth, end: endOfDay(now), prevStart: null, prevEnd: null, buckets };
+    }
+
+    const [, kind, nStr] = period.match(/^(month|year)(\d+)$/);
+    const n = Number(nStr);
+
+    if (kind === "month") {
+      const { start, end } = getMonthRange(n);
+      const prev = getMonthRange(n + 1);
+      const days = end.getDate();
+      return {
+        start,
+        end: endOfDay(end),
+        prevStart: prev.start,
+        prevEnd: endOfDay(prev.end),
+        buckets: Array.from({ length: days }, (_, i) => {
+          const day = new Date(start.getFullYear(), start.getMonth(), i + 1);
+          return {
+            start: day,
+            end: endOfDay(day),
+            // Every 5th day labelled so 30 ticks don't collide.
+            label: i === 0 || (i + 1) % 5 === 0 ? String(i + 1) : "",
+            title: day.toLocaleDateString("en-US", { month: "long", day: "numeric" }),
+          };
+        }),
+      };
+    }
+
+    const { start, end, year } = getYearRange(n);
+    const prev = getYearRange(n + 1);
+    return {
+      start,
+      end: endOfDay(end),
+      prevStart: prev.start,
+      prevEnd: endOfDay(prev.end),
+      buckets: monthBuckets(new Date(year, 0, 1), 12, false),
+    };
+  }
+
+  const within = (date, start, end) => !!date && date >= start && date <= end;
+
+  // ---- Period dropdown ----
+
+  const periodDropdown = document.getElementById("periodDropdown");
+  const periodBtn = document.getElementById("periodBtn");
+  const periodMenu = document.getElementById("periodMenu");
+  const periodLabel = document.getElementById("periodLabel");
+
+  periodBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    periodMenu.hidden = !periodMenu.hidden;
+  });
+  document.addEventListener("click", (e) => {
+    if (!periodDropdown.contains(e.target)) periodMenu.hidden = true;
   });
 
-  document.addEventListener("click", () => closeAllDropdowns());
-
-  // ---- Stats ----
-
-  function countByCategory(concerns) {
-    const counts = {};
-    CONCERN_CATEGORIES.forEach((c) => (counts[c.name] = 0));
-    concerns.forEach((c) => (counts[c.category] = (counts[c.category] || 0) + 1));
-    return counts;
-  }
-
-  function topCategory(counts) {
-    let best = null;
-    CONCERN_CATEGORIES.forEach((c) => {
-      if (!best || counts[c.name] > counts[best]) best = c.name;
-    });
-    return best;
-  }
-
-  function renderStats() {
-    const weekConcerns = getConcernsForWeekOffset(state.weekOffset);
-    document.getElementById("statTotal").textContent = weekConcerns.length;
-
-    const weekCounts = countByCategory(weekConcerns);
-    document.getElementById("statTopSubject").textContent = weekConcerns.length ? topCategory(weekCounts) : "—";
-
-    const thisMonthCounts = countByCategory(getConcernsForPeriod("month0"));
-    const lastMonthCounts = countByCategory(getConcernsForPeriod("month1"));
-    let bestCategory = null;
-    let bestDelta = -Infinity;
-    CONCERN_CATEGORIES.forEach((c) => {
-      const delta = (thisMonthCounts[c.name] || 0) - (lastMonthCounts[c.name] || 0);
-      if (delta > bestDelta) {
-        bestDelta = delta;
-        bestCategory = c.name;
-      }
-    });
-    document.getElementById("statTopIncrease").textContent = bestCategory || "—";
-  }
-
-  // ---- Date range dropdown ----
-
-  const dateRangeLabel = document.getElementById("dateRangeLabel");
-  const dateRangeMenu = document.getElementById("dateRangeMenu");
-
-  function renderDateRangeMenu() {
-    const items = [];
-    for (let i = 0; i < WEEK_OPTIONS_COUNT; i++) {
-      const { label } = getWeekRange(i);
-      const prefix = i === 0 ? "This Week — " : i === 1 ? "Last Week — " : "";
-      items.push(
-        `<li data-offset="${i}" class="${i === state.weekOffset ? "active" : ""}">${prefix}${label}</li>`
-      );
-    }
-    dateRangeMenu.innerHTML = items.join("");
-    dateRangeMenu.querySelectorAll("li").forEach((li) => {
+  function renderPeriodMenu() {
+    const opts = PERIOD_OPTIONS;
+    const current = opts.find((o) => o.value === state.period);
+    periodLabel.textContent = current ? current.label : "";
+    periodMenu.innerHTML = opts
+      .map((o) => `<li data-period="${o.value}" class="${o.value === state.period ? "active" : ""}">${o.label}</li>`)
+      .join("");
+    periodMenu.querySelectorAll("li").forEach((li) => {
       li.addEventListener("click", () => {
-        state.weekOffset = Number(li.dataset.offset);
-        state.page = 1;
+        state.period = li.dataset.period;
+        memory.set("period", state.period);
+        periodMenu.hidden = true;
         renderAll();
       });
     });
   }
 
-  // ---- Recent concerns table + View All status filter + pagination ----
+  // ---- Headline numbers ----
 
-  const viewAllMenu = document.getElementById("viewAllMenu");
-  const viewAllLabel = document.getElementById("viewAllLabel");
-  const recentConcernsBody = document.getElementById("recentConcernsBody");
-  const recentConcernsPagination = document.getElementById("recentConcernsPagination");
+  function formatDuration(ms) {
+    const hours = ms / (60 * 60 * 1000);
+    if (hours < 1) return "Under 1 hour";
+    if (hours < 24) return plural(Math.round(hours), "hour");
+    return plural(Math.round(hours / 24), "day");
+  }
 
-  const STATUS_FILTER_LABELS = {
-    all: "View All Concerns/Suggestions",
-    "New Submission": "New Submission",
-    "In Folder": "In Folder",
-  };
+  function median(values) {
+    if (!values.length) return null;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
 
-  viewAllMenu.querySelectorAll("li").forEach((li) => {
-    li.addEventListener("click", () => {
-      state.statusFilter = li.dataset.status;
-      state.page = 1;
-      viewAllMenu.querySelectorAll("li").forEach((el) => el.classList.toggle("active", el === li));
-      viewAllLabel.textContent = STATUS_FILTER_LABELS[state.statusFilter];
-      renderRecentConcerns();
+  // "▲ 6 vs last month" — plain text plus an arrow, never colour alone.
+  function deltaText(current, previous, previousNoun) {
+    if (!previousNoun) return "Since the first submission";
+    const diff = current - previous;
+    if (diff === 0) return `Same as ${previousNoun}`;
+    return `${diff > 0 ? "▲" : "▼"} ${Math.abs(diff)} vs ${previousNoun}`;
+  }
+
+  function renderKpis(ctx) {
+    const { received, previousReceived, reviewedInPeriod, waiting, meta } = ctx;
+
+    document.getElementById("kpiReceivedLabel").textContent = `Received ${meta.noun}`;
+    document.getElementById("kpiReceived").textContent = received.length;
+    document.getElementById("kpiReceivedNote").textContent = deltaText(received.length, previousReceived.length, meta.previous);
+
+    // The backlog is "right now", not tied to the selected period — a
+    // concern from two months ago that's still unread is still waiting.
+    document.getElementById("kpiWaiting").textContent = waiting.length;
+    const oldest = waiting.reduce((min, c) => (!min || c.dateSubmitted < min.dateSubmitted ? c : min), null);
+    document.getElementById("kpiWaitingNote").textContent = oldest
+      ? `Oldest has waited ${formatDuration(Date.now() - oldest.dateSubmitted)}`
+      : "No submitted concerns left to review";
+
+    document.getElementById("kpiReviewedLabel").textContent = `Reviewed ${meta.noun}`;
+    document.getElementById("kpiReviewed").textContent = reviewedInPeriod.length;
+    const receivedAndReviewed = received.filter((c) => c.status === "Reviewed").length;
+    document.getElementById("kpiReviewedNote").textContent = received.length
+      ? `${Math.round((receivedAndReviewed / received.length) * 100)}% of those received ${meta.noun}`
+      : `Nothing received ${meta.noun}`;
+
+    const typical = median(reviewedInPeriod.map((c) => c.dateReviewed - c.dateSubmitted).filter((ms) => ms >= 0));
+    document.getElementById("kpiTime").textContent = typical === null ? "—" : formatDuration(typical);
+    document.getElementById("kpiTimeNote").textContent =
+      typical === null ? `Nothing reviewed ${meta.noun}` : `Half were reviewed faster than this`;
+  }
+
+  // ---- Horizontal bar lists (topics, streets) ----
+  // One hue: these compare a magnitude across categories, and the name is
+  // written beside each bar, so colour doesn't need to identify anything.
+
+  function renderBars(container, rows, emptyMessage) {
+    if (!rows.length) {
+      container.innerHTML = `<p class="cd-empty">${emptyMessage}</p>`;
+      return;
+    }
+    const max = Math.max(...rows.map((r) => r.count), 1);
+    container.innerHTML = `<ul class="cd-bars">${rows
+      .map(
+        (r) => `
+        <li class="cd-bars__row${r.muted ? " cd-bars__row--muted" : ""}" title="${escapeHtml(r.title || "")}">
+          <span class="cd-bars__name">${escapeHtml(r.name)}</span>
+          <span class="cd-bars__track"><span class="cd-bars__fill" style="width: ${Math.max((r.count / max) * 100, 2)}%"></span></span>
+          <span class="cd-bars__count">${r.count}</span>
+          <span class="cd-bars__delta">${r.delta || ""}</span>
+        </li>`
+      )
+      .join("")}</ul>`;
+  }
+
+  function countBy(concerns, keyFn) {
+    const counts = new Map();
+    concerns.forEach((c) => {
+      const key = keyFn(c);
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
     });
-  });
-
-  function statusPillClass(status) {
-    return status === "In Folder" ? "status-pill--resolved" : "status-pill--in-process";
+    return counts;
   }
 
-  function buildPageList(current, total) {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-    const pages = [1];
-    if (current > 3) pages.push("...");
-    const start = Math.max(2, current - 1);
-    const end = Math.min(total - 1, current + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (current < total - 2) pages.push("...");
-    pages.push(total);
-    return pages;
+  function topicDelta(current, previous) {
+    const diff = current - previous;
+    if (diff === 0) return "";
+    return `${diff > 0 ? "▲" : "▼"} ${Math.abs(diff)}`;
   }
 
-  function renderRecentConcerns() {
-    let concerns = getConcernsForWeekOffset(state.weekOffset);
-    if (state.statusFilter !== "all") {
-      concerns = concerns.filter((c) => c.status === state.statusFilter);
+  function renderTopics(ctx) {
+    const { received, previousReceived, meta } = ctx;
+    const now = countBy(received, (c) => c.folderName);
+    const before = countBy(previousReceived, (c) => c.folderName);
+
+    const rows = Array.from(now.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, TOP_ROWS)
+      .map(([name, count]) => ({
+        name,
+        count,
+        delta: meta.previous ? topicDelta(count, before.get(name) || 0) : "",
+        title: meta.previous ? `${name}: ${count} ${meta.noun}, ${before.get(name) || 0} ${meta.previous}` : `${name}: ${count}`,
+      }));
+
+    const noTopic = received.filter((c) => !c.folderName).length;
+    if (noTopic) {
+      rows.push({ name: "No topic yet", count: noTopic, muted: true, title: "Not yet filed under a topic by the Secretary" });
     }
 
-    const totalPages = Math.max(1, Math.ceil(concerns.length / PAGE_SIZE));
-    state.page = Math.min(state.page, totalPages);
-    const start = (state.page - 1) * PAGE_SIZE;
-    const pageRows = concerns.slice(start, start + PAGE_SIZE);
-
-    recentConcernsBody.innerHTML = pageRows.length
-      ? pageRows
-          .map(
-            (c) => `
-        <tr>
-          <td>${c.id}</td>
-          <td>${c.folder}</td>
-          <td>${c.location}</td>
-          <td>${c.reporter}</td>
-          <td><span class="status-pill ${statusPillClass(c.status)}">${c.status}</span></td>
-          <td>${c.dateSubmitted.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, ${c.dateSubmitted.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</td>
-          <td><a class="recent-reports-table__action" href="concern-detail.html?id=${encodeURIComponent(c.id)}" aria-label="View concern ${c.id}">&#8594;</a></td>
-        </tr>`
-          )
-          .join("")
-      : `<tr><td colspan="7" class="ordinances-empty">No concerns/suggestions for this selection.</td></tr>`;
-
-    const pages = buildPageList(state.page, totalPages);
-    let html = `<button type="button" data-page="prev" ${state.page <= 1 ? "disabled" : ""} aria-label="Previous page">&#8249;</button>`;
-    pages.forEach((p) => {
-      html +=
-        p === "..."
-          ? `<span class="dash-pagination__ellipsis">&hellip;</span>`
-          : `<button type="button" data-page="${p}" class="${p === state.page ? "active" : ""}">${p}</button>`;
-    });
-    html += `<button type="button" data-page="next" ${state.page >= totalPages ? "disabled" : ""} aria-label="Next page">&#8250;</button>`;
-    recentConcernsPagination.innerHTML = html;
-
-    recentConcernsPagination.querySelectorAll("button[data-page]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const val = btn.dataset.page;
-        state.page = val === "prev" ? state.page - 1 : val === "next" ? state.page + 1 : Number(val);
-        renderRecentConcerns();
-      });
-    });
+    document.getElementById("topicsHint").textContent = rows.length && meta.previous ? `▲▼ change vs ${meta.previous}` : "";
+    renderBars(document.getElementById("topicBars"), rows, `No concerns or suggestions received ${meta.noun}.`);
+    return { now, before };
   }
 
-  // ---- Concerns/Suggestions by Category pie ----
+  // Location is optional free text on a concern; when it follows the
+  // "Block X, Lot Y, <Street>" pattern the street is the last part.
+  function streetOf(location) {
+    const text = (location || "").trim();
+    if (!text) return null;
+    const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[parts.length - 1] || null;
+  }
 
-  const categoryPeriodMenu = document.getElementById("categoryPeriodMenu");
-  const categoryPeriodLabel = document.getElementById("categoryPeriodLabel");
-  const categoryPie = document.getElementById("categoryPie");
-  const categoryLegend = document.getElementById("categoryLegend");
+  function renderStreets(ctx) {
+    const { received, meta } = ctx;
+    const counts = countBy(received, (c) => streetOf(c.location));
+    const rows = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, TOP_ROWS - 1)
+      .map(([name, count]) => ({ name, count }));
+    const located = received.filter((c) => streetOf(c.location)).length;
 
-  function renderPeriodMenu(menuEl, selectedValue) {
-    menuEl.innerHTML = buildPeriodOptions()
-      .map((o) => `<li data-value="${o.value}" class="${o.value === selectedValue ? "active" : ""}">${o.label}</li>`)
+    document.getElementById("streetsHint").textContent = received.length
+      ? `${located} of ${received.length} gave a location`
+      : "";
+    renderBars(
+      document.getElementById("streetBars"),
+      rows,
+      received.length ? `None of the concerns received ${meta.noun} included a location.` : `Nothing received ${meta.noun}.`
+    );
+  }
+
+  // ---- Needs attention ----
+
+  function renderAttention(ctx, topics) {
+    const { waiting, meta } = ctx;
+    const flags = [];
+
+    const overdue = waiting
+      .filter((c) => Date.now() - c.dateSubmitted > OVERDUE_DAYS * DAY_MS)
+      .sort((a, b) => a.dateSubmitted - b.dateSubmitted);
+    if (overdue.length) {
+      flags.push({
+        level: "warn",
+        text: `${plural(overdue.length, "concern")} ${overdue.length === 1 ? "has" : "have"} waited more than ${OVERDUE_DAYS} days for review.`,
+        link: `concern-detail.html?id=${encodeURIComponent(overdue[0].id)}`,
+        linkText: "Open the oldest",
+      });
+    }
+
+    // A topic that at least doubled and grew by 2 or more — small wobbles
+    // (1 → 2) aren't worth the Captain's attention.
+    let jump = null;
+    topics.now.forEach((count, name) => {
+      const before = topics.before.get(name) || 0;
+      const diff = count - before;
+      if (diff >= 2 && count >= before * 2 && (!jump || diff > jump.diff)) jump = { name, count, before, diff };
+    });
+    if (jump && meta.previous) {
+      flags.push({
+        level: "warn",
+        text: `"${jump.name}" is rising: ${jump.count} ${meta.noun}, up from ${jump.before} ${meta.previous}.`,
+      });
+    }
+
+    const noTopic = waiting.filter((c) => !c.folderName).length;
+    if (noTopic) {
+      flags.push({
+        level: "info",
+        text: `${plural(noTopic, "submitted concern")} ${noTopic === 1 ? "hasn't" : "haven't"} been filed under a topic yet.`,
+      });
+    }
+
+    const list = document.getElementById("attentionList");
+    if (!flags.length) {
+      list.innerHTML = `<li class="cd-flags__item cd-flags__item--ok"><span class="cd-flags__icon" aria-hidden="true">✓</span><span>Nothing needs following up right now.</span></li>`;
+      return;
+    }
+    list.innerHTML = flags
+      .map(
+        (f) => `
+        <li class="cd-flags__item cd-flags__item--${f.level}">
+          <span class="cd-flags__icon" aria-hidden="true">${f.level === "warn" ? "!" : "i"}</span>
+          <span>${escapeHtml(f.text)}${f.link ? ` <a href="${f.link}">${escapeHtml(f.linkText)}</a>` : ""}</span>
+        </li>`
+      )
       .join("");
   }
 
-  function renderCategoryPie() {
-    const concerns = getConcernsForPeriod(state.categoryPeriod);
-    const total = concerns.length || 1;
-    const counts = countByCategory(concerns);
+  // ---- Submissions over time (received vs reviewed) ----
+  // Two lines on one shared count axis. Identity is carried by the legend,
+  // an end-of-line label, and a dashed stroke on "Reviewed" — not colour alone.
 
-    let cumRaw = 0;
-    const stops = [];
-    const labels = [];
-    CONCERN_CATEGORIES.forEach((c) => {
-      const startB = Math.round(cumRaw * 100);
-      cumRaw += counts[c.name] / total;
-      const endB = Math.round(cumRaw * 100);
-      stops.push(`${c.color} ${startB}% ${endB}%`);
-      if (endB > startB) labels.push({ mid: (startB + endB) / 2, pct: endB - startB });
-    });
+  // Drawn at the card's real pixel width (not a scaled viewBox) so the
+  // text stays a readable size on a phone.
+  const TREND = { height: 230, left: 34, right: 68, top: 14, bottom: 30 };
 
-    categoryPie.style.background = `conic-gradient(${stops.join(", ")})`;
-    categoryPie.querySelectorAll(".pie-chart__label").forEach((el) => el.remove());
+  function renderTrend(ctx) {
+    const { ranges } = ctx;
+    const container = document.getElementById("trendChart");
+    const all = liveConcerns();
+    const now = new Date();
+    const points = ranges.buckets.map((b) => ({
+      ...b,
+      // Days/months that haven't started yet have no value at all — the
+      // lines stop at today instead of dropping to a misleading zero.
+      future: b.start > now,
+      received: all.filter((c) => within(c.dateSubmitted, b.start, b.end)).length,
+      reviewed: all.filter((c) => within(c.dateReviewed, b.start, b.end)).length,
+    }));
+    const drawn = points.filter((p) => !p.future);
 
-    const R = 30;
-    labels.forEach(({ mid, pct }) => {
-      const theta = (mid / 100) * 2 * Math.PI;
-      const x = 50 + R * Math.sin(theta);
-      const y = 50 - R * Math.cos(theta);
-      const span = document.createElement("span");
-      span.className = "pie-chart__label";
-      span.style.left = `${x}%`;
-      span.style.top = `${y}%`;
-      span.textContent = `${pct}%`;
-      categoryPie.appendChild(span);
-    });
-
-    categoryLegend.innerHTML = CONCERN_CATEGORIES.map(
-      (c) => `<li><span class="pie-legend__dot" style="background:${c.color}"></span>${c.name}</li>`
-    ).join("");
-  }
-
-  // ---- Concerns/Suggestions heatmap (stylized placeholder, colored by category) ----
-
-  const heatmapPeriodMenu = document.getElementById("heatmapPeriodMenu");
-  const heatmapPeriodLabel = document.getElementById("heatmapPeriodLabel");
-  const heatmapCanvas = document.getElementById("heatmapCanvas");
-  const heatmapCanvasModal = document.getElementById("heatmapCanvasModal");
-  const heatmapModal = document.getElementById("heatmapModal");
-  const heatmapModalPeriodMenu = document.getElementById("heatmapModalPeriodMenu");
-  const heatmapModalPeriodLabel = document.getElementById("heatmapModalPeriodLabel");
-  const heatmapLegend = document.getElementById("heatmapLegend");
-  const heatmapModalLegend = document.getElementById("heatmapModalLegend");
-
-  const HEATMAP_PATHS = [
-    "M30,70 C110,30 170,100 250,60 S350,40 380,80",
-    "M25,150 C90,120 150,180 220,140 S320,110 375,160",
-    "M55,220 C140,200 190,240 260,210 S345,190 385,230",
-    "M20,110 C80,150 140,100 200,130 S300,160 365,120",
-    "M45,35 C100,75 160,45 210,85 S300,65 355,45",
-    "M65,190 C130,160 170,210 230,180 S325,225 375,195",
-  ];
-
-  function renderHeatmapLegend() {
-    const html = CONCERN_CATEGORIES.map(
-      (c) => `<span><i class="legend-dot" style="background:${c.color}"></i>${c.name}</span>`
-    ).join("");
-    heatmapLegend.innerHTML = html;
-    heatmapModalLegend.innerHTML = html;
-  }
-
-  function renderHeatmap() {
-    const concerns = getConcernsForPeriod(state.heatmapPeriod);
-    const counts = countByCategory(concerns);
-    const total = concerns.length || 1;
-
-    let pool = [];
-    CONCERN_CATEGORIES.forEach((c) => {
-      const weight = Math.max(1, Math.round((counts[c.name] / total) * HEATMAP_PATHS.length));
-      for (let k = 0; k < weight; k++) pool.push(c.color);
-    });
-    while (pool.length < HEATMAP_PATHS.length) pool.push(CONCERN_CATEGORIES[0].color);
-    pool = pool.slice(0, HEATMAP_PATHS.length);
-
-    const rng = mulberry32(hashString(state.heatmapPeriod));
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+    if (!points.some((p) => p.received || p.reviewed)) {
+      container.innerHTML = `<p class="cd-empty">No activity ${ctx.meta.noun}.</p>`;
+      return;
     }
 
-    const paths = HEATMAP_PATHS.map(
-      (d, i) => `<path d="${d}" fill="none" stroke="${pool[i]}" stroke-width="4" stroke-linecap="round" opacity="0.85" />`
-    ).join("");
-    const svg = `<svg viewBox="0 0 400 260" preserveAspectRatio="none">${paths}</svg>`;
+    const { height, left, right, top, bottom } = TREND;
+    const width = Math.max(container.clientWidth, 280);
+    const plotW = width - left - right;
+    const plotH = height - top - bottom;
+    const rawMax = Math.max(...points.map((p) => Math.max(p.received, p.reviewed)), 1);
+    // Whole-number gridlines: counts of people's submissions are never fractional.
+    const step = Math.max(1, Math.ceil(rawMax / 4));
+    const max = step * Math.ceil(rawMax / step);
+    const x = (i) => left + (points.length === 1 ? plotW / 2 : (i / (points.length - 1)) * plotW);
+    const y = (v) => top + plotH - (v / max) * plotH;
+    const path = (key) => drawn.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
 
-    [heatmapCanvas, heatmapCanvasModal].forEach((canvas) => {
-      const oldSvg = canvas.querySelector("svg");
-      if (oldSvg) oldSvg.remove();
-      canvas.insertAdjacentHTML("beforeend", svg);
+    const grid = [];
+    for (let v = 0; v <= max; v += step) {
+      grid.push(`<line class="cd-trend__grid" x1="${left}" x2="${left + plotW}" y1="${y(v)}" y2="${y(v)}"/>
+        <text class="cd-trend__tick" x="${left - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`);
+    }
+    const xLabels = points
+      .map((p, i) => (p.label ? `<text class="cd-trend__tick" x="${x(i)}" y="${height - 8}" text-anchor="middle">${p.label}</text>` : ""))
+      .join("");
+
+    // End labels sit beside each line's last point; nudged apart if they'd overlap.
+    const last = drawn[drawn.length - 1];
+    let yReceived = y(last.received);
+    let yReviewed = y(last.reviewed);
+    if (Math.abs(yReceived - yReviewed) < 13) {
+      const mid = (yReceived + yReviewed) / 2;
+      const receivedOnTop = last.received >= last.reviewed;
+      yReceived = mid + (receivedOnTop ? -7 : 7);
+      yReviewed = mid + (receivedOnTop ? 7 : -7);
+    }
+    const endX = x(drawn.length - 1) + 9;
+    // A single plotted bucket has no line to draw — show its two points.
+    const lonePoints =
+      drawn.length === 1
+        ? `<circle class="cd-trend__dot cd-trend__dot--received" r="4.5" cx="${x(0)}" cy="${y(last.received)}"/>
+           <circle class="cd-trend__dot cd-trend__dot--reviewed" r="4.5" cx="${x(0)}" cy="${y(last.reviewed)}"/>`
+        : "";
+
+    container.innerHTML = `
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Concerns received and reviewed over ${ctx.meta.noun.replace("this ", "the ")}">
+        ${grid.join("")}
+        ${xLabels}
+        <path class="cd-trend__line cd-trend__line--received" d="${path("received")}"/>
+        <path class="cd-trend__line cd-trend__line--reviewed" d="${path("reviewed")}"/>
+        ${lonePoints}
+        <text class="cd-trend__end" x="${endX}" y="${yReceived + 4}">Received</text>
+        <text class="cd-trend__end" x="${endX}" y="${yReviewed + 4}">Reviewed</text>
+        <g class="cd-trend__hover" hidden>
+          <line class="cd-trend__cursor" y1="${top}" y2="${top + plotH}"/>
+          <circle class="cd-trend__dot cd-trend__dot--received" r="4.5"/>
+          <circle class="cd-trend__dot cd-trend__dot--reviewed" r="4.5"/>
+        </g>
+        <rect class="cd-trend__hit" x="${left}" y="${top}" width="${plotW}" height="${plotH}" fill="transparent"/>
+      </svg>
+      <div class="cd-trend__tip" hidden></div>`;
+
+    const svg = container.querySelector("svg");
+    const hover = container.querySelector(".cd-trend__hover");
+    const cursor = container.querySelector(".cd-trend__cursor");
+    const dotReceived = container.querySelector(".cd-trend__dot--received");
+    const dotReviewed = container.querySelector(".cd-trend__dot--reviewed");
+    const tip = container.querySelector(".cd-trend__tip");
+    const hit = container.querySelector(".cd-trend__hit");
+
+    function show(clientX) {
+      const box = svg.getBoundingClientRect();
+      const svgX = ((clientX - box.left) / box.width) * width;
+      const i = Math.max(0, Math.min(drawn.length - 1, Math.round(((svgX - left) / plotW) * (points.length - 1))));
+      const p = drawn[i];
+      hover.removeAttribute("hidden");
+      cursor.setAttribute("x1", x(i));
+      cursor.setAttribute("x2", x(i));
+      dotReceived.setAttribute("cx", x(i));
+      dotReceived.setAttribute("cy", y(p.received));
+      dotReviewed.setAttribute("cx", x(i));
+      dotReviewed.setAttribute("cy", y(p.reviewed));
+      tip.hidden = false;
+      tip.innerHTML = `<strong>${escapeHtml(p.title)}</strong>
+        <span><i class="cd-legend__swatch cd-legend__swatch--received"></i>Received <b>${p.received}</b></span>
+        <span><i class="cd-legend__swatch cd-legend__swatch--reviewed"></i>Reviewed <b>${p.reviewed}</b></span>`;
+      // Keep the tooltip inside the card on either side of the cursor.
+      const px = (x(i) / width) * box.width;
+      const flip = px > box.width * 0.6;
+      tip.style.left = flip ? "auto" : `${px + 12}px`;
+      tip.style.right = flip ? `${box.width - px + 12}px` : "auto";
+    }
+    function hide() {
+      hover.setAttribute("hidden", "");
+      tip.hidden = true;
+    }
+    hit.addEventListener("mousemove", (e) => show(e.clientX));
+    hit.addEventListener("mouseleave", hide);
+    hit.addEventListener("touchstart", (e) => show(e.touches[0].clientX), { passive: true });
+    hit.addEventListener("touchmove", (e) => show(e.touches[0].clientX), { passive: true });
+    hit.addEventListener("touchend", hide);
+  }
+
+  // ---- Latest concerns ----
+
+  const latestPageSizeSelect = document.getElementById("latestPageSize");
+  memory.bindSelect(latestPageSizeSelect);
+  let latestListLimit = pageSizeFrom(latestPageSizeSelect, 5) ?? Infinity;
+
+  if (latestPageSizeSelect) {
+    latestPageSizeSelect.addEventListener("change", () => {
+      latestListLimit = latestPageSizeSelect.value === "all" ? Infinity : Number(latestPageSizeSelect.value);
+      renderLatest();
     });
   }
+  wireFiltersDropdown(document.getElementById("latestFiltersToggleBtn"), document.getElementById("latestFiltersPanel"));
 
-  function wireHeatmapPeriodDropdowns() {
-    const sets = [
-      { menu: heatmapPeriodMenu, label: heatmapPeriodLabel },
-      { menu: heatmapModalPeriodMenu, label: heatmapModalPeriodLabel },
-    ];
-
-    function renderMenus() {
-      const opts = buildHeatmapPeriodOptions();
-      sets.forEach(({ menu }) => {
-        menu.innerHTML = opts
-          .map(
-            (o) =>
-              `<li data-value="${o.value}" data-short="${o.short}" class="${o.value === state.heatmapPeriod ? "active" : ""}">${o.label}</li>`
-          )
-          .join("");
-        menu.querySelectorAll("li").forEach((li) => {
-          li.addEventListener("click", () => {
-            state.heatmapPeriod = li.dataset.value;
-            sets.forEach((s) => (s.label.textContent = li.dataset.short));
-            renderMenus();
-            renderHeatmap();
-          });
-        });
-      });
+  function renderLatest() {
+    const body = document.getElementById("latestBody");
+    const latest = sortConcernsByStatusThenDate(liveConcerns()).slice(0, latestListLimit);
+    if (!latest.length) {
+      body.innerHTML = `<tr><td colspan="5" class="ordinances-empty">No concerns or suggestions yet.</td></tr>`;
+      return;
     }
-
-    renderMenus();
+    body.innerHTML = latest
+      .map((c) => {
+        const text = c.concernText || "";
+        const summary = text.length > 90 ? `${text.slice(0, 90).trimEnd()}…` : text;
+        return `
+        <tr>
+          <td>${formatConcernDate(c.dateSubmitted)}</td>
+          <td>${c.folderName ? escapeHtml(c.folderName) : `<span class="cd-muted">No topic yet</span>`}</td>
+          <td class="cd-summary">${escapeHtml(summary)}</td>
+          <td><span class="status-pill ${c.status === "Reviewed" ? "status-pill--resolved" : "status-pill--new"}">${c.status === "Reviewed" ? "Reviewed" : "Submitted"}</span></td>
+          <td><a class="recent-reports-table__view-btn" href="concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a></td>
+        </tr>`;
+      })
+      .join("");
   }
 
-  function openHeatmapModal() {
-    heatmapModal.hidden = false;
-    renderHeatmap();
-  }
-
-  heatmapCanvas.addEventListener("click", openHeatmapModal);
-  heatmapCanvas.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openHeatmapModal();
-    }
-  });
-
-  // ---- Wire up period dropdowns ----
-
-  function wirePeriodDropdown(menuEl, labelEl, getValue, setValue, onChange) {
-    renderPeriodMenu(menuEl, getValue());
-    menuEl.querySelectorAll("li").forEach((li) => {
-      li.addEventListener("click", () => {
-        setValue(li.dataset.value);
-        labelEl.textContent = li.textContent;
-        renderPeriodMenu(menuEl, getValue());
-        onChange();
-      });
-    });
-  }
-
-  wirePeriodDropdown(
-    categoryPeriodMenu,
-    categoryPeriodLabel,
-    () => state.categoryPeriod,
-    (v) => (state.categoryPeriod = v),
-    renderCategoryPie
-  );
-  wireHeatmapPeriodDropdowns();
+  // ---- Wire up ----
 
   function renderAll() {
-    dateRangeLabel.textContent = getWeekRange(state.weekOffset).label;
-    renderDateRangeMenu();
-    renderStats();
-    renderRecentConcerns();
+    if (!PERIOD_OPTIONS.some((o) => o.value === state.period)) state.period = "month0";
+    const ranges = periodRanges(state.period);
+    const all = liveConcerns();
+    const ctx = {
+      meta: periodMeta(state.period),
+      ranges,
+      received: all.filter((c) => within(c.dateSubmitted, ranges.start, ranges.end)),
+      previousReceived: ranges.prevStart ? all.filter((c) => within(c.dateSubmitted, ranges.prevStart, ranges.prevEnd)) : [],
+      reviewedInPeriod: all.filter((c) => c.status === "Reviewed" && within(c.dateReviewed, ranges.start, ranges.end)),
+      waiting: all.filter((c) => c.status !== "Reviewed"),
+    };
+
+    renderPeriodMenu();
+    renderKpis(ctx);
+    const topics = renderTopics(ctx);
+    renderTrend(ctx);
+    renderAttention(ctx, topics);
+    renderStreets(ctx);
+    renderLatest();
   }
 
   renderAll();
-  renderHeatmapLegend();
-  renderCategoryPie();
-  renderHeatmap();
 
-  // ---- Notification bell dropdown ----
-
-  const notifBell = document.getElementById("notifBell");
-  const notifDropdown = document.getElementById("notifDropdown");
-  if (notifBell && notifDropdown) {
-    notifBell.addEventListener("click", (e) => {
-      e.stopPropagation();
-      notifDropdown.hidden = !notifDropdown.hidden;
-    });
-    document.addEventListener("click", () => {
-      notifDropdown.hidden = true;
-    });
-  }
+  // The trend chart is sized to its card, so it's redrawn when that changes.
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderAll, 150);
+  });
 });

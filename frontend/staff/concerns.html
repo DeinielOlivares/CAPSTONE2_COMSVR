@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — Concerns/Suggestions</title>
+  <title>Barangay Platero OVRMS — Concerns/Suggestions</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -13,18 +13,79 @@
       <div class="admin-sidebar__brand">
         <span class="admin-sidebar__logo" aria-hidden="true"></span>
         <div class="admin-sidebar__brand-text">
-          <strong>O.R.M.S.</strong>
-          <small>Barangay Platero</small>
-          <small>Barangay Staff Portal</small>
+          <strong>Barangay Platero</strong>
+          <small>Ordinance Violation Reporting and Monitoring System</small>
         </div>
       </div>
       <ul class="admin-sidebar__nav">
-        <li><a href="reports-dashboard.html">&#128202; Reports Dashboard</a></li>
-        <li><a href="reports.html">&#128203; Reports</a></li>
-        <li><a href="concerns-dashboard.html">&#128172; Concerns/Suggestions Dashboard</a></li>
-        <li><a href="concerns.html" class="active">&#128221; Concerns/Suggestions</a></li>
-        <li><a href="ordinances.html">&#128220; Ordinance</a></li>
-      </ul>
+        <li><a href="reports-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20V12M10 20V5M15.5 20v-8.5M21 20H3"/></svg> Reports Dashboard</a></li>
+        <li><a href="investigator-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.2"/></svg> Reports Dashboard</a></li>
+        <li class="admin-sidebar__group">
+          <button type="button" class="admin-sidebar__group-toggle" aria-expanded="false"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> Reports <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
+          <ul class="admin-sidebar__subnav" hidden>
+            <li><a href="reports.html?view=unclaimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/></svg> Unclaimed Reports</a></li>
+            <li><a href="reports.html?view=mine"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></svg> My Claimed Reports</a></li>
+            <li><a href="reports.html?view=others"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Other Claimed Reports</a></li>
+            <li><a href="reports.html?view=claimed"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6c3 .1 5.5 1.6 5.5 4.6"/></svg> Claimed Reports</a></li>
+          </ul>
+        </li>
+        <li><a href="concerns-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12c0-4.4 3.9-8 8.5-8s8.5 3.6 8.5 8-3.9 8-8.5 8a10 10 0 01-2.9-.4L4 21l1.1-3.8A7.6 7.6 0 013.5 12z"/></svg> Concerns/Suggestions Dashboard</a></li>
+        <li><a href="secretary-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.2"/></svg> Concerns/Suggestions Dashboard</a></li>
+        <li><a href="concerns.html" class="active"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5H5.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V12"/><path d="M18.4 3.6a2.1 2.1 0 013 3L11 17l-4 1 1-4z"/></svg> Concerns/Suggestions</a></li>
+        <li><a href="ordinances.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4 4.5 4v14c3.5 0 6 1 7.5 2.5"/><path d="M12 6.5C13.5 5 16 4 19.5 4v14c-3.5 0-6 1-7.5 2.5V6.5z"/></svg> Ordinances</a></li>
+              <li><a href="announcements.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11v2a1 1 0 001 1h2l5 4V6L7 10H5a1 1 0 00-1 1z"/><path d="M17 9.5a4 4 0 010 5"/></svg> Announcements</a></li>
+              <li><a href="questions.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.7-1.2c.5.9.3 1.7-.5 2.4l-.7.6c-.6.5-1 .9-1 1.7v.3"/><circle cx="12" cy="17" r="0.2" fill="currentColor"/></svg> Answer Questions</a></li>
+</ul>
+      <script>
+        // Hides sidebar items this role can't see BEFORE the rest of the
+        // page (and its script tags) finish parsing — admin.js's own
+        // enforceStaffSectionAccess does the same thing but only runs after
+        // the whole body is parsed, which on a full page navigation let the
+        // full/wrong-role nav flash visible for a moment on every page
+        // load. Keep this object in sync with STAFF_NAV_ACCESS in admin.js.
+        (function () {
+          var STAFF_NAV_ACCESS = {
+            "investigator-dashboard.html": ["Investigator"],
+            "reports-dashboard.html": ["Barangay Captain"],
+            "reports.html": ["Investigator", "Barangay Captain"],
+            "reports.html?view=mine": ["Investigator"],
+            "reports.html?view=others": ["Investigator"],
+            "reports.html?view=claimed": ["Barangay Captain"],
+            "concerns-dashboard.html": ["Barangay Captain"],
+            "secretary-dashboard.html": ["Secretary"],
+            "concerns.html": ["Secretary", "Barangay Captain"],
+            "ordinances.html": ["Barangay Captain", "Secretary", "Investigator"],
+            "questions.html": ["Barangay Captain", "Secretary", "Investigator"],
+            "announcements.html": ["Barangay Captain", "Secretary"],
+          };
+          var remembered = localStorage.getItem("orms_remember_me") === "1";
+          var store = remembered ? localStorage : sessionStorage;
+          var user;
+          try {
+            user = JSON.parse(store.getItem("orms_auth_user"));
+          } catch (e) {
+            user = null;
+          }
+          if (!user) return;
+          var allowed = Object.keys(STAFF_NAV_ACCESS).filter(function (page) {
+            return STAFF_NAV_ACCESS[page].indexOf(user.position) !== -1;
+          });
+          document.querySelectorAll(".admin-sidebar__nav a[href]").forEach(function (link) {
+            // A subpage link (reports.html?view=mine) can have its own entry;
+            // otherwise it falls under its page's (reports.html).
+            var page = link.getAttribute("href");
+            if (!Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page)) page = page.split("?")[0];
+            if (Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page) && allowed.indexOf(page) === -1) {
+              var item = link.closest("li");
+              if (item) item.hidden = true;
+            }
+          });
+          // A sidebar group with none of its subpages left visible goes too.
+          document.querySelectorAll(".admin-sidebar__group").forEach(function (group) {
+            if (!group.querySelector(".admin-sidebar__subnav li:not([hidden])")) group.hidden = true;
+          });
+        })();
+      </script>
       <button type="button" class="admin-sidebar__logout" id="logoutBtn">&#8618; Logout</button>
     </aside>
 
@@ -33,28 +94,71 @@
         <button type="button" class="admin-topbar__menu-btn" id="sidebarToggle" aria-label="Toggle menu">&#9776;</button>
         <div class="admin-topbar__profile">
           <span class="navbar__bell" role="button" tabindex="0" id="notifBell">
-            &#128276;<span class="navbar__badge"></span>
+            <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
             <div class="notif-dropdown" id="notifDropdown" hidden>
-              <h3 class="notif-dropdown__title">Notifications</h3>
-              <ul class="notif-dropdown__list">
-                <li class="notif-dropdown__item"><span>New concern submitted</span><span class="notif-dropdown__time">20 minutes ago</span></li>
-                <li class="notif-dropdown__item"><span>A suggestion was filed into a folder</span><span class="notif-dropdown__time">2 hours ago</span></li>
-                <li class="notif-dropdown__item"><span>New concern submitted</span><span class="notif-dropdown__time">5 hours ago</span></li>
-              </ul>
+              <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
+              <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
             </div>
           </span>
           <button type="button" class="admin-topbar__profile-btn" id="profileBtn">
             <span class="admin-topbar__avatar" aria-hidden="true"></span>
             <span class="admin-topbar__name">
-              <strong>Eliseo Aurelio Jr.</strong>
-              <small>Barangay Chairman</small>
+              <strong></strong>
+              <small></small>
             </span>
           </button>
         </div>
       </header>
+<script>
+  // Fills the topbar name/role and sidebar portal label from the stored login
+  // before first paint — admin.js does the same later, but waiting for it
+  // flashed placeholder text for a moment on every page load.
+  (function () {
+    var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
+    var user;
+    try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
+    if (!user) return;
+    document.querySelectorAll(".admin-topbar__name strong").forEach(function (el) { el.textContent = user.name; });
+    document.querySelectorAll(".admin-topbar__name small").forEach(function (el) { el.textContent = user.position || "Barangay Official"; });
+  })();
+</script>
 
       <div class="admin-content">
+        <h1 class="page-heading">Concerns/Suggestions</h1>
         <form class="reports-search-row" id="concernSearchForm">
+          <div class="filters-dropdown">
+            <button type="button" class="filters-dropdown__trigger" id="filtersToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Order">
+              <svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+              <span class="filters-dropdown__trigger-text">Order</span>
+              <span class="filters-dropdown__chevron">&#9662;</span>
+            </button>
+            <div class="filters-dropdown__panel" id="filtersPanel" hidden>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Filter</span>
+                <select id="statusFilter">
+                  <option value="all">All</option>
+                  <option value="Submitted" selected>Submitted</option>
+                  <option value="Reviewed">Reviewed</option>
+                </select>
+              </label>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Show</span>
+                <select id="concernsPageSize">
+                  <option value="5" selected>5</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              <button type="button" class="filters-dropdown__clear">Clear</button>
+            </div>
+          </div>
           <input type="text" id="concernSearchInput" class="reports-search-input" placeholder="Search..." />
           <button type="submit" class="btn reports-search-btn">Search</button>
         </form>
@@ -68,26 +172,28 @@
           </div>
 
           <div class="dash-card folders-card">
-            <h2 class="folders-card__title">Folders</h2>
+            <h2 class="folders-card__title">Categories</h2>
             <button type="button" class="folder-chip folder-chip--all active" id="allFoldersBtn">All Concerns/Suggestions</button>
             <div id="foldersList"></div>
-            <button type="button" class="folder-add-btn" id="addFolderBtn" aria-label="Create folder">+</button>
+            <button type="button" class="folder-add-btn" id="addFolderBtn" aria-label="Create category">+</button>
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
   <script src="js/concerns-data.js"></script>
+  <script src="js/pagination.js"></script>
   <script src="js/concerns-list.js"></script>
   <script src="js/admin.js"></script>
 
-  <!-- Create/rename folder -->
+  <!-- Create/rename category -->
   <div class="modal-overlay" id="folderNameModal" hidden>
     <div class="modal-card">
-      <h2 id="folderNameModalTitle">Create Folder</h2>
+      <h2 id="folderNameModalTitle">Create Category</h2>
       <div class="field">
-        <label for="folderNameInput">Folder Name</label>
+        <label for="folderNameInput">Category Name</label>
         <input type="text" id="folderNameInput" placeholder="e.g. No Loud Videoke After 10PM" />
       </div>
       <div class="btn-row">
@@ -97,11 +203,11 @@
     </div>
   </div>
 
-  <!-- Delete folder confirmation -->
+  <!-- Delete category confirmation -->
   <div class="modal-overlay" id="folderDeleteModal" hidden>
     <div class="modal-card">
-      <h2>Delete this folder?</h2>
-      <p class="auth-card__subtitle">Concerns/suggestions inside <strong id="folderDeleteName"></strong> will be moved back to unfoldered.</p>
+      <h2>Delete this category?</h2>
+      <p class="auth-card__subtitle">Concerns/suggestions inside <strong id="folderDeleteName"></strong> will be moved back to uncategorized.</p>
       <div class="btn-row">
         <button type="button" class="btn btn-danger" id="folderDeleteConfirm">Delete</button>
         <button type="button" class="btn" id="folderDeleteCancel">Cancel</button>
@@ -114,13 +220,13 @@
     <div class="modal-card profile-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
       <div class="profile-card__row">
-        <span class="profile-avatar">EA</span>
+        <span class="profile-avatar" id="profileCardInitials"></span>
         <div>
-          <p class="profile-card__name">Eliseo Aurelio Jr.</p>
-          <p class="profile-card__role">Barangay Chairman</p>
+          <p class="profile-card__name" id="profileCardName"></p>
+          <p class="profile-card__role" id="profileCardRole"></p>
         </div>
       </div>
-      <a class="btn btn-muted" href="profile.html">Edit Information</a>
+      <a class="btn btn-muted" href="profile.html">View Details</a>
       <button type="button" class="btn btn-muted" id="profileLogoutBtn">Log Out</button>
     </div>
   </div>

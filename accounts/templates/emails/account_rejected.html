@@ -1,0 +1,8 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#a15d1c;">We couldn't approve your account</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ name }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Your recent Barangay Platero OVRMS account sign-up could not be approved for the following reason:</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;padding:12px 16px;background:#f7f0e2;border-left:3px solid #eec99a;">{{ reason }}</p>
+<p style="margin:0;font-size:14px;line-height:1.5;">You're welcome to sign up again with the same email address once this is corrected.</p>
+{% endblock %}

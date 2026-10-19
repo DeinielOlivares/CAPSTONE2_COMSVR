@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — Login</title>
+  <title>Barangay Platero OVRMS — Login</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
   <nav class="navbar">
     <div class="navbar__brand">
       <span class="navbar__logo" aria-hidden="true"></span>
-      O.R.M.S
+      <div class="navbar__brand-text"><strong>Barangay Platero</strong><small>Ordinance Violation Reporting and Monitoring System</small></div>
     </div>
     <span class="navbar__portal-label">Barangay Staff Portal</span>
   </nav>
@@ -21,48 +21,30 @@
       <h1 class="auth-card__title">Login</h1>
       <form data-goto="reports-dashboard.html" data-login novalidate>
         <div class="field">
-          <label for="loginEmail">Email or Phone</label>
-          <input type="text" id="loginEmail" name="emailOrPhone" placeholder="bob.marley@gmail.com" required />
+          <label for="loginEmail">Email</label>
+          <input type="text" id="loginEmail" name="email" inputmode="email" autocomplete="username" placeholder="bob.marley@gmail.com" required />
         </div>
         <div class="field">
           <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required />
+          <input type="password" id="loginPassword" name="password" placeholder="Enter your password..." />
         </div>
         <div class="form-links">
+          <label class="remember-me-check">
+            <input type="checkbox" id="rememberMe" name="rememberMe" />
+            Stay signed in
+          </label>
           <a href="forgot-password.html">Forgot Password?</a>
         </div>
         <button type="submit" class="btn">Login Now</button>
       </form>
-    </div>
-  </section>
-
-  <section class="info-section">
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>Barangay Platero</h3>
-        <p>Ordinance Reporting and Management System</p>
-      </div>
-      <div class="info-card">
-        <h3>What is O.R.M.S.?</h3>
-        <p>
-          Ordinance Reporting and Management System, or O.R.M.S. for short, is a
-          web-based system that is designed to help Barangay Citizens to report
-          ordinance violations, as well as submit concerns and suggestions in
-          order to promote collaborative and safe communities.
-        </p>
-      </div>
-      <div class="info-card">
-        <h3>Our Mission</h3>
-        <p>
-          O.R.M.S gives the Barangay Citizen to check what happens to their
-          reports and concerns and suggestions. It also helps promote Local
-          Government Accountability and Action.
-        </p>
-      </div>
+      <p class="form-footer">
+        <a href="account-setup.html">First time here? Set up your account</a>
+      </p>
     </div>
   </section>
 
   <script src="js/main.js"></script>
+
   <script>
     // Landing on the login page always starts a fresh, logged-out session.
     logOut();
@@ -90,7 +72,7 @@
       <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
       <div id="profileGuestView">
         <div class="profile-card__row">
-          <span class="profile-avatar profile-avatar--guest">&#128100;</span>
+          <span class="profile-avatar profile-avatar--guest"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></span>
           <p class="profile-card__name">Guest Account</p>
         </div>
         <a class="btn btn-muted" href="index.html">Login</a>
@@ -100,7 +82,7 @@
           <span class="profile-avatar" id="profileUserInitials"></span>
           <p class="profile-card__name" id="profileUserName"></p>
         </div>
-        <a class="btn btn-muted" href="profile.html">Edit Information</a>
+        <a class="btn btn-muted" href="profile.html">View Details</a>
         <button type="button" class="btn btn-muted" id="logoutBtn">Log Out</button>
       </div>
     </div>

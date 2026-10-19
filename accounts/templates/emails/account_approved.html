@@ -1,0 +1,6 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#226b3f;">Your account has been approved!</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ user.first_name|default:user.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Good news — your Barangay Platero OVRMS account has been reviewed and approved. You can now log in and start using the system.</p>
+{% endblock %}

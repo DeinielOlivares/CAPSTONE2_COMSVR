@@ -1,0 +1,7 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">Your suggestion has been submitted</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ concern.citizen.first_name|default:concern.citizen.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">We've received your concern/suggestion. A Barangay Official will review it soon.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">Log in to Barangay Platero OVRMS any time to check its status.</p>
+{% endblock %}

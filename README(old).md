@@ -82,6 +82,7 @@ curl -X POST http://127.0.0.1:8000/api/auth/login/ \
    | `ALLOWED_HOSTS` | `your-app-name.onrender.com` |
    | `CSRF_TRUSTED_ORIGINS` | `https://your-app-name.onrender.com` |
    | `DATABASE_URL` | the Postgres connection string from step 2 |
+   | `CLOUDINARY_URL` | your Cloudinary URL (Dashboard → API Keys) — needed so uploaded images survive redeploys, see below |
 
 5. **Deploy.** Render runs `build.sh` (installs dependencies, collects
    static files, runs migrations) then starts the app with gunicorn.
@@ -102,11 +103,11 @@ curl -X POST http://127.0.0.1:8000/api/auth/login/ \
 - Render's free web service **sleeps after 15 minutes of inactivity** —
   the first request after idle time takes 30-60 seconds. Ping the URL a
   few minutes before a live demo.
-- Uploaded files (voter's ID images, evidence) are **not persistent** on
-  Render's free tier — they're wiped on every redeploy. Fine for now since
-  no upload endpoints exist yet; swap to Cloudinary/S3 via
-  `django-storages` before wiring up the verification/evidence upload
-  features.
+- Uploaded files (voter's ID images, evidence) now go to Cloudinary in
+  production as long as `CLOUDINARY_URL` is set (see step 4) — sign up for
+  a free Cloudinary account and copy the URL from Dashboard → API Keys.
+  Without it, uploads fall back to local disk and are **not persistent**
+  on Render — wiped on every redeploy/restart.
 - Only login + registration are wired to the frontend so far. Reports,
   ordinances, concerns, and notifications still need models + endpoints
   (see the ERD from earlier in this conversation).

@@ -1,0 +1,8 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">Your account is temporarily locked</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ user.first_name|default:user.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">There were {{ attempts }} failed attempts to log in to your Barangay Platero OVRMS account, so we've locked it for {{ minutes }} minutes to keep it safe.</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">If that was you, just wait {{ minutes }} minutes and try again — or use Forgot Password on the login page to set a new password and unlock it right away.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">If it wasn't you, someone may be trying to guess your password. Please use Forgot Password to choose a new one now.</p>
+{% endblock %}

@@ -1,57 +1,195 @@
-// O.R.M.S. — mock concern/suggestion records for the Staff Concerns/Suggestions
-// Dashboard (no backend wired up yet). Self-contained (doesn't load
-// reports-data.js) so this page only pulls in what it actually needs.
+// Barangay Platero OVRMS — Concerns/Suggestions data, backed by the real API
+// (GET /api/concerns/staff/). Status/remarks work the same way as Reports
+// (Submitted/Reviewed + free-text remarks). Folders are a separate,
+// orthogonal categorization staff assign after the fact — backed by
+// /api/concerns/folders/ — used to group concerns for the (future)
+// category breakdown, the same role Report.ordinance plays for Reports.
 
-const CONCERN_CATEGORIES = [
-  { name: "No Vaping in Public", color: "#5b7fd1" },
-  { name: "No Construction after 10 PM", color: "#2fd6c4" },
-  { name: "No Roadside Parking", color: "#d13ec4" },
-];
-
-const CONCERN_LOCATIONS = [
-  "First Street", "Katipunan Street", "Sunflower Street", "Kaliwang Street", "Sampaguita Street",
-  "Rizal Street", "Bonifacio Street", "Mabuhay Street", "Zapote Street", "Ilang-Ilang Street",
-];
-
-const CONCERN_REPORTERS = [
-  "Rene Baterbonia", "Jessika Sojo", "Mike Enriko", "Judy Ann Sta Teresa", "Paolo Pascual",
-  "Liza Ramos", "Carlo Mendoza", "Ana Cruz", "Ferdinand Tan", "Grace Villanueva",
-];
-
-const CONCERN_STATUSES = ["New Submission", "In Folder"];
-
-const CONCERN_NARRATIVE_TEMPLATES = {
-  "No Vaping in Public": (loc) =>
-    `Please create an ordinance to fix the vaping problem near ${loc}, my children are playing outside and there are people vaping I am worried about them getting second hand smoke.`,
-  "No Construction after 10 PM": (loc) =>
-    `There is ongoing construction work near ${loc} that continues past 10 PM, disturbing residents trying to sleep. Please regulate construction hours.`,
-  "No Roadside Parking": (loc) =>
-    `Vehicles are parked along ${loc} blocking the road and making it hard for others to pass. Please implement no-parking rules here.`,
+const CONCERN_STATUS_TO_LABEL = {
+  submitted: "Submitted",
+  reviewed: "Reviewed",
+};
+const CONCERN_LABEL_TO_STATUS = {
+  Submitted: "submitted",
+  Reviewed: "reviewed",
 };
 
-function narrativeForCategory(category, loc) {
-  return CONCERN_NARRATIVE_TEMPLATES[category]
-    ? CONCERN_NARRATIVE_TEMPLATES[category](loc)
-    : `A suggestion/concern regarding "${category}" was submitted near ${loc}.`;
+// Newest-first within each status, Submitted before Reviewed — same idea as
+// reports-data.js's REPORT_STATUS_RANK, just with Concern's 2-stage status.
+const CONCERN_STATUS_RANK = {
+  Submitted: 0,
+  Reviewed: 1,
+};
+
+function sortConcernsByStatusThenDate(concerns) {
+  return concerns.slice().sort((a, b) => {
+    const rankDiff = (CONCERN_STATUS_RANK[a.status] ?? 99) - (CONCERN_STATUS_RANK[b.status] ?? 99);
+    if (rankDiff !== 0) return rankDiff;
+    return b.dateSubmitted - a.dateSubmitted;
+  });
 }
 
-// Small seeded PRNG (mulberry32) so the mock data is stable within a day
-// instead of reshuffling on every render.
-function mulberry32(seed) {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+let _concernsCache = null;
+let _foldersCache = null;
+
+function escapeConcernHtml(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+function mapConcern(c) {
+  return {
+    id: c.id,
+    location: c.location,
+    reporter: c.reporter,
+    contactNumber: c.contact_number,
+    concernText: c.description,
+    status: CONCERN_STATUS_TO_LABEL[c.status] || c.status,
+    remarks: c.remarks,
+    folderId: c.folder ? c.folder.id : null,
+    folderName: c.folder ? c.folder.name : null,
+    dateSubmitted: new Date(c.created_at),
+    // When the Secretary marked it Reviewed (null while still Submitted).
+    dateReviewed: c.reviewed_at ? new Date(c.reviewed_at) : null,
+    attachments: c.attachments,
   };
 }
 
-function pick(rng, arr) {
-  return arr[Math.floor(rng() * arr.length)];
+async function ensureConcernsLoaded() {
+  if (_concernsCache) return _concernsCache;
+  const response = await authFetch("/api/concerns/staff/");
+  if (!response.ok) throw new Error("Could not load concerns/suggestions.");
+  const data = await response.json();
+  _concernsCache = sortConcernsByStatusThenDate(data.map(mapConcern));
+  return _concernsCache;
 }
 
-// Monday-based start of the week containing `date`.
+function liveConcerns() {
+  return _concernsCache || [];
+}
+
+function getConcernById(id) {
+  return (_concernsCache || []).find((c) => c.id === id) || null;
+}
+
+async function refreshConcernInCache(id) {
+  const response = await authFetch(`/api/concerns/staff/${encodeURIComponent(id)}/`);
+  if (!response.ok) throw new Error("Could not reload this concern/suggestion.");
+  const updated = mapConcern(await response.json());
+  if (_concernsCache) {
+    const idx = _concernsCache.findIndex((c) => c.id === id);
+    if (idx !== -1) _concernsCache[idx] = updated;
+    _concernsCache = sortConcernsByStatusThenDate(_concernsCache);
+  }
+  return updated;
+}
+
+// patch: { status?: <display label>, remarks?: <string>, folderId?: <uuid|null> }
+async function updateConcernStatus(id, patch) {
+  const body = {};
+  if (patch.status !== undefined) body.status = CONCERN_LABEL_TO_STATUS[patch.status] || patch.status;
+  if (patch.remarks !== undefined) body.remarks = patch.remarks;
+  if (patch.folderId !== undefined) body.folder = patch.folderId;
+
+  const response = await authFetch(`/api/concerns/staff/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not update this concern/suggestion.");
+  }
+  return refreshConcernInCache(id);
+}
+
+// ---- Folders (create/rename/delete, and assigning a concern to one) ----
+
+function mapFolder(f) {
+  return { id: f.id, name: f.name, count: f.count };
+}
+
+async function ensureFoldersLoaded() {
+  if (_foldersCache) return _foldersCache;
+  const response = await authFetch("/api/concerns/folders/");
+  if (!response.ok) throw new Error("Could not load folders.");
+  const data = await response.json();
+  _foldersCache = data.map(mapFolder);
+  return _foldersCache;
+}
+
+function liveFolders() {
+  return _foldersCache || [];
+}
+
+async function refreshFolders() {
+  _foldersCache = null;
+  return ensureFoldersLoaded();
+}
+
+async function throwFirstError(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  const firstError = Object.values(data)[0];
+  throw new Error(Array.isArray(firstError) ? firstError[0] : fallback);
+}
+
+async function createFolder(name) {
+  const response = await authFetch("/api/concerns/folders/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) await throwFirstError(response, "Could not create this folder.");
+  return refreshFolders();
+}
+
+async function renameFolder(id, name) {
+  const response = await authFetch(`/api/concerns/folders/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) await throwFirstError(response, "Could not rename this folder.");
+  return refreshFolders();
+}
+
+async function deleteFolder(id) {
+  const response = await authFetch(`/api/concerns/folders/${encodeURIComponent(id)}/`, {
+    method: "DELETE",
+  });
+  if (!response.ok) await throwFirstError(response, "Could not delete this folder.");
+  await refreshFolders();
+  // Concerns that were in the deleted folder fall back to unfoldered server-side; reflect that locally too.
+  if (_concernsCache) {
+    _concernsCache.forEach((c) => {
+      if (c.folderId === id) {
+        c.folderId = null;
+        c.folderName = null;
+      }
+    });
+  }
+}
+
+async function assignConcernFolder(concernId, folderId) {
+  const updated = await updateConcernStatus(concernId, { folderId });
+  await refreshFolders();
+  return updated;
+}
+
+// ---- Date helpers (small local copies — see reports-data.js for the
+// Reports Dashboard's equivalents; kept separate so the two pages don't
+// have to load each other's dataset). ----
+
+function formatConcernDate(date) {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 function startOfWeek(date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -67,64 +205,7 @@ function addDays(date, days) {
   return d;
 }
 
-const CONCERN_WEEKS_OF_HISTORY = 28;
 const THIS_WEEK_START = startOfWeek(new Date());
-
-const CONCERNS = (function generateConcerns() {
-  const rows = [];
-  let seq = 1;
-
-  for (let w = CONCERN_WEEKS_OF_HISTORY - 1; w >= 0; w--) {
-    const weekStart = addDays(THIS_WEEK_START, -7 * w);
-    // Salted differently from the reports dataset's seed so the two mock
-    // datasets don't happen to line up week-for-week.
-    const rng = mulberry32(Number(`${weekStart.getFullYear()}${weekStart.getMonth()}${weekStart.getDate()}7`));
-    const daysInWeek = w === 0 ? (new Date().getDay() === 0 ? 7 : new Date().getDay()) : 7;
-    const count = 6 + Math.floor(rng() * 10);
-
-    for (let i = 0; i < count; i++) {
-      const dayOffset = Math.floor(rng() * daysInWeek);
-      const date = addDays(weekStart, dayOffset);
-      date.setHours(7 + Math.floor(rng() * 15), Math.floor(rng() * 60), 0, 0);
-      const category = pick(rng, CONCERN_CATEGORIES);
-      const status = pick(rng, CONCERN_STATUSES);
-      const location = pick(rng, CONCERN_LOCATIONS);
-      const contactNumber = `09${String(Math.floor(rng() * 1e9)).padStart(9, "0")}`;
-
-      rows.push({
-        id: `CS-${weekStart.getFullYear()}-${String(seq).padStart(5, "0")}`,
-        category: category.name,
-        categoryColor: category.color,
-        folder: status === "In Folder" ? category.name : "-",
-        location,
-        reporter: pick(rng, CONCERN_REPORTERS),
-        contactNumber,
-        concernText: narrativeForCategory(category.name, location),
-        remarks: "",
-        status,
-        dateSubmitted: date,
-      });
-      seq++;
-    }
-  }
-
-  // Newest first.
-  return rows.sort((a, b) => b.dateSubmitted - a.dateSubmitted);
-})();
-
-// ---- Date/period helpers (small local copies — see reports-data.js for the
-// Reports Dashboard's equivalents; kept separate so the two pages don't have
-// to load each other's dataset). ----
-
-function formatConcernDate(date) {
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-}
-
-function endOfDay(date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
 
 function getWeekRange(offset) {
   const start = addDays(THIS_WEEK_START, -7 * offset);
@@ -139,149 +220,24 @@ function getMonthRange(monthsBack) {
   return { start, end };
 }
 
-// ---- Folder management (create/rename/delete), kept in localStorage since
-// there's no backend. This is the single source of truth for which folders
-// exist; CONCERN_CATEGORIES only seeds it the first time a page loads. ----
-
-const FOLDERS_LIST_KEY = "orms_folders_list";
-const FOLDER_RENAMES_KEY = "orms_folder_renames";
-const FOLDER_DELETES_KEY = "orms_folder_deletes";
-const CONCERN_OVERRIDES_KEY = "orms_concern_overrides";
-
-function getFoldersList() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(FOLDERS_LIST_KEY));
-    if (Array.isArray(stored)) return stored;
-  } catch {
-    // fall through to seeding
-  }
-  const seeded = CONCERN_CATEGORIES.map((c) => c.name);
-  localStorage.setItem(FOLDERS_LIST_KEY, JSON.stringify(seeded));
-  return seeded;
+// quartersBack counts back from the current quarter (0 = this quarter).
+function getQuarterRange(quartersBack) {
+  const now = new Date();
+  const currentQuarter = Math.floor(now.getMonth() / 3);
+  const totalQuarters = now.getFullYear() * 4 + currentQuarter - quartersBack;
+  const year = Math.floor(totalQuarters / 4);
+  const quarter = totalQuarters % 4;
+  const start = new Date(year, quarter * 3, 1);
+  const end = new Date(year, quarter * 3 + 3, 0);
+  return { start, end, quarter: quarter + 1, year };
 }
 
-function saveFoldersList(list) {
-  localStorage.setItem(FOLDERS_LIST_KEY, JSON.stringify(list));
-}
-
-function getFolderRenames() {
-  try {
-    return JSON.parse(localStorage.getItem(FOLDER_RENAMES_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function getFolderDeletes() {
-  try {
-    return JSON.parse(localStorage.getItem(FOLDER_DELETES_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-// Follows the rename chain (a folder can be renamed more than once) to the
-// current name.
-function resolveFolderName(name) {
-  const renames = getFolderRenames();
-  let current = name;
-  const seen = new Set();
-  while (renames[current] && !seen.has(current)) {
-    seen.add(current);
-    current = renames[current];
-  }
-  return current;
-}
-
-function addFolder(name) {
-  const list = getFoldersList();
-  if (list.some((n) => n.toLowerCase() === name.toLowerCase())) return false;
-  list.push(name);
-  saveFoldersList(list);
-  return true;
-}
-
-function renameFolder(oldName, newName) {
-  saveFoldersList(getFoldersList().map((n) => (n === oldName ? newName : n)));
-  const renames = getFolderRenames();
-  renames[oldName] = newName;
-  localStorage.setItem(FOLDER_RENAMES_KEY, JSON.stringify(renames));
-}
-
-function deleteFolder(name) {
-  saveFoldersList(getFoldersList().filter((n) => n !== name));
-  const deletes = getFolderDeletes();
-  if (!deletes.includes(name)) {
-    deletes.push(name);
-    localStorage.setItem(FOLDER_DELETES_KEY, JSON.stringify(deletes));
-  }
-}
-
-// Applies rename/delete history to the freshly-generated CONCERNS (and any
-// per-concern overrides saved from the detail page) so folder edits made on
-// one page are reflected everywhere, every load — and immediately, if called
-// again right after a rename/delete within the same page session.
-function normalizeConcernFolders() {
-  const deletes = getFolderDeletes();
-
-  CONCERNS.forEach((c) => {
-    if (c.folder === "-") return;
-    const resolved = resolveFolderName(c.folder);
-    if (deletes.includes(resolved)) {
-      c.folder = "-";
-      c.status = "New Submission";
-    } else {
-      c.folder = resolved;
-      c.category = resolved;
-    }
-  });
-
-  const overrides = getConcernOverrides();
-  let overridesChanged = false;
-  Object.values(overrides).forEach((o) => {
-    if (!o.folder || o.folder === "-") return;
-    const resolved = resolveFolderName(o.folder);
-    if (deletes.includes(resolved)) {
-      o.folder = "-";
-      o.status = "New Submission";
-      overridesChanged = true;
-    } else if (o.folder !== resolved) {
-      o.folder = resolved;
-      o.status = "In Folder";
-      overridesChanged = true;
-    }
-  });
-  if (overridesChanged) localStorage.setItem(CONCERN_OVERRIDES_KEY, JSON.stringify(overrides));
-}
-normalizeConcernFolders();
-
-// ---- Status/remarks/folder edits made on the concern detail page ----
-
-function getConcernOverrides() {
-  try {
-    return JSON.parse(localStorage.getItem(CONCERN_OVERRIDES_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveConcernOverride(id, patch) {
-  const overrides = getConcernOverrides();
-  overrides[id] = { ...overrides[id], ...patch };
-  localStorage.setItem(CONCERN_OVERRIDES_KEY, JSON.stringify(overrides));
-}
-
-function liveConcerns() {
-  const overrides = getConcernOverrides();
-  if (!Object.keys(overrides).length) return CONCERNS;
-  return CONCERNS.map((c) => (overrides[c.id] ? { ...c, ...overrides[c.id] } : c));
-}
-
-function getConcernById(id) {
-  const overrides = getConcernOverrides();
-  const concern = CONCERNS.find((c) => c.id === id);
-  if (!concern) return null;
-  return overrides[id] ? { ...concern, ...overrides[id] } : concern;
+// yearsBack counts back from the current year (0 = this year).
+function getYearRange(yearsBack) {
+  const year = new Date().getFullYear() - yearsBack;
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31);
+  return { start, end, year };
 }
 
 function getConcernsForWeekOffset(offset) {

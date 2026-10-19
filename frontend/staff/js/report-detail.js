@@ -1,42 +1,86 @@
-// O.R.M.S. — Report detail: view a report's info and let staff change its
-// status (and attach remarks when the status is "With Remarks"). Edits are
-// kept in localStorage (via saveReportOverride) so they show up back on the
-// dashboard and reports list too.
+// Barangay Platero OVRMS — Report detail: view a report's real info and let staff change
+// its status and remarks (remarks are always editable, independent of
+// status — not gated to one specific status choice). Saves go through
+// updateReportStatus (PATCH /api/reports/staff/<id>/) instead of the old
+// localStorage-only mock.
 
-document.addEventListener("DOMContentLoaded", () => {
+function formatTime12h(hhmmss) {
+  if (!hhmmss) return "Not specified";
+  const [h, m] = hhmmss.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+const REPORT_EVIDENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
+
+// Opens the clicked thumbnail full-size in an overlay on this same page,
+// instead of navigating to it in a new tab.
+function openMediaLightbox(url, isVideo) {
+  const lightbox = document.getElementById("mediaLightbox");
+  const body = document.getElementById("mediaLightboxBody");
+  if (!lightbox || !body) return;
+  body.innerHTML = isVideo
+    ? `<video src="${url}" controls autoplay></video>`
+    : `<img src="${url}" alt="Uploaded evidence" />`;
+  lightbox.hidden = false;
+}
+
+function renderReportEvidence(container, urls) {
+  if (!urls || !urls.length) {
+    container.innerHTML = `<div class="evidence-photo">No uploaded evidence</div>`;
+    return;
+  }
+  container.className = "evidence-photo-grid";
+  container.innerHTML = urls
+    .map((url) => {
+      const isVideo = REPORT_EVIDENCE_VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
+      const media = isVideo ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="Uploaded evidence" />`;
+      return `<button type="button" class="evidence-photo-grid__item" data-lightbox-url="${url}" data-lightbox-video="${isVideo}">${media}</button>`;
+    })
+    .join("");
+  container.querySelectorAll("[data-lightbox-url]").forEach((btn) => {
+    btn.addEventListener("click", () => openMediaLightbox(btn.dataset.lightboxUrl, btn.dataset.lightboxVideo === "true"));
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   const id = new URLSearchParams(window.location.search).get("id");
-  const report = getReportById(id);
+  const main = document.querySelector(".report-detail-main");
 
-  if (!report) {
-    document.querySelector(".report-detail-main").innerHTML = "<p>Report not found.</p>";
+  try {
+    await ensureOrdinancesLoaded();
+    await ensureReportsLoaded();
+  } catch (err) {
+    main.innerHTML = `<p>${err.message}</p>`;
     return;
   }
 
-  document.title = `${report.incidentType} — O.R.M.S.`;
+  let report = getReportById(id);
 
-  function toDateInputValue(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+  if (!report) {
+    main.innerHTML = "<p>Report not found.</p>";
+    return;
   }
 
+  document.title = `${report.incidentType} — Barangay Platero OVRMS`;
+
   document.getElementById("reportName").value = report.reporter;
-  document.getElementById("reportContact").value = report.contactNumber;
+  document.getElementById("reportContact").value = report.contactNumber || "";
   document.getElementById("reportLocation").value = report.location;
   document.getElementById("reportOrdinance").append(new Option(report.ordinance, report.ordinance, true, true));
-  document.getElementById("reportDate").value = toDateInputValue(report.dateSubmitted);
-  const timeStr = report.dateSubmitted.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  document.getElementById("reportTime").append(new Option(timeStr, timeStr, true, true));
+  document.getElementById("reportDate").value = report.incidentDate;
+  const timeLabel = formatTime12h(report.incidentTimeRaw);
+  document.getElementById("reportTime").append(new Option(timeLabel, timeLabel, true, true));
   document.getElementById("reportNature").value = report.natureOfViolation;
 
-  const STATUSES_ORDERED = ["New Submission", "In Process", "Resolved", "With Remarks"];
-  const STATUS_PILL_CLASS = {
-    "New Submission": "status-pill--new",
-    "In Process": "status-pill--in-process",
-    Resolved: "status-pill--resolved",
-    "With Remarks": "status-pill--remarks",
-  };
+  const evidenceEl = document.getElementById("reportEvidence");
+  if (evidenceEl) renderReportEvidence(evidenceEl, report.attachments);
+
+  // Every status, in timeline order (see reports-data.js) — Resolved and
+  // With Remarks are the two ways a report reaches the last stage.
+  const STATUSES_ORDERED = REPORT_STATUS_LABELS_ORDERED;
+  const STATUS_PILL_CLASS = REPORT_STATUS_PILL_CLASS;
 
   const statusPill = document.getElementById("statusPill");
   const statusSelect = document.getElementById("statusSelect");
@@ -51,6 +95,91 @@ document.addEventListener("DOMContentLoaded", () => {
   const unsavedSaveBtn = document.getElementById("unsavedSaveBtn");
   const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
   const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
+
+  // ---- Claim (Investigator only — Reports is their section, see
+  // frontend/staff/js/admin.js's STAFF_NAV_ACCESS). Barangay Captain/
+  // Secretary reaching this page (e.g. Captain's dashboard "View Details")
+  // just see who's on it, read-only. A claim is permanent: Investigators
+  // can't forfeit it (only an Administrator can release one server-side,
+  // see StaffReportForfeitView), so claiming asks for confirmation first. ----
+  const claimLabel = document.getElementById("claimLabel");
+  const claimBtn = document.getElementById("claimBtn");
+  const claimHint = document.getElementById("claimHint");
+  const currentUser = getAdminUser();
+  const isInvestigator = currentUser && currentUser.position === "Investigator";
+
+  // Status/remarks editing is Investigator-only, and even then only on a
+  // report this Investigator has claimed — an unclaimed report, or one
+  // someone else holds, is read-only (enforced server-side too, see
+  // StaffReportDetailView.patch). Barangay Captain always gets a read-only
+  // view. Re-run after claiming so editing turns on with it.
+  function renderClaim() {
+    const isMine = report.assignedInvestigatorId && currentUser && report.assignedInvestigatorId === currentUser.id;
+    claimLabel.textContent = report.assignedInvestigator
+      ? `${report.assignedInvestigator}${isMine ? " (you)" : ""}`
+      : "Unclaimed";
+    claimBtn.hidden = !isInvestigator || !!report.assignedInvestigator;
+
+    const canEdit = !!(isInvestigator && isMine);
+    statusEditBtn.hidden = !canEdit;
+    remarksInput.disabled = !canEdit;
+    remarksInput.placeholder = canEdit ? "Enter remarks to be shown to reportee." : "No remarks yet.";
+    saveBtn.hidden = !canEdit;
+
+    if (isInvestigator && !isMine) {
+      claimHint.textContent = report.assignedInvestigator
+        ? `Only ${report.assignedInvestigator} can update this report — it's claimed by them.`
+        : "Claim this report to update its status or remarks.";
+      claimHint.hidden = false;
+    } else {
+      claimHint.hidden = true;
+    }
+  }
+  renderClaim();
+
+  // ---- Download Report (Investigator only — the citizen gets the same
+  // form from My Report Detail; see /citizen/js/report-form-download.js) ----
+  const downloadBtn = document.getElementById("downloadReportBtn");
+  if (isInvestigator) {
+    downloadBtn.hidden = false;
+    downloadBtn.addEventListener("click", async () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = "Preparing download...";
+      try {
+        await downloadReportForm({
+          id: report.id,
+          reportNumber: report.reportNumber,
+          reporter: report.reporter,
+          contactNumber: report.contactNumber,
+          location: report.location,
+          ordinance: report.ordinance,
+          incidentDate: report.incidentDate,
+          incidentTime: report.incidentTimeRaw,
+          natureOfViolation: report.natureOfViolation,
+          dateFiled: report.dateSubmitted,
+          attachments: report.attachments,
+        });
+      } catch (err) {
+        siteAlert(err.message || "Could not download this report.");
+      } finally {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = "Download Report";
+      }
+    });
+  }
+
+  claimBtn.addEventListener("click", async () => {
+    if (!await siteConfirm(CLAIM_CONFIRM_MESSAGE, CLAIM_CONFIRM_OPTIONS)) return;
+    claimBtn.disabled = true;
+    try {
+      report = await claimReport(report.id);
+      renderClaim();
+    } catch (err) {
+      siteAlert(err.message);
+    } finally {
+      claimBtn.disabled = false;
+    }
+  });
 
   STATUSES_ORDERED.forEach((s) => statusSelect.append(new Option(s, s)));
 
@@ -67,27 +196,29 @@ document.addEventListener("DOMContentLoaded", () => {
     statusPill.textContent = status;
   }
 
-  function updateRemarksEnabled(status) {
-    remarksInput.disabled = status !== "With Remarks";
-  }
-
-  function offsetHours(base, hours) {
-    return new Date(base.getTime() + hours * 3600000);
-  }
-
-  function renderTimeline(status, dateSubmitted) {
+  function renderTimeline(status, dateSubmitted, dateUpdated) {
+    // Fixed labels rather than the Status dropdown's names: the timeline is
+    // the report's record, so its first stage reads "Submitted" (the
+    // dropdown's "New Submission"), and Resolved and With Remarks share the
+    // last one.
     const steps = [
-      { label: "Submitted", description: "Your report has been submitted successfully.", hours: 0 },
-      { label: "Under Review", description: "Your report is being reviewed", hours: 3 },
-      { label: "For Action", description: "Appropriate actions are being taken.", hours: 26 },
-      { label: "Final Verdict", description: "Report is finished and closed.", hours: 50 },
+      { label: "Submitted", description: "The report was submitted." },
+      { label: "Under Review", description: "The report is being reviewed." },
+      { label: "In Action", description: "Appropriate actions are being taken." },
+      { label: "Resolved/With Remarks", description: "The report is finished and closed." },
     ];
-    const completedSteps = status === "New Submission" ? 1 : status === "In Process" ? 2 : 4;
+    // New Submission/Under Review/In Action are stages 1-3; Resolved and
+    // With Remarks both complete the 4th.
+    const completedSteps = isReportClosed(status) ? steps.length : STATUSES_ORDERED.indexOf(status) + 1;
 
     timelineItems.innerHTML = steps
       .map((step, i) => {
         const pending = i >= completedSteps;
-        const stepDate = offsetHours(dateSubmitted, step.hours);
+        // There's no per-stage history (just one status field), so every
+        // completed stage past "Submitted" is dated with the report's last
+        // update time — the best real timestamp available, rather than a
+        // fabricated offset.
+        const stepDate = i === 0 ? dateSubmitted : dateUpdated;
         const dateLabel = pending
           ? "Pending"
           : `${formatReportDate(stepDate)}, ${stepDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
@@ -107,57 +238,80 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   applyPill(currentStatus);
-  updateRemarksEnabled(currentStatus);
-  renderTimeline(currentStatus, report.dateSubmitted);
+  renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
 
   statusEditBtn.addEventListener("click", () => {
     statusSelect.value = currentStatus;
-    updateRemarksEnabled(statusSelect.value);
     statusPill.hidden = true;
     statusSelect.hidden = false;
   });
-
-  statusSelect.addEventListener("change", () => updateRemarksEnabled(statusSelect.value));
 
   function pendingStatus() {
     return statusSelect.hidden ? currentStatus : statusSelect.value;
   }
 
+  // Remarks are always editable, so a remarks edit counts as dirty
+  // regardless of which status is currently selected.
   function isDirty() {
-    const status = pendingStatus();
-    if (status !== savedStatus) return true;
-    if (status === "With Remarks") return remarksInput.value.trim() !== savedRemarks;
-    return false;
+    return pendingStatus() !== savedStatus || remarksInput.value.trim() !== savedRemarks;
   }
 
-  function commitSave() {
-    currentStatus = pendingStatus();
+  async function commitSave() {
+    const nextStatus = pendingStatus();
     const patch = {
-      status: currentStatus,
-      remarks: currentStatus === "With Remarks" ? remarksInput.value.trim() : "",
+      status: nextStatus,
+      remarks: remarksInput.value.trim(),
     };
-    saveReportOverride(report.id, patch);
-    savedStatus = currentStatus;
-    savedRemarks = patch.remarks;
 
-    applyPill(currentStatus);
-    updateRemarksEnabled(currentStatus);
-    remarksInput.value = patch.remarks;
-    statusPill.hidden = false;
-    statusSelect.hidden = true;
-    renderTimeline(currentStatus, report.dateSubmitted);
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    try {
+      report = await updateReportStatus(report.id, patch);
+      // The server may have moved a New Submission with remarks to Under Review.
+      currentStatus = report.status;
+      savedStatus = currentStatus;
+      savedRemarks = patch.remarks;
+
+      applyPill(currentStatus);
+      remarksInput.value = patch.remarks;
+      statusPill.hidden = false;
+      statusSelect.hidden = true;
+      renderTimeline(currentStatus, report.dateSubmitted, report.dateUpdated);
+          return true;
+    } catch (err) {
+      siteAlert(err.message);
+      return false;
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save Changes";
+    }
   }
 
-  saveBtn.addEventListener("click", () => {
-    commitSave();
-    saveConfirmModal.hidden = false;
+  saveBtn.addEventListener("click", async () => {
+    if (await commitSave()) saveConfirmModal.hidden = false;
   });
   saveConfirmOk.addEventListener("click", () => {
     saveConfirmModal.hidden = true;
   });
 
+  // Back to the page this report was opened from (a Reports subpage, the
+  // Reports Dashboard, Notifications...); opened directly, Reports.
   function goToReports() {
-    window.location.href = "reports.html";
+    let target = "reports.html";
+    try {
+      const from = new URL(document.referrer);
+      if (
+        from.origin === window.location.origin &&
+        from.pathname.includes("/staff/") &&
+        !/\/staff\/(index\.html)?$/.test(from.pathname) &&
+        from.pathname !== window.location.pathname
+      ) {
+        target = from.href;
+      }
+    } catch {
+      // No referrer (opened directly / from a bookmark).
+    }
+    window.location.href = target;
   }
 
   backToReportsBtn.addEventListener("click", () => {
@@ -167,10 +321,9 @@ document.addEventListener("DOMContentLoaded", () => {
       goToReports();
     }
   });
-  unsavedSaveBtn.addEventListener("click", () => {
-    commitSave();
+  unsavedSaveBtn.addEventListener("click", async () => {
     unsavedChangesModal.hidden = true;
-    goToReports();
+    if (await commitSave()) goToReports();
   });
   unsavedDiscardBtn.addEventListener("click", () => {
     unsavedChangesModal.hidden = true;
@@ -184,16 +337,4 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target === overlay) overlay.hidden = true;
     });
   });
-
-  const notifBell = document.getElementById("notifBell");
-  const notifDropdown = document.getElementById("notifDropdown");
-  if (notifBell && notifDropdown) {
-    notifBell.addEventListener("click", (e) => {
-      e.stopPropagation();
-      notifDropdown.hidden = !notifDropdown.hidden;
-    });
-    document.addEventListener("click", () => {
-      notifDropdown.hidden = true;
-    });
-  }
 });

@@ -1,57 +1,111 @@
-// O.R.M.S. — placeholder ordinance records.
-// Replace with real data (or fetch from a backend) when available.
+// Barangay Platero OVRMS — Ordinances data, backed by the real API (GET /api/ordinances/,
+// public — guests can browse without an account). Replaces the old
+// hardcoded placeholder array. createOrdinance/updateOrdinanceById require
+// Staff/Admin (enforced server-side) — harmless to load on every portal,
+// same as this file being kept identical across citizen/staff.
 
-const ORDINANCES = [
-  {
-    id: "30-2025",
-    number: "No. 30-(2025)",
-    numberSort: 30,
-    title: "Anti-Cyberbullying and Mental Wellness Ordinance of the City of Biñan",
-    author: "Hon. Janalina R. Reyes and Hon. Alexis H. Desuasido",
-    category: "Public Safety",
-    dateApproved: "November 17, 2025",
-    dateSort: "2025-11-17",
-    description:
-      "This ordinance protects the health and safety of residents of the City of Biñan from cyberbullying and online harassment. It establishes reporting mechanisms, counseling support for victims, and penalties for offenders found violating its provisions.",
-    pdf: "#",
-  },
-  {
-    id: "22-2025",
-    number: "No. 22-(2025)",
-    numberSort: 22,
-    title: "An Ordinance Institutionalizing the 'Tapat Mo, Linis Mo' Policy and Providing Penalties for Non-Compliance in the City of Biñan",
-    author: "Hon. Alexis H. Desuasido",
-    category: "Sanitation",
-    dateApproved: "August 13, 2025",
-    dateSort: "2025-08-13",
-    description:
-      "This ordinance requires residents and business owners to maintain cleanliness of the frontage of their properties, promoting community sanitation and reducing waste accumulation along public streets.",
-    pdf: "#",
-  },
-  {
-    id: "21-2023",
-    number: "No. 21-(2023)",
-    numberSort: 21,
-    title: "An Ordinance Regulating the Operation of Electric Bicycles (E-bikes), Electric Scooters, and Similar Light Electric Vehicles (LEVs) within the City of Biñan.",
-    author: "Hon. Jayson A. Souza",
-    category: "Transportation",
-    dateApproved: "September 04, 2023",
-    dateSort: "2023-09-04",
-    description:
-      "This ordinance protects the health and safety of commuters and pedestrians within the City of Biñan by regulating the registration, and path distribution of light electric vehicles. It directly targets the proliferation of unregistered, fast-moving e-bikes and e-scooters on high-risk thoroughfares, local commercial spaces, such as public markets, main highways, and narrow residential streets.\n\nKey components of the ordinance include:\n• Mandated Assist: A vehicle is exceeding 25 km/h without official city registration; allow minors or unlicensed drivers to operate publicly on main thoroughfares, drive without a standard protective helmet, or misplace three light units while driving on main highways.\n• Establishment/Driver Duties: Owners and operators are mandated to register their qualifying light electric vehicles, and permit designated barangay roads or outer bike lanes, ensure functional headlights and reflectors are active during night use, and maintain safe running speeds.\n• Enforcement & Inspection: The Public Order and Safety Office (POSO), Barangay Tanods, and local traffic enforcers are authorized to carry out regular checkpoints and surprise street inspections. They are empowered to impound violating vehicles and safety gear pertinent to the city holding facility.\n\nGraduated Penalties:\n• First Offense: Vehicle impounding, a warning, and a mandatory traffic safety seminar.\n• Second Offense: A P1,500 fine and a 5-day impoundment of the vehicle unit.\n• Third Offense: A P2,500 fine and blacklisting of the vehicle registration within the city.",
-    pdf: "#",
-  },
-  {
-    id: "20-2025",
-    number: "No. 20-(2025)",
-    numberSort: 20,
-    title: "Consumer Protection Against Expired Food, Health, and Cosmetic Products Ordinance of Biñan City",
-    author: "Hon. Alexis H. Desuasido",
-    category: "Consumer Protection",
-    dateApproved: "October 06, 2025",
-    dateSort: "2025-10-06",
-    description:
-      "This ordinance protects consumers from the sale of expired food, health, and cosmetic products within the City of Biñan by mandating regular inspection of retail establishments and imposing penalties on violators.",
-    pdf: "#",
-  },
-];
+let _ordinancesCache = null;
+
+function mapOrdinance(o) {
+  const numberMatch = o.number.match(/\d+/);
+  return {
+    id: o.id,
+    number: o.number,
+    numberSort: numberMatch ? parseInt(numberMatch[0], 10) : 0,
+    title: o.title,
+    author: o.author,
+    category: o.category,
+    dateApproved: new Date(`${o.date_approved}T00:00:00`).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    dateApprovedRaw: o.date_approved,
+    dateSort: o.date_approved,
+    description: o.description,
+    pdf: o.pdf_url,
+    createdAt: o.created_at,
+    updatedAt: o.updated_at,
+  };
+}
+
+async function ensureOrdinancesLoaded() {
+  if (_ordinancesCache) return _ordinancesCache;
+  const response = await fetch("/api/ordinances/");
+  if (!response.ok) throw new Error("Could not load ordinances.");
+  const data = await response.json();
+  _ordinancesCache = data.map(mapOrdinance);
+  return _ordinancesCache;
+}
+
+function liveOrdinances() {
+  return _ordinancesCache || [];
+}
+
+function getOrdinanceById(id) {
+  return (_ordinancesCache || []).find((o) => o.id === id) || null;
+}
+
+async function refreshOrdinanceInCache(id) {
+  const response = await fetch(`/api/ordinances/${encodeURIComponent(id)}/`);
+  if (!response.ok) throw new Error("Could not reload this ordinance.");
+  const updated = mapOrdinance(await response.json());
+  if (_ordinancesCache) {
+    const idx = _ordinancesCache.findIndex((o) => o.id === id);
+    if (idx !== -1) _ordinancesCache[idx] = updated;
+  }
+  return updated;
+}
+
+// DRF's own errors — permission denied, request-too-large, throttling,
+// malformed multipart — come back as {"detail": "..."} (a string), not the
+// {field: ["msg"]} shape field-validation errors use. The old version here
+// only ever unwrapped the array shape, so any of those cases silently fell
+// through to `fallback` with no indication of what actually went wrong
+// (e.g. a PDF over DATA_UPLOAD_MAX_MEMORY_SIZE always read as a generic
+// "Could not upload this ordinance."). A non-JSON body (a raw 500 page,
+// most likely) still falls back, but now says which HTTP status it was.
+async function readFirstError(response, fallback) {
+  const data = await response.json().catch(() => null);
+  if (data) {
+    if (typeof data.detail === "string") throw new Error(data.detail);
+    const firstError = Object.values(data)[0];
+    if (Array.isArray(firstError)) throw new Error(firstError[0]);
+    if (typeof firstError === "string") throw new Error(firstError);
+  }
+  throw new Error(`${fallback} (server responded ${response.status})`);
+}
+
+// fields: { number, title, author, category, dateApproved (YYYY-MM-DD), description, pdfFile }
+async function createOrdinance(fields) {
+  const formData = new FormData();
+  formData.append("number", fields.number);
+  formData.append("title", fields.title);
+  formData.append("author", fields.author);
+  formData.append("category", fields.category);
+  formData.append("date_approved", fields.dateApproved);
+  formData.append("description", fields.description);
+  formData.append("pdf_file", fields.pdfFile);
+
+  const response = await authFetch("/api/ordinances/", { method: "POST", body: formData });
+  if (!response.ok) await readFirstError(response, "Could not upload this ordinance.");
+  const created = mapOrdinance(await response.json());
+  if (_ordinancesCache) _ordinancesCache.unshift(created);
+  return created;
+}
+
+// Same field shape as createOrdinance, but pdfFile is optional — omit it to keep the existing PDF.
+async function updateOrdinanceById(id, fields) {
+  const formData = new FormData();
+  if (fields.number !== undefined) formData.append("number", fields.number);
+  if (fields.title !== undefined) formData.append("title", fields.title);
+  if (fields.author !== undefined) formData.append("author", fields.author);
+  if (fields.category !== undefined) formData.append("category", fields.category);
+  if (fields.dateApproved !== undefined) formData.append("date_approved", fields.dateApproved);
+  if (fields.description !== undefined) formData.append("description", fields.description);
+  if (fields.pdfFile) formData.append("pdf_file", fields.pdfFile);
+
+  const response = await authFetch(`/api/ordinances/${encodeURIComponent(id)}/`, { method: "PATCH", body: formData });
+  if (!response.ok) await readFirstError(response, "Could not update this ordinance.");
+  return refreshOrdinanceInCache(id);
+}
