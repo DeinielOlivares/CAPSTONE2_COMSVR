@@ -933,7 +933,7 @@ label.geo-toggle {
   cursor: pointer;
 }
 
-/* Show/hide eye button, added by main.js's setupPasswordVisibilityToggles
+/* Show/hide eye button, added by common.js's setupPasswordVisibilityToggles
    to every password field — wraps just the input, not its label. */
 .password-toggle-wrap {
   position: relative;
@@ -1318,7 +1318,7 @@ label.geo-toggle {
    instead of a bare "Loading..." string, so a slow connection shows
    something that already roughly matches the real layout rather than a
    layout jump once data arrives. See skeletonTableRows()/skeletonCards()
-   in main.js. */
+   in shared/js/common.js. */
 @keyframes skeleton-shimmer {
   0% {
     background-position: -150% 0;

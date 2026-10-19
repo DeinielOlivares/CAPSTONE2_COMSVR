@@ -8,7 +8,7 @@ class CharacterClassValidator:
     A password needs at least one lowercase letter, one uppercase letter and one
     special character. Listed in AUTH_PASSWORD_VALIDATORS (settings.py), so it
     applies everywhere a password is set. The frontend shows the same rules
-    (getPasswordRuleStatus in the portals' main.js).
+    (getPasswordRuleStatus in frontend/shared/js/common.js).
     """
 
     RULES = [

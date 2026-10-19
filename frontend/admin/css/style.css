@@ -184,7 +184,7 @@ button {
 }
 
 /* Plays once when a new-account-verification notification pops the
-   dropdown open on its own (see admin.js's flashNotifBell) — catches the
+   dropdown open on its own (see open() in setupNotificationBell, shared/js/common.js) — catches the
    eye even if the topbar isn't where the admin is currently looking. */
 @keyframes navbar-bell-flash {
   0% { transform: scale(1); }
@@ -362,7 +362,7 @@ button {
   margin-bottom: 16px;
 }
 
-/* Show/hide eye button, added by main.js's setupPasswordVisibilityToggles
+/* Show/hide eye button, added by common.js's setupPasswordVisibilityToggles
    to every password field — wraps just the input, not its label. */
 .password-toggle-wrap {
   position: relative;
@@ -487,7 +487,7 @@ button {
    instead of a bare "Loading..." string, so a slow connection shows
    something that already roughly matches the real layout rather than a
    layout jump once data arrives. See skeletonTableRows()/skeletonCards()
-   in admin.js. */
+   in shared/js/common.js. */
 @keyframes skeleton-shimmer {
   0% {
     background-position: -150% 0;
@@ -1652,7 +1652,7 @@ button {
 /* ---------- Sidebar groups (Account Management / Activity / Setup) —
    collapsible dropdowns. The group containing the current page starts
    expanded (see the server-rendered aria-expanded/hidden state on each
-   page); toggling after that is handled in admin.js. ---------- */
+   page); toggling after that is handled in admin/js/layout.js. ---------- */
 
 .admin-sidebar__group-toggle {
   display: flex;
@@ -2592,7 +2592,7 @@ button {
 /* ---------- Mobile navigation (sidebar becomes an off-canvas drawer) ----------
    Below 900px there isn't room for a fixed 230px sidebar beside the content,
    so it switches to an overlay: hidden by default, slid in from the left
-   when the topbar's hamburger button is tapped (admin.js already toggles
+   when the topbar's hamburger button is tapped (admin/js/layout.js already toggles
    the same .is-collapsed class used for the desktop "hide sidebar" feature
    — this block just gives that class the opposite meaning on small screens). */
 @media (max-width: 900px) {

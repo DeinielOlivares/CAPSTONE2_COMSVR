@@ -204,7 +204,7 @@ button {
 }
 
 /* Plays once when a report/concern notification pops the dropdown open on
-   its own (see admin.js's flashNotifBell) — catches the eye even if the
+   its own (see open() in setupNotificationBell, shared/js/common.js) — catches the eye even if the
    topbar isn't where a staffer is currently looking. Kept to one gentle
    pulse (previously an oscillating double-bounce that read as glitchy). */
 @keyframes navbar-bell-flash {
@@ -649,7 +649,7 @@ button {
   cursor: pointer;
 }
 
-/* Show/hide eye button, added by main.js's setupPasswordVisibilityToggles
+/* Show/hide eye button, added by common.js's setupPasswordVisibilityToggles
    to every password field — wraps just the input, not its label. */
 .password-toggle-wrap {
   position: relative;
@@ -1080,7 +1080,7 @@ button {
    instead of a bare "Loading..." string, so a slow connection shows
    something that already roughly matches the real layout rather than a
    layout jump once data arrives. See skeletonTableRows()/skeletonCards()
-   in admin.js. */
+   in shared/js/common.js. */
 @keyframes skeleton-shimmer {
   0% {
     background-position: -150% 0;
@@ -2063,7 +2063,7 @@ button {
 /* Lightbox — clicking an evidence thumbnail overlays the full-size media on
    the current page instead of navigating to it in a new tab. Reuses the
    .modal-overlay/.modal-close plumbing (click-outside/close-button wiring
-   already generic in admin.js), just with a transparent, unpadded card. */
+   already generic in staff/js/layout.js), just with a transparent, unpadded card. */
 .media-lightbox-card {
   position: relative;
   background: transparent;
@@ -2576,7 +2576,7 @@ button {
 /* ---------- Sidebar groups (Reports) — collapsible dropdowns, same as the
    Admin Portal's. The group containing the current page starts expanded
    (see the server-rendered aria-expanded/hidden state on each page);
-   toggling after that is handled in admin.js. ---------- */
+   toggling after that is handled in staff/js/layout.js. ---------- */
 
 .admin-sidebar__group-toggle {
   display: flex;
