@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — About Us Setup data, backed by /api/site/ (Administrator only
-// for everything here; the citizen About Us page reads the public
-// GET /api/site/about/). See siteinfo/views.py.
+// about-setup-data.js — API calls for About Us Setup and Website Setup (/api/site/).
 
 async function readFirstSetupError(response, fallback) {
   const data = await response.json().catch(() => null);
@@ -47,8 +45,7 @@ function saveBranding(fields) {
 }
 
 // ---- Council members / logos ----
-// `fields` is a plain object; a File value (photo/image) switches the
-// request to multipart so the upload can ride along.
+// `fields` is a plain object; a File value makes it a multipart (upload) request.
 
 function toSetupBody(fields) {
   const hasFile = Object.values(fields).some((v) => v instanceof File);

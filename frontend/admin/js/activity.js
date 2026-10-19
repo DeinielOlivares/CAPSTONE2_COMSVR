@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — Activity: per-citizen report and suggestion counts for the
-// Administrator, built from the same account list Manage Accounts uses (see
-// AdminAccountSerializer's reportStats / suggestionStats).
+// Activity (admin): how many reports and suggestions each citizen has filed.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const totalsEl = document.getElementById("activityTotals");

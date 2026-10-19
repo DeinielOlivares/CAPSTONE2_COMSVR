@@ -1,6 +1,6 @@
-// Barangay Platero OVRMS — Manage Accounts: render + sort + filter the account list.
-// Data now comes from the real API (see accounts-data.js) instead of a
-// hardcoded array, so this file is async where it fetches/updates accounts.
+// Manage Accounts (admin): list, sort and filter accounts; the Edit Account
+// popup enables/disables, changes role, resends links / resets passwords,
+// releases claimed reports and deletes accounts.
 
 document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 5;
@@ -48,16 +48,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Lower activityMinutes = less time since last activity = more recent.
       if (sortValue === "recent") return a.activityMinutes - b.activityMinutes;
       if (sortValue === "recent_desc") return b.activityMinutes - a.activityMinutes;
-      // Account IDs are UUIDs (not sequential numbers), so "Newest"/"Oldest"
-      // sort by join date instead of trying to compare IDs numerically.
+      // "Newest"/"Oldest" sort by join date.
       if (sortValue === "id_asc") return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
     rows = rows.slice().sort(
       statusValue === "all"
-        // Filter is "All": group active accounts ahead of disabled ones,
-        // applying the chosen sort within each group — so a backlog of
-        // disabled accounts doesn't bury who's actually active.
+        // "All": active accounts first, then disabled ones (each group sorted).
         ? (a, b) => Number(b.active) - Number(a.active) || compareBySort(a, b)
         : compareBySort
     );
@@ -141,8 +138,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const SUGGESTION_STATUS_LABELS = { submitted: "Submitted", reviewed: "Reviewed" };
 
-  // Renders e.g. "4 filed (2 Submitted, 1 Under Review, 1 Resolved)", or a
-  // plain "no X filed" message when the citizen hasn't filed any yet.
+  // e.g. "4 filed (2 Submitted, 1 Under Review, 1 Resolved)".
   function formatStats(stats, labels, noneLabel) {
     if (!stats || !stats.total) return noneLabel;
     const parts = Object.entries(stats.byStatus)
@@ -181,33 +177,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     editDisableBtn.innerHTML = account.active
       ? `<svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg> Disable User`
       : `<svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.3 9"/></svg> Enable User`;
-    // Swap the color too — "Enable User" is a restorative action and
-    // shouldn't stay styled like the red "Disable"/"Delete" buttons.
+    // "Enable User" isn't red like Disable/Delete.
     editDisableBtn.classList.toggle("edit-account-btn--disable", account.active);
     editDisableBtn.classList.toggle("edit-account-btn--enable", !account.active);
 
-    // Admins can't disable, re-role, or delete their own account — see the
-    // matching safeguards in AdminAccountDetailView.patch/delete. Shown as
-    // disabled buttons here so it's clear upfront, not just after a failed click.
-    const isSelf = account.id === (getAdminUser() || {}).id;
+    // An Administrator can't disable, re-role or delete their own account (the server checks too).
+    const isSelf = account.id === (getCurrentUser() || {}).id;
     editDisableBtn.disabled = isSelf && account.active;
     editDisableBtn.title = isSelf && account.active ? "You can't disable your own account." : "";
     editDeleteBtn.disabled = isSelf;
     editDeleteBtn.title = isSelf ? "You can't delete your own account." : "";
 
-    // Update Role only applies to Barangay Staff/Administrator accounts —
-    // a Citizen's account type isn't something Manage Accounts changes
-    // anymore (see accounts/views.py's AdminAccountDetailView.patch).
+    // Update Role is only for staff/administrator accounts.
     const isCitizen = account.type === "Barangay Citizen";
     editTypeBtn.hidden = isCitizen;
     editTypeBtn.disabled = isSelf;
     editTypeBtn.title = isSelf ? "You can't change your own role." : "";
 
-    // One button, two jobs. While the account is Setup Pending (any type) it
-    // resends the one-time setup link; once set up it's gone for citizens
-    // (they have Forgot Password) and becomes Reset Password for Barangay
-    // Staff/Administrator accounts — see AdminResendSetupLinkView /
-    // AdminResetPasswordView, which enforce the same rules.
+    // One button: "Resend Setup Link" while the account isn't set up yet;
+    // afterwards "Reset Password" for staff (citizens use Forgot Password).
     if (account.setupPending) {
       editResetBtn.hidden = false;
       editResetBtn.innerHTML = `${RESEND_ICON} Resend Setup Link`;
@@ -224,9 +212,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   tbody.addEventListener("click", (e) => {
-    // The owner link still works on its own (desktop), and on mobile the
-    // other columns are hidden (see style.css) so the whole row — really
-    // just the name — is what's left to tap.
+    // On phones the whole row opens the account.
     const row = e.target.closest("tr[data-id]");
     if (!row) return;
     e.preventDefault();
@@ -240,14 +226,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadClaimedReports(account);
   });
 
-  // Claimed Reports: an Investigator can't give up a report once they've
-  // claimed it, so if they leave or go inactive the Administrator releases
-  // their claims here (POST .../forfeit/, Admin-only — see
-  // StaffReportForfeitView). Only active claims are listed (anything but
-  // Resolved/With Remarks — see getClaimedReports). Shown for any Staff
-  // account holding them, and always for Investigators so "no claims" is
-  // visible too. They must all be released before the account's role is
-  // changed, or it's disabled or deleted (see askToReleaseClaims below).
+  // Claimed Reports: the account's unfinished claimed reports, which the
+  // Administrator can release. They must be released before the account's
+  // role changes, or it is disabled or deleted (see askToReleaseClaims).
   const claimedSection = document.getElementById("claimedReports");
   const claimedList = document.getElementById("claimedReportsList");
   const releaseAllBtn = document.getElementById("releaseAllClaimsBtn");
@@ -297,9 +278,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Fresh count right before re-roling/disabling/deleting — the popup's
-  // list may still be loading, or be stale if someone claimed something
-  // meanwhile. Citizens can't hold claims, so skip the request for them.
+  // Fresh number of active claims (citizens never have any).
   async function countClaims(account) {
     if (account.type === "Barangay Citizen") return 0;
     try {
@@ -346,10 +325,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Before a role change, disable or delete: if the account still holds
-  // active claims, they have to be released for the change to go through.
-  // Resolves true to go ahead (with release_claims, when there were any),
-  // false if the Administrator cancelled.
+  // Before a role change, disable or delete: asks to release active claims.
+  // Resolves true to go ahead, false if cancelled.
   async function askToReleaseClaims(account, { title, action, primary, note = "" }) {
     const count = await countClaims(account);
     if (!count) return { proceed: true, release: false };
@@ -402,16 +379,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Disable/Enable User: PATCHes is_active on the real account. A disabled
-  // account is rejected by the backend on their next request too, not just
-  // hidden here — see AdminAccountDetailView.patch in accounts/views.py.
+  // Disable / Enable User (a disabled account is blocked by the server immediately).
   editDisableBtn.addEventListener("click", async () => {
     if (!activeAccount) return;
     const account = activeAccount;
 
-    // Disabling someone who still holds active claimed reports would leave
-    // those reports stuck (they can't log in to work them, and nobody else
-    // can while they're claimed) — so they're released first.
+    // Their claimed reports must be released first, or nobody could work on them.
     let shouldRelease = false;
     if (account.active) {
       const { proceed, release } = await askToReleaseClaims(account, {
@@ -432,11 +405,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         : await updateAccount(account.id, { active: true });
       Object.assign(activeAccount, updated);
       if (shouldRelease) loadClaimedReports(account);
-      // Sets the correct label, color, and disabled state for the new
-      // active/disabled status — restoring `previousLabel` here instead (as
-      // this used to, unconditionally, in a `finally`) would overwrite that
-      // with the pre-click label, leaving the button's text/icon out of
-      // sync with its now-updated color.
+      // Sets the button's label and color for the new status.
       populateEditModal(activeAccount);
       render();
     } catch (err) {
@@ -447,9 +416,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Update Role popup — one of the 4 Barangay Staff roles (see
-  // accounts/serializers.py's STAFF_ROLE_CHOICES); picking Administrator is
-  // what grants Admin Portal access, not a separate account type anymore.
+  // Update Role popup: one of the 4 staff roles (Administrator gives Admin portal access).
   const updateTypeModal = document.getElementById("updateTypeModal");
   const updateTypeSelect = document.getElementById("updateTypeSelect");
   const updateTypeSave = document.getElementById("updateTypeSave");
@@ -468,9 +435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const newRole = updateTypeSelect.value;
     updateTypeSave.disabled = true;
     try {
-      // A real role change (not re-saving the same one) needs every active
-      // claim released first. The claims prompt sits behind this popup in
-      // the page, so this one steps aside while it's asked.
+      // A real role change needs active claims released first (this popup hides meanwhile).
       let shouldRelease = false;
       if (newRole !== account.position) {
         updateTypeModal.hidden = true;
@@ -497,17 +462,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Cancelling (X or Cancel button, or clicking the backdrop) returns to the
-  // Edit Account popup instead of leaving nothing open.
+  // Cancelling goes back to the Edit Account popup.
   updateTypeModal.addEventListener("click", (e) => {
     if (e.target === updateTypeModal || e.target.closest("[data-close-modal]")) {
       editModal.hidden = false;
     }
   });
 
-  // Resend Setup Link / Reset Password (see populateEditModal for which one
-  // shows). Both just email the account owner a one-time link — the admin
-  // never sees or chooses a password.
+  // Resend Setup Link / Reset Password: emails the owner a one-time link.
   editResetBtn.addEventListener("click", async () => {
     if (!activeAccount) return;
     const account = activeAccount;
@@ -531,13 +493,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Delete Account: permanently removes the account. Guarded the same way
-  // as disabling/retyping (can't target yourself), plus the last-remaining-
-  // Administrator check — see AdminAccountDetailView.delete.
+  // Delete Account (not your own, and never the last Administrator).
   editDeleteBtn.addEventListener("click", async () => {
     if (!activeAccount) return;
-    // Active claims are released first, then the account is deleted (the
-    // server does both together — see AdminAccountDetailView.delete).
+    // The server releases active claims and deletes the account together.
     const { proceed, release } = await askToReleaseClaims(activeAccount, {
       title: "Delete this account?",
       action: "the account can be deleted",

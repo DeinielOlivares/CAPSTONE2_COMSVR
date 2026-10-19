@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — FAQs page data: the public curated FAQ list. (askQuestion()
-// now lives in main.js — the "Ask a Question" FAB is on every citizen page,
-// not just this one.)
+// faqs-data.js — loads the public FAQ list (GET /api/faqs/).
 
 async function getFAQs() {
   const response = await fetch("/api/faqs/");

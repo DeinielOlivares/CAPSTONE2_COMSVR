@@ -1,10 +1,5 @@
-// Barangay Platero OVRMS — Ordinance Categories: Administrator-only management of the
-// list Upload/Edit Ordinance's Category dropdown is built from (see
-// ordinance-categories-data.js). List, add, rename, retire, or remove.
-// Retiring (rather than deleting) is the normal way a category falls out of
-// use, since it keeps the entry around for past ordinances' history; delete
-// is only for one added by mistake (see the backend's docstring). Same
-// pattern as ordinance-authors.js, one field simpler (no position/body).
+// Ordinance Categories (admin, part of the Ordinance Setup page): add, rename,
+// retire or remove categories. Retire old ones; delete only mistakes.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const tbody = document.getElementById("categoriesTableBody");
@@ -116,7 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // ---- Row actions (event delegation — rows are re-rendered wholesale on every change) ----
+  // ---- Row buttons (one listener on the table; rows are re-drawn on every change) ----
 
   tbody.addEventListener("click", async (e) => {
     const editId = e.target.dataset.edit;

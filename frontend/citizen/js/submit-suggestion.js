@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — Submit Suggestion: submits the concern/suggestion to the real
-// API (POST /api/concerns/) instead of just showing a success modal with
-// nothing actually saved.
+// Submit Suggestion (citizen): sends the concern/suggestion with POST /api/concerns/.
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("suggestionForm");
@@ -26,10 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await authFetch("/api/concerns/", { method: "POST", body: formData });
       if (!response.ok) {
-        // Field errors come back as {field: ["..."]}, a refusal (not logged in,
-        // too many requests) as {detail: "..."}. Anything else — a server
-        // error page, a request blocked before it reached the app — has no
-        // message to show, so the status code is given instead of nothing.
+        // Show the first field error or {detail}; otherwise the status code.
         const data = await response.json().catch(() => ({}));
         const firstError = Object.values(data)[0];
         if (Array.isArray(firstError)) throw new Error(firstError[0]);

@@ -1,17 +1,9 @@
-// Barangay Platero OVRMS — Ordinance Authors data, backed by GET/POST/PATCH/DELETE
-// /api/ordinances/authors/ (Administrator only — see accounts.views.IsAdmin
-// and ordinances/views.py's OrdinanceAuthorListCreateView/DetailView). This
-// is the roster Upload/Edit Ordinance's Author field suggests from as you
-// type (frontend/staff/js/ordinances-data.js's populateAuthorDatalist — the
-// field itself stays free text); an Administrator is the one who keeps this
-// list current as elections change who holds these seats.
+// ordinance-authors-data.js — API calls for the officials list
+// (/api/ordinances/authors/), suggested in the Author field when uploading.
 
 let _ordinanceAuthorsCache = null;
 
-// include_inactive=1 so this management page can also show/reactivate a
-// term-ended entry — Upload/Edit Ordinance's own fetch (staff side) never
-// passes this, since a new ordinance shouldn't be assignable to someone no
-// longer serving.
+// include_inactive=1: this page also lists officials whose term ended.
 async function ensureAllOrdinanceAuthorsLoaded() {
   if (_ordinanceAuthorsCache) return _ordinanceAuthorsCache;
   const response = await authFetch("/api/ordinances/authors/?include_inactive=1");

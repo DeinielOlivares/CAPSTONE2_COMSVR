@@ -1,7 +1,5 @@
-// Barangay Platero OVRMS — Concerns/Suggestions list: search, status filter, folder
-// filter/create/rename/delete, and pagination — all wired to the real API
-// (concerns-data.js). Folder membership is a separate axis from status;
-// selecting a folder narrows the list the same way the status dropdown does.
+// Concerns/Suggestions list (staff): search, filter by status or folder, page
+// through the list, and (Secretary) create / rename / delete folders.
 
 document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 5;
@@ -29,12 +27,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const folderDeleteConfirm = document.getElementById("folderDeleteConfirm");
   const folderDeleteCancel = document.getElementById("folderDeleteCancel");
 
-  // Concerns/Suggestions is the Secretary's section (see
-  // frontend/staff/js/admin.js's STAFF_NAV_ACCESS + ConcernFolder*View's
-  // IsSecretaryOrAdmin check) — Barangay Captain can reach this list too,
-  // but strictly to view: no creating/renaming/deleting categories. Per-
-  // concern responding is gated the same way in concern-detail.js.
-  const currentUser = getAdminUser();
+  // Only the Secretary manages folders; the Barangay Captain can only view.
+  const currentUser = getCurrentUser();
   const isSecretary = currentUser && currentUser.position === "Secretary";
   if (!isSecretary) addFolderBtn.hidden = true;
 
@@ -44,8 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   pageSize = pageSizeFrom(pageSizeSelect, pageSize);
 
   let page = memory.get("page", 1);
-  // Only re-filters on Search (or pressing Enter in the field), not on every
-  // keystroke — this tracks the query that was actually searched for.
+  // The last searched text (the list updates on Search / Enter only).
   let appliedQuery = memory.get("query", "");
   searchInput.value = appliedQuery;
   let activeFolderId = memory.get("folder", null); // null = "All Concerns/Suggestions"

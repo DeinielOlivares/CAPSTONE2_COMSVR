@@ -1,9 +1,6 @@
-// Barangay Platero OVRMS — Geospatial Analysis page (Barangay Captain): the incident
-// heatmap at full size beside the analysis panel from geo-analysis.js.
-// Opened from the Reports Dashboard's heatmap card, which passes its period
-// along in the address (?period=month0, or ?from=YYYY-MM-DD&to=YYYY-MM-DD) —
-// changing the period here keeps the address in step, so the page can be
-// bookmarked or refreshed without losing it.
+// Geospatial Analysis page (Barangay Captain): the large heatmap beside the
+// analysis panel (geo-analysis.js). The period is kept in the address
+// (?period=month0 or ?from=YYYY-MM-DD&to=YYYY-MM-DD).
 
 document.addEventListener("DOMContentLoaded", async () => {
   const content = document.querySelector(".admin-content");
@@ -22,13 +19,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     content.innerHTML = `<div class="ordinances-empty">${geoEscape(err.message)}</div>`;
     return;
   }
-  // Best-effort — the heatmap/analysis just can't place a street-only
-  // report precisely if this fails, not worth failing the whole page over.
+  // Optional: without streets, reports without a device position can't be placed.
   await ensureStreetsLoaded().catch(() => {});
 
-  // Every category a real ordinance defines, plus whatever a report's own
-  // category is (e.g. "Other" for an ordinance that no longer matches) —
-  // same list the dashboard's pie uses.
+  // Every ordinance category plus any category found on reports (e.g. "Other").
   const categories = Array.from(
     new Set([...liveOrdinances().map((o) => o.category), ...liveReports().map((r) => r.category)])
   );
@@ -36,8 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let period = reportPeriodFromQuery(window.location.search) || "week";
   let registeredCitizens = null;
 
-  // A failed map init (Leaflet or the tile host unreachable) leaves the
-  // panel working on its own.
+  // If the map can't load, the panel still works.
   let heatmap = null;
   try {
     if (typeof L === "undefined") throw new Error("Leaflet not loaded");
@@ -120,8 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (heatmap) window.addEventListener("resize", () => heatmap.invalidate());
 
-  // Two frames, so the map's container has been laid out before Leaflet
-  // measures it and frames the incident spread.
+  // Wait two frames so the map container has its size.
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
       if (heatmap) heatmap.invalidate();

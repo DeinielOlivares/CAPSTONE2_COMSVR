@@ -1,8 +1,4 @@
-// Barangay Platero OVRMS — Approve Accounts data, backed by the real API.
-// Used to return a hardcoded PENDING_ACCOUNTS array; now fetches from
-// GET /api/auth/admin/verifications/ (see PendingVerificationSerializer),
-// shaped to match what approve-accounts.js already expects (id/owner/
-// email/type/photoUrl/created).
+// pending-accounts-data.js — API calls for Approve Accounts (/api/auth/admin/verifications/).
 
 const ADMIN_API_BASE = "/api/auth/admin";
 
@@ -26,9 +22,7 @@ async function approveVerification(id) {
   return response.json();
 }
 
-// Emails the applicant the given reason, then deletes the pending account
-// outright — see AdminRejectVerificationView's docstring for why deleting is
-// what gives them "another chance" (frees up their email to sign up again).
+// Emails the reason and deletes the pending account (so they can sign up again).
 async function rejectVerification(id, reason) {
   const response = await authFetch(`${ADMIN_API_BASE}/verifications/${id}/reject/`, {
     method: "POST",

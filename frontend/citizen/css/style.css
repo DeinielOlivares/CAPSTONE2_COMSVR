@@ -1,11 +1,12 @@
 /* ==========================================================================
    Barangay Platero — Ordinance Violation Reporting and Monitoring System
-   Shared stylesheet for all pages
+   Citizen portal stylesheet (every page in frontend/citizen/).
+   Fonts and images come from /shared/. Layout breakpoints: see the @media rules.
    ========================================================================== */
 
 @font-face {
   font-family: "Mate SC";
-  src: url("../assets/MateSC-Regular.ttf") format("truetype");
+  src: url("/shared/fonts/MateSC-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -15,28 +16,28 @@
    Google Fonts, so the navbar/sidebar don't depend on an external request. */
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Regular.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Medium.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-SemiBold.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Bold.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -165,7 +166,7 @@ button {
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  background: url("../assets/logo.png") center / cover no-repeat;
+  background: url("/shared/images/logo.png") center / cover no-repeat;
 }
 
 .navbar__links {
@@ -417,7 +418,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background: url("../assets/barangay hall 5 pix.png") center / cover no-repeat;
+  background: url("/shared/images/barangay-hall.png") center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -428,7 +429,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -692,15 +693,6 @@ button {
 .field--boxed input:focus {
   outline: none;
   box-shadow: none;
-}
-
-.divider {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  margin: 6px 0 18px;
 }
 
 .upload-drop {
@@ -1053,58 +1045,7 @@ label.geo-toggle {
   margin: 0 auto 18px;
 }
 
-/* ---------- Info section ---------- */
-
-.info-section {
-  background: var(--cream);
-  padding: 44px 28px 56px;
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.info-section.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.info-grid {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-}
-
-.info-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  color: var(--navy);
-}
-
-.info-card {
-  background: rgba(255, 255, 255, 0.66);
-  border: 1px solid rgba(5, 122, 18, 0.08);
-  border-radius: 12px;
-  padding: 22px 18px;
-}
-
-.info-card p {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: #4b4536;
-}
-
 /* ---------- Ordinances list ---------- */
-
-.page-shell {
-  min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 32px 28px 64px;
-}
 
 .ordinances-card {
   background: var(--white);
@@ -1358,7 +1299,7 @@ label.geo-toggle {
   border-color: var(--navy);
 }
 
-/* "Page X of Y" — click to jump to a specific page (see pagination.js) */
+/* "Page X of Y" — click to jump to a specific page (see shared/js/pagination.js) */
 .pagination-jump-btn {
   width: auto !important;
   padding: 0 12px;
@@ -1495,63 +1436,6 @@ label.geo-toggle {
   margin-bottom: 26px;
 }
 
-.doc-preview {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 22px 24px;
-  margin: 0 auto 26px;
-  max-width: 460px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
-
-.doc-preview__header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-
-.doc-preview__seal {
-  width: 40px;
-  height: 40px;
-  background: url("../assets/logo.png") center / cover no-repeat;
-  flex-shrink: 0;
-}
-
-.doc-preview__seal--plain {
-  background: radial-gradient(circle at 35% 30%, #d9dce3 0%, #b8bcc6 100%);
-}
-
-.doc-preview__masthead {
-  text-align: center;
-  font-size: 0.62rem;
-  line-height: 1.35;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.doc-preview__masthead strong {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--text);
-}
-
-.doc-preview hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 12px 0 16px;
-}
-
-.doc-preview__line {
-  height: 8px;
-  border-radius: 3px;
-  background: var(--cream);
-  margin-bottom: 8px;
-}
-
 .pdf-preview {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1566,7 +1450,7 @@ label.geo-toggle {
   border: none;
   display: block;
   background: #f2f1ec;
-  /* Pages are canvases drawn by js/pdf-preview.js; the frame scrolls them. */
+  /* Pages are canvases drawn by shared/js/pdf-preview.js; the frame scrolls them. */
   overflow-y: auto;
   padding: 10px;
 }
@@ -1618,7 +1502,7 @@ label.geo-toggle {
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -1850,7 +1734,6 @@ label.geo-toggle {
   font-size: 0.92rem;
   line-height: 1.6;
 }
-
 
 .report-card__title {
   text-align: center;
@@ -2139,12 +2022,6 @@ label.geo-toggle {
   font-weight: 700;
   flex-shrink: 0;
   overflow: hidden;
-}
-
-.profile-avatar--guest {
-  background: var(--cream);
-  color: var(--navy);
-  font-size: 1.6rem;
 }
 
 .profile-card__name {
@@ -2464,38 +2341,6 @@ label.geo-toggle {
   margin: 0 auto 0 0;
 }
 
-.reports-filter {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding: 10px 36px 10px 16px;
-  border: 1px solid var(--navy);
-  border-radius: 8px;
-  background-color: var(--navy);
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjYgOSAxMiAxNSAxOCA5Ij48L3BvbHlsaW5lPjwvc3ZnPg==");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 12px;
-  color: var(--white);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.reports-filter:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.4);
-}
-
-/* "Show [5/10/25/50/100]" — how many rows a paginated list renders per page. */
-.page-size-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: var(--text);
-  white-space: nowrap;
-}
-
 /* ---------- Report detail: evidence photo + notice + remarks ---------- */
 
 .evidence-photo {
@@ -2664,12 +2509,6 @@ label.geo-toggle {
   background: var(--white);
   color: var(--text-muted);
   cursor: default;
-}
-
-.upload-drop--disabled {
-  opacity: 0.7;
-  cursor: default;
-  pointer-events: none;
 }
 
 .status-timeline__title {
@@ -2959,9 +2798,7 @@ label.geo-toggle {
     margin-left: auto;
   }
 
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
+  
 
   .form-row {
     grid-template-columns: minmax(0, 1fr);
@@ -3208,30 +3045,22 @@ label.geo-toggle {
     padding: 10px 14px;
   }
 
-  .navbar__controls {
-    gap: 8px;
-  }
+  
 
-  .navbar__avatar,
-  .notif-button,
   .navbar__hamburger {
     width: 44px;
     height: 44px;
   }
 
-  .page-shell,
   .container,
-  .panel,
-  .content-shell {
+  .panel {
     padding-left: 14px;
     padding-right: 14px;
   }
 
   .auth-card,
   .profile-panel,
-  .form-card,
-  .detail-card,
-  .card-panel {
+  .detail-card {
     padding: 20px 16px 18px;
   }
 
@@ -3370,7 +3199,7 @@ label.geo-toggle {
 /* ---------- About Us (about.html) ---------- */
 
 .about-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
 }
 
 .about-intro__inner {
@@ -3476,20 +3305,6 @@ label.geo-toggle {
 .about-card__contact a:hover,
 .about-card__contact a:focus-visible {
   text-decoration: underline;
-}
-
-.about-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-}
-
-.about-card__title {
-  margin: 0 0 10px;
-  font-family: "Poppins", sans-serif;
-  font-size: 1.35rem;
-  font-weight: 600;
-  text-align: center;
 }
 
 .about-logos {
@@ -3615,7 +3430,7 @@ label.geo-toggle {
 /* ---------- Legal pages (privacy-policy.html, terms.html) ---------- */
 
 .legal-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
   padding: 40px 20px 64px;
 }
 
@@ -3802,9 +3617,7 @@ label.geo-toggle {
     padding: 26px 28px;
   }
 
-  .about-pair {
-    grid-template-columns: 1fr;
-  }
+  
 
   .site-footer__inner {
     grid-template-columns: 1fr 1fr;
@@ -3855,27 +3668,6 @@ label.geo-toggle {
     padding: 36px 20px 24px;
     gap: 24px;
   }
-}
-
-/* ---------- Ordinance / Resolution type badge (ordinances list) ---------- */
-
-.doc-kind {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.doc-kind--ordinance {
-  background: var(--cream);
-  color: var(--navy-dark);
-}
-
-.doc-kind--resolution {
-  background: #e7eef8;
-  color: #1f4e8c;
 }
 
 /* ---------- Citizen home page ---------- */
@@ -4091,63 +3883,6 @@ label.geo-toggle {
   display: block;
 }
 
-.latest-ord-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-}
-
-.latest-ord-list > .latest-ord-card {
-  scroll-snap-align: start;
-}
-
-@media (max-width: 900px) {
-  .latest-ord-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 560px) {
-  .latest-ord-list {
-    grid-template-columns: 1fr;
-  }
-}
-
-.latest-ord-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-left: 5px solid var(--accent, #2f7d4a);
-  border-radius: 12px;
-  padding: 26px 28px;
-  min-height: 150px;
-  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
-  text-decoration: none;
-  color: var(--text);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.latest-ord-card:hover,
-.latest-ord-card:focus-visible {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(20, 60, 30, 0.16);
-  text-decoration: none;
-}
-
-.latest-ord-card__title {
-  font-weight: 700;
-  font-size: 1.02rem;
-  line-height: 1.35;
-}
-
-.latest-ord-card__desc {
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
 .latest-ord-card__new {
   align-self: flex-start;
   background: #e8c53d;
@@ -4158,11 +3893,6 @@ label.geo-toggle {
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-}
-
-.latest-ord-card__new--updated {
-  background: #cfe3f7;
-  color: #1d3f63;
 }
 
 #profileGuestView {
@@ -4217,65 +3947,6 @@ label.geo-toggle {
   color: var(--text-muted);
 }
 
-.category-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-}
-
-.category-summary > .category-card {
-  scroll-snap-align: start;
-}
-
-@media (max-width: 900px) {
-  .category-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 560px) {
-  .category-summary {
-    grid-template-columns: 1fr;
-  }
-}
-
-.category-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 200px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-left: 5px solid var(--accent, #2f7d4a);
-  border-radius: 12px;
-  padding: 18px 22px;
-  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
-  text-decoration: none;
-  color: var(--text);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.category-card:hover,
-.category-card:focus-visible {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(20, 60, 30, 0.16);
-  text-decoration: none;
-}
-
-.category-card__count {
-  font-size: 2.6rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--accent, #2f7d4a);
-}
-
-.category-card__label {
-  font-size: 1.02rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--text);
-}
-
 .category-banner {
   margin-bottom: 14px;
   padding: 10px 14px;
@@ -4290,20 +3961,6 @@ label.geo-toggle {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.latest-ord-card__more,
-.category-card__more {
-  margin-top: auto;
-  padding-top: 8px;
-  color: var(--accent, #2f7d4a);
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
-.latest-ord-card:hover .latest-ord-card__more,
-.category-card:hover .category-card__more {
-  text-decoration: underline;
 }
 
 .home-see-more {

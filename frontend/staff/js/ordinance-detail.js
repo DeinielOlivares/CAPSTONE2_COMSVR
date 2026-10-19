@@ -1,5 +1,5 @@
-// Barangay Platero OVRMS — Ordinance detail: view real info, and (Secretary/Admin) edit
-// it, including optionally replacing the PDF, via PATCH /api/ordinances/<id>/.
+// Ordinance detail (staff): shows an ordinance; the Secretary/Administrator can
+// edit it and replace the PDF (PATCH /api/ordinances/<id>/).
 
 document.addEventListener("DOMContentLoaded", async () => {
   const id = new URLSearchParams(window.location.search).get("id");
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---- Edit mode (Secretary/Admin only — see ordinances-data.js) ----
 
-  const canEdit = isDocumentManager(getAdminUser());
+  const canEdit = isDocumentManager(getCurrentUser());
 
   const editBtn = document.getElementById("editOrdinanceBtn");
   editBtn.hidden = !canEdit;
@@ -93,13 +93,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
   const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
 
-  // Category is a controlled dropdown (an Administrator maintains that list —
-  // see ordinances/models.py's OrdinanceCategory), loaded up front rather than
-  // on first "Edit" click so a slow request doesn't stall the click; failing
-  // disables Edit entirely, since editing without it would mean falling back
-  // to free text for a field meant to stay consistent. Author is free text
-  // either way, so a failed suggestions fetch there just means no
-  // autocomplete — not worth blocking Edit over.
+  // The category list is loaded now; without it Edit is disabled. The author
+  // suggestions are optional.
   try {
     populateCategorySelect(categoryInput, await fetchOrdinanceCategories());
   } catch (err) {
@@ -112,16 +107,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // No suggestions is a minor loss, not worth blocking Edit over.
   }
 
-  // detailDocPreview/detailDownload are excluded here — their visibility
-  // depends on whether ordinance.pdf exists, which renderDisplay() already
-  // handles; blindly un-hiding them on exit would show an empty PDF preview
-  // for an ordinance with no PDF.
+  // (The PDF preview and Download button are handled by renderDisplay().)
   const displayEls = [detailTitle, detailMeta, detailDescription];
 
-  // ---- Unsaved-changes tracking ----
-  // Snapshotted right as edit mode opens; isDirty() compares the live
-  // inputs against it. hasPdf rather than the File object itself, since two
-  // different File objects are never === even for the same picked file.
+  // ---- Unsaved changes ----
+  // The values when Edit was opened; isDirty() compares the inputs with them.
   let savedSnapshot = null;
 
   function snapshotForm() {
@@ -146,11 +136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     numberInput.value = ordinance.number;
     titleInput.value = ordinance.title;
     authorInput.value = ordinance.author;
-    // Category was chosen from this same list at upload time, so it's a
-    // direct match unless an Administrator has since renamed/retired it —
-    // in that rare case this just leaves the placeholder selected, and
-    // saving requires picking a currently-valid one (same as any other
-    // required field here).
+    // If the category was renamed or retired, nothing is selected and one must be picked.
     categoryInput.value = ordinance.category;
     dateInput.value = ordinance.dateApprovedRaw;
     descriptionInput.value = ordinance.description;
@@ -182,8 +168,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     pdfLabelText.textContent = pdfInput.files[0] ? pdfInput.files[0].name : "Click to replace the PDF (optional)";
   });
 
-  // Returns true on success — shared between the Save Changes button and
-  // the unsaved-changes modal's own "Save Changes" option.
+  // Saves the edit. Returns true on success.
   async function commitSave() {
     const fields = {
       number: numberInput.value.trim(),
@@ -226,9 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (await commitSave()) exitEditMode();
   });
 
-  // What to do once the unsaved-changes modal resolves (Save/Discard) —
-  // null just exits edit mode in place (Cancel button), or a real
-  // navigation when a sidebar/other in-page link triggered it.
+  // What to do after the unsaved-changes popup: null = just leave edit mode.
   let pendingAction = null;
 
   cancelBtn.addEventListener("click", () => {
@@ -266,9 +249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Catches every in-page link (sidebar, navbar, etc.) while mid-edit —
-  // beforeunload below is the fallback for anything that isn't a click
-  // (browser back/refresh/close).
+  // Clicking any link while editing asks first (closing the tab shows the browser's warning).
   document.addEventListener(
     "click",
     (e) => {

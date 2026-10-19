@@ -1,6 +1,5 @@
-// Barangay Platero OVRMS — shared pagination controls: First/Prev/[page numbers with
-// ellipsis]/Next/Last, plus a "Page X of Y" button that prompts for a
-// specific page to jump to. Used by every paginated list on this portal.
+// pagination.js — page buttons under every list: First / Prev / page numbers /
+// Next / Last, and a "Page X of Y" button to jump to a page.
 
 function buildPageNumberList(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -14,9 +13,7 @@ function buildPageNumberList(current, total) {
   return pages;
 }
 
-// Jump-to-page modal, built once and reused by every paginated list on the
-// page — a real modal-overlay/modal-card (matching the rest of the site)
-// instead of the browser's native window.prompt()/siteAlert().
+// The "Go to Page" popup, created once and shared by every list on the page.
 let jumpModalEl = null;
 
 function ensureJumpModal() {
@@ -79,9 +76,7 @@ function showJumpToPageModal(current, total, onGoTo) {
     onGoTo(n);
   }
 
-  // Reassigned (not addEventListener'd) each call — this modal is a reused
-  // singleton, so stacking listeners across repeated opens would fire the
-  // callback once per prior open.
+  // Assigned (not added) each time, so reopening doesn't stack handlers.
   goBtn.onclick = submit;
   input.onkeydown = (e) => {
     if (e.key === "Enter") {

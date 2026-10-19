@@ -1,15 +1,12 @@
-// Barangay Platero OVRMS — Investigator Dashboard: a personal worklist, not an oversight
-// view (that's the Captain's Reports Dashboard) — everything here is scoped
-// to reports the signed-in Investigator has claimed, plus the size of the
-// shared unclaimed queue. No date-range filter: this is "what's on my plate
-// right now," not a historical trend.
+// Investigator Dashboard: the logged-in Investigator's own claimed reports,
+// plus how many reports are still unclaimed (no date filter).
 
 document.addEventListener("DOMContentLoaded", async () => {
   const AGING_LIST_LIMIT = 8;
   const MAX_BAR_HEIGHT = 168; // px — matches reports-dashboard.js's status chart
 
   const dashboardMain = document.querySelector(".admin-content");
-  const currentUser = getAdminUser();
+  const currentUser = getCurrentUser();
 
   try {
     await ensureReportsLoaded();
@@ -120,8 +117,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .join("")
       : `<tr><td colspan="4" class="ordinances-empty">Nothing open on your plate right now.</td></tr>`;
 
-    // On mobile, only Days Open/Status stay visible (see style.css) — tap
-    // anywhere on the row to go to the report, same place the arrow link goes.
+    // On phones the whole row opens the report.
     body.querySelectorAll("tr[data-id]").forEach((row) => {
       row.addEventListener("click", (e) => {
         if (e.target.closest("a")) return;

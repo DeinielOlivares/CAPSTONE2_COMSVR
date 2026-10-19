@@ -1,7 +1,4 @@
-// Barangay Platero OVRMS — My Reports: render + filter the citizen's submitted reports by
-// status, paginated. Data now comes from the real API (see
-// my-reports-data.js) instead of a hardcoded array, so this file is async
-// where it fetches reports.
+// My Reports (citizen): the citizen's reports, filtered by status and paginated.
 
 document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 5;
@@ -38,12 +35,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   let reports = [];
   let page = memory.get("page", 1);
 
-  // Default display order when more than one status is showing: Submitted,
-  // then Under Review, then In Action, with Resolved/With Remarks last —
-  // newest first within each status. "All" really means all: Resolved used
-  // to be hidden until the filter was touched, which left a citizen whose
-  // reports were all resolved looking at "No reports match this status."
-  // under "All".
+  // Order: Submitted, Under Review, In Action, then Resolved / With Remarks;
+  // newest first within each status.
   const STATUS_RANK = { Submitted: 0, "Under Review": 1, "In Action": 2, Resolved: 3, "With Remarks": 3 };
 
   function getFiltered() {

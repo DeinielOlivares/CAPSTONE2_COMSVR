@@ -1,8 +1,5 @@
-// Barangay Platero OVRMS — Report detail: view a report's real info and let staff change
-// its status and remarks (remarks are always editable, independent of
-// status — not gated to one specific status choice). Saves go through
-// updateReportStatus (PATCH /api/reports/staff/<id>/) instead of the old
-// localStorage-only mock.
+// Report detail (staff): shows a report. The Investigator who claimed it can
+// change its status and remarks (PATCH /api/reports/staff/<id>/).
 
 function formatTime12h(hhmmss) {
   if (!hhmmss) return "Not specified";
@@ -10,38 +7,6 @@ function formatTime12h(hhmmss) {
   const period = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-const REPORT_EVIDENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
-
-// Opens the clicked thumbnail full-size in an overlay on this same page,
-// instead of navigating to it in a new tab.
-function openMediaLightbox(url, isVideo) {
-  const lightbox = document.getElementById("mediaLightbox");
-  const body = document.getElementById("mediaLightboxBody");
-  if (!lightbox || !body) return;
-  body.innerHTML = isVideo
-    ? `<video src="${url}" controls autoplay></video>`
-    : `<img src="${url}" alt="Uploaded evidence" />`;
-  lightbox.hidden = false;
-}
-
-function renderReportEvidence(container, urls) {
-  if (!urls || !urls.length) {
-    container.innerHTML = `<div class="evidence-photo">No uploaded evidence</div>`;
-    return;
-  }
-  container.className = "evidence-photo-grid";
-  container.innerHTML = urls
-    .map((url) => {
-      const isVideo = REPORT_EVIDENCE_VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
-      const media = isVideo ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="Uploaded evidence" />`;
-      return `<button type="button" class="evidence-photo-grid__item" data-lightbox-url="${url}" data-lightbox-video="${isVideo}">${media}</button>`;
-    })
-    .join("");
-  container.querySelectorAll("[data-lightbox-url]").forEach((btn) => {
-    btn.addEventListener("click", () => openMediaLightbox(btn.dataset.lightboxUrl, btn.dataset.lightboxVideo === "true"));
-  });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -75,10 +40,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("reportNature").value = report.natureOfViolation;
 
   const evidenceEl = document.getElementById("reportEvidence");
-  if (evidenceEl) renderReportEvidence(evidenceEl, report.attachments);
+  if (evidenceEl) renderEvidence(evidenceEl, report.attachments);
 
-  // Every status, in timeline order (see reports-data.js) — Resolved and
-  // With Remarks are the two ways a report reaches the last stage.
+  // Every status, in timeline order.
   const STATUSES_ORDERED = REPORT_STATUS_LABELS_ORDERED;
   const STATUS_PILL_CLASS = REPORT_STATUS_PILL_CLASS;
 
@@ -96,23 +60,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
   const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
 
-  // ---- Claim (Investigator only — Reports is their section, see
-  // frontend/staff/js/admin.js's STAFF_NAV_ACCESS). Barangay Captain/
-  // Secretary reaching this page (e.g. Captain's dashboard "View Details")
-  // just see who's on it, read-only. A claim is permanent: Investigators
-  // can't forfeit it (only an Administrator can release one server-side,
-  // see StaffReportForfeitView), so claiming asks for confirmation first. ----
+  // ---- Claim (Investigators only; others just see who claimed it) ----
   const claimLabel = document.getElementById("claimLabel");
   const claimBtn = document.getElementById("claimBtn");
   const claimHint = document.getElementById("claimHint");
-  const currentUser = getAdminUser();
+  const currentUser = getCurrentUser();
   const isInvestigator = currentUser && currentUser.position === "Investigator";
 
-  // Status/remarks editing is Investigator-only, and even then only on a
-  // report this Investigator has claimed — an unclaimed report, or one
-  // someone else holds, is read-only (enforced server-side too, see
-  // StaffReportDetailView.patch). Barangay Captain always gets a read-only
-  // view. Re-run after claiming so editing turns on with it.
+  // Editing is only for the Investigator who claimed this report (the server
+  // checks this too). Runs again after claiming.
   function renderClaim() {
     const isMine = report.assignedInvestigatorId && currentUser && report.assignedInvestigatorId === currentUser.id;
     claimLabel.textContent = report.assignedInvestigator
@@ -137,8 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderClaim();
 
-  // ---- Download Report (Investigator only — the citizen gets the same
-  // form from My Report Detail; see /citizen/js/report-form-download.js) ----
+  // ---- Download Report (Investigators; see /shared/js/report-form-download.js) ----
   const downloadBtn = document.getElementById("downloadReportBtn");
   if (isInvestigator) {
     downloadBtn.hidden = false;
@@ -186,8 +141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let currentStatus = report.status;
   remarksInput.value = report.remarks || "";
 
-  // Snapshot of what's actually persisted, so we can tell whether the user
-  // has made edits that haven't been saved yet.
+  // The saved values, to detect unsaved edits.
   let savedStatus = currentStatus;
   let savedRemarks = remarksInput.value.trim();
 
@@ -197,27 +151,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderTimeline(status, dateSubmitted, dateUpdated) {
-    // Fixed labels rather than the Status dropdown's names: the timeline is
-    // the report's record, so its first stage reads "Submitted" (the
-    // dropdown's "New Submission"), and Resolved and With Remarks share the
-    // last one.
+    // The timeline's own labels (its first step is "Submitted").
     const steps = [
       { label: "Submitted", description: "The report was submitted." },
       { label: "Under Review", description: "The report is being reviewed." },
       { label: "In Action", description: "Appropriate actions are being taken." },
       { label: "Resolved/With Remarks", description: "The report is finished and closed." },
     ];
-    // New Submission/Under Review/In Action are stages 1-3; Resolved and
-    // With Remarks both complete the 4th.
+    // Resolved and With Remarks both complete step 4.
     const completedSteps = isReportClosed(status) ? steps.length : STATUSES_ORDERED.indexOf(status) + 1;
 
     timelineItems.innerHTML = steps
       .map((step, i) => {
         const pending = i >= completedSteps;
-        // There's no per-stage history (just one status field), so every
-        // completed stage past "Submitted" is dated with the report's last
-        // update time — the best real timestamp available, rather than a
-        // fabricated offset.
+        // Steps after "Submitted" are dated with the last update (only the current status is stored).
         const stepDate = i === 0 ? dateSubmitted : dateUpdated;
         const dateLabel = pending
           ? "Pending"
@@ -250,8 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return statusSelect.hidden ? currentStatus : statusSelect.value;
   }
 
-  // Remarks are always editable, so a remarks edit counts as dirty
-  // regardless of which status is currently selected.
+  // A changed status or changed remarks both count as unsaved.
   function isDirty() {
     return pendingStatus() !== savedStatus || remarksInput.value.trim() !== savedRemarks;
   }
@@ -294,8 +240,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
-  // Back to the page this report was opened from (a Reports subpage, the
-  // Reports Dashboard, Notifications...); opened directly, Reports.
+  // "Back" returns to the page this report was opened from (or Reports).
   function goToReports() {
     let target = "reports.html";
     try {

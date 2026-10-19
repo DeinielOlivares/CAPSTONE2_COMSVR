@@ -1,6 +1,5 @@
-// Barangay Platero OVRMS — Website Setup: the Administrator's site-wide settings — the
-// navbar/sidebar brand name and logo, and the footer's text and links. Saves
-// go to the same /api/site/ endpoints as About Us Setup (see siteinfo/views.py).
+// Website Setup (admin): the brand name and logo, the site footer's text and
+// links, and the legal pages (Privacy Policy, Terms). Saves to /api/site/.
 
 document.addEventListener("DOMContentLoaded", async () => {
   function escapeHtml(str) {
@@ -39,9 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { notes };
   }
 
-  // Previews a chosen image before upload; returns a function that clears it.
-  // `framed`: draw the green ring on the preview, as About Us will for an
-  // uploaded portrait (seeded ones have it baked into the image already).
+  // Previews a chosen image; returns a function that clears it.
+  // `framed`: add the green ring, as About Us does for uploaded portraits.
   function wireImagePicker(input, preview, empty, warn, options) {
     let objectUrl = null;
     let previousFramed = false;
@@ -121,8 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return brandingSiteName.value.trim() !== (savedBranding.site_name || "") || brandingLogoInput.files.length > 0;
   }
 
-  // Returns true on success — shared between the form's own submit and the
-  // page-level unsaved-changes modal's "Save Changes" option below.
+  // Saves the branding. Returns true on success.
   async function commitBrandingSave() {
     clearFormError(brandingForm);
     const siteName = brandingSiteName.value.trim();
@@ -205,9 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let savedFooterSnapshot = null;
 
-  // Same shape saveBarangayProfile's footer fields are sent/received in —
-  // doubles as both the dirty-check's comparison value and (via
-  // fillFooterForm) the "Discard Changes" restore value.
+  // The footer values as saved (used to detect and discard unsaved changes).
   function currentFooterValues() {
     readFooterEditor("quick");
     readFooterEditor("legal");
@@ -267,8 +262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Returns true on success — shared between the form's own submit and the
-  // page-level unsaved-changes modal's "Save Changes" option below.
+  // Saves the footer. Returns true on success.
   async function commitFooterSave() {
     clearFormError(footerForm);
     readFooterEditor("quick");
@@ -304,11 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ============== Leaving with unsaved Branding/Footer changes ==============
-  // One combined check across both forms (Legal pages has its own separate
-  // exit-confirm modal below, scoped to that popup). beforeunload covers
-  // browser back/refresh/close; the click interceptor covers in-page
-  // navigation (sidebar, etc.) — same "Save Changes?" modal every other
-  // editable page in the app uses.
+  // Clicking a link asks "Save Changes?"; closing the tab shows the browser's warning.
 
   function isSetupDirty() {
     return isBrandingDirty() || isFooterDirty();

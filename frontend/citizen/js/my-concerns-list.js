@@ -1,7 +1,4 @@
-// Barangay Platero OVRMS — My Concerns/Suggestions: render + filter the citizen's
-// submitted list by status, paginated. Data comes from the real API (see
-// my-concerns-data.js) instead of a hardcoded array, so this file is async
-// where it fetches concerns.
+// My Concerns/Suggestions (citizen): the citizen's concerns, filtered by status and paginated.
 
 document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 5;
@@ -22,18 +19,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   }
 
-  // There's no separate title/category field on Submit Suggestion — it's
-  // just a free-text description — so the list row's "title" is a
-  // truncated snippet of that text, same idea as an email client deriving
-  // a preview line when there's no subject.
+  // A concern has no title, so the row shows the start of its description.
   function titleFor(description) {
     return description.length > 60 ? `${description.slice(0, 60)}…` : description;
   }
 
   let concerns = [];
   let page = memory.get("page", 1);
-  // Default display order when both statuses are showing: Submitted first,
-  // Reviewed last — newest first within each status.
+  // Order: Submitted, then Reviewed; newest first within each status.
   function getFiltered() {
     const filterValue = statusFilter.value;
     const rows = concerns.filter((c) => {

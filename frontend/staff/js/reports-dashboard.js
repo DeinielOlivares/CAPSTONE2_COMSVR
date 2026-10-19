@@ -1,13 +1,10 @@
-// Barangay Platero OVRMS — Reports Dashboard: a top date-range filter (presets or a
-// custom "Date From - Date To" range) sets the default period for the
-// stats and all four graphs; each graph can then override it with its own
-// dropdown until the top filter changes again or Clear Filters is pressed.
-// All real data, from reports-data.js's API-backed source (category comes
-// from matching each report's ordinance against the real uploaded
-// ordinances — see reports-data.js's categoryForOrdinance). The heatmap is
-// a Leaflet density map keyed on each report's street (geocoded to a
-// centroid in street-coordinates.js) — see js/heatmap.js; its full analysis
-// lives on its own page (geo-analysis.html).
+// Reports Dashboard (Barangay Captain). The date filter at the top sets the
+// period for the stat cards and every chart; each chart can also pick its
+// own period until the top filter changes or Clear Filters is pressed.
+// Charts: incident heatmap (heatmap.js + geo-analysis.js), Reports by
+// Category (pie), Reports by Status, Investigator Performance, Reports Filed
+// Over Time, and the Report Timeline list. "Download Summary (PDF)" sends the
+// shown numbers to the server, which lays them out as a PDF.
 
 // What the top filter starts on, and what Clear Filters goes back to.
 const DASHBOARD_DEFAULT_PERIOD = "month0";
@@ -20,13 +17,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "#e0824a", "#7b5ea7", "#3c9d8f", "#b25a9e",
   ];
 
-  // The top date-range filter sets a default that every graph follows —
-  // changing it immediately re-applies to all four (clearing any
-  // per-graph override) — but each graph's own dropdown can then override
-  // it independently, until the top filter changes again or Clear Filters
-  // is pressed. The 5 stat cards and the Report Timeline table always
-  // follow the top filter only (Report Timeline is actually independent of
-  // every filter — see its own comment below).
+  // topPeriod: the top filter. graphOverride: a chart's own period (null = follow the top filter).
   const state = {
     topPeriod: DASHBOARD_DEFAULT_PERIOD,
     customRange: null, // {from: "YYYY-MM-DD", to: "YYYY-MM-DD"} once topPeriod === "custom"
@@ -39,15 +30,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       : state.topPeriod;
   }
 
-  // The period a given graph should actually render with — its own
-  // override if it has one, else whatever the top filter is set to.
+  // The period a chart uses: its own choice, or else the top filter.
   function effectivePeriod(graphKey) {
     return state.graphOverride[graphKey] || topPeriodValue();
   }
 
-  // The top filter and every graph's own filter are kept for this browser
-  // tab (see createFilterMemory), so coming back from a report shows the
-  // dashboard as it was left.
+  // The filters are remembered for this browser tab (createFilterMemory).
   const memory = createFilterMemory("reports_dashboard");
   const isPreset = (value) => buildPeriodOptions().some((o) => o.value === value);
   const isCustom = (value) => !!value && typeof value === "object" && value.type === "custom" && !!value.from && !!value.to;
@@ -70,9 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     memory.set("periods", state);
   }
 
-  // Builds from local date components, not toISOString() (which converts to
-  // UTC first and would roll the date back a day in any timezone ahead of
-  // UTC, e.g. the Philippines at local midnight).
+  // "YYYY-MM-DD" in local time (toISOString() would use UTC and could give the previous day).
   function toDateInputValue(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -80,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `${y}-${m}-${d}`;
   }
 
-  // The From/To a Custom range picker starts on — this month so far.
+  // A custom range starts as "this month so far".
   function defaultCustomRange() {
     const { start } = getMonthRange(0);
     return { from: toDateInputValue(start), to: toDateInputValue(new Date()) };
@@ -105,21 +91,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return;
   }
-  // Best-effort, unlike the two above — the heatmap/geo summary just can't
-  // place a street-only report precisely if this fails, not worth failing
-  // the whole dashboard over.
+  // Optional: without streets, reports without a device position can't be placed on the map.
   await ensureStreetsLoaded().catch(() => {});
 
-  // Every category a real ordinance defines, plus "Other" only if some
-  // report's ordinance text didn't match any of them — computed once so the
-  // pie legend doesn't reshuffle as the period dropdown changes.
+  // Every ordinance category (plus "Other" if needed), fixed once so colors don't change.
   const REPORT_CATEGORIES = Array.from(
     new Set([...liveOrdinances().map((o) => o.category), ...liveReports().map((r) => r.category)])
   );
 
-  // Assigned by each category's stable position in REPORT_CATEGORIES, not a
-  // hash of its name — a hash can (and did) collide two categories onto the
-  // same color even well under the palette size.
+  // Each category's color, by its position in REPORT_CATEGORIES.
   const CATEGORY_COLOR_BY_NAME = new Map(
     REPORT_CATEGORIES.map((name, i) => [name, CATEGORY_COLOR_PALETTE[i % CATEGORY_COLOR_PALETTE.length]])
   );
@@ -132,10 +112,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   }
 
-  // This dashboard's own, shorter list of presets (the Custom range is
-  // offered separately, at the top of each dropdown) — values are the same
-  // ones getReportsForPeriod understands, so the heatmap's link to the
-  // Geospatial Analysis page still carries the period over.
+  // The preset periods offered on this page (a custom range is offered too).
   function buildPeriodOptions() {
     return [
       { value: "month0", label: "This Month" },
@@ -173,9 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---- Stats + delta ----
 
-  // stats.process/remarks keep their old names to match the statProcess/
-  // statRemarks element ids below, but now count "Under Review"/"In Action"
-  // respectively; stats.withRemarks is the With Remarks status.
+  // Counts per status. (process = Under Review, remarks = In Action, to match the element ids.)
   function computeStats(reports) {
     const stats = { total: reports.length, new: 0, process: 0, resolved: 0, remarks: 0, withRemarks: 0 };
     reports.forEach((r) => {
@@ -242,8 +217,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const dateRangeMenu = document.getElementById("dateRangeMenu");
   const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 
-  // Changing the top filter is an "overwrite" — every graph's own override
-  // is cleared so all four immediately follow the new top period again.
+  // Changing the top filter clears every chart's own period.
   function setTopPeriod(period, customRange) {
     state.topPeriod = period;
     state.customRange = customRange || null;
@@ -297,12 +271,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Reports by Category pie ----
-  // An SVG pie — each wedge is its own <path>/<circle> with a hover/focus
-  // tooltip (category, percent, count) instead of a permanent side legend.
-  // The expand button opens a bigger version of the same pie alongside a
-  // full breakdown list, which is what stands in for a legend here (see
-  // dataviz guidance: identity must be reachable as text, just not
-  // necessarily always visible on the small card).
+  // An SVG pie; hovering a wedge shows its category, percent and count. The
+  // expand button opens a bigger pie with the full list of categories.
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const PIE_RADIUS = 46;
@@ -318,8 +288,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const categoryPieExpanded = document.getElementById("categoryPieExpanded");
   const categoryPieExpandedList = document.getElementById("categoryPieExpandedList");
 
-  // Reused by both the small card pie and the expanded modal's pie, so the
-  // two always agree — computed once per render from the same report list.
+  // The slices, shared by the small and the expanded pie.
   let lastCategorySlices = [];
 
   function pieSliceData(reports) {
@@ -337,8 +306,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // fraction 0 is the top (12 o'clock), increasing clockwise — matches how
-  // the old conic-gradient version read.
+  // fraction 0 is 12 o'clock, going clockwise.
   function pieEdgePoint(fraction, radius) {
     const theta = fraction * 2 * Math.PI;
     return { x: 50 + radius * Math.sin(theta), y: 50 - radius * Math.cos(theta) };
@@ -429,8 +397,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!lastCategorySlices.length) return;
     renderPieSVG(categoryPieExpanded, lastCategorySlices);
 
-    // Only the categories that actually have a slice this period — one at 0%
-    // has no wedge to match its colour to, so listing it is just noise.
+    // Only categories with reports in this period.
     categoryPieExpandedList.innerHTML = "";
     lastCategorySlices.filter((slice) => slice.count > 0).forEach((slice) => {
       const li = document.createElement("li");
@@ -456,9 +423,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       chevron.textContent = "▾";
       row.append(dot, label, value, chevron);
 
-      // Every ordinance filed under this category, not just the ones a
-      // report happened to cite this period — lets staff see the full
-      // picture when they drill in.
+      // Every ordinance in this category, not just those cited this period.
       const ordinances = liveOrdinances().filter((o) => o.category === slice.category);
       const sublist = document.createElement("ul");
       sublist.className = "category-pie-modal__sublist";
@@ -524,12 +489,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }).join("");
   }
 
-  // ---- Investigator Performance bar chart (Barangay Captain only — this
-  // whole dashboard is Captain-only, see admin.js's STAFF_NAV_ACCESS) ----
-  // Counts how many reports each Investigator currently has claimed (see
-  // reports-data.js's assignedInvestigator) within the selected period —
-  // built from whichever Investigators show up claiming a report, since
-  // there's no separate "list every Investigator" endpoint available here.
+  // ---- Investigator Performance bar chart ----
+  // How many of the period's reports each Investigator has claimed.
 
   const investigatorBarChart = document.getElementById("investigatorBarChart");
   const INVESTIGATOR_BAR_COLORS = [
@@ -566,14 +527,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
-  // ---- Report Timeline (aging list) ----
-  //
-  // Deliberately NOT filtered by state.period — an old report shouldn't
-  // vanish from this list just because the selected date range has moved
-  // past its submission date. Report has no resolved_at (see reports/
-  // models.py), so "days open" is measured from created_at to now for
-  // anything not yet Resolved/With Remarks, which is the closest honest
-  // proxy available.
+  // ---- Report Timeline (open reports, oldest first) ----
+  // Not filtered by period, so old open reports never disappear from it.
+  // "Days open" = days since the report was filed.
   const agingReportsBody = document.getElementById("agingReportsBody");
   const timelinePageSizeSelect = document.getElementById("timelinePageSize");
   memory.bindSelect(timelinePageSizeSelect);
@@ -630,13 +586,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return REPORT_STATUS_PILL_CLASS[status] || "status-pill--new";
   }
 
-  // ---- Incident heatmap (real Leaflet density map) + its summary ----
-  //
-  // Intensity = number of reports per street for the selected period, placed
-  // at that street's centroid (street-coordinates.js). The card's map is
-  // static; clicking it (or the summary's button) opens the Geospatial
-  // Analysis page on the same period. Beside it, renderGeoSummary
-  // (geo-analysis.js) gives the headline figures for that period.
+  // ---- Incident heatmap + its summary ----
+  // The card's map is static; clicking it (or "View full analysis") opens the
+  // Geospatial Analysis page on the same period. renderGeoSummary shows the key figures.
 
   const heatmapCanvasEl = document.getElementById("heatmapCanvas");
   const geoSummaryEl = document.getElementById("geoSummary");
@@ -645,8 +597,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `geo-analysis.html?${reportPeriodToQuery(effectivePeriod("heatmap"))}`;
   }
 
-  // The summary doesn't need the map — it still renders if Leaflet or the
-  // tile host is unreachable (see setupHeatmap's catch below).
+  // The summary still shows even if the map can't load.
   let registeredCitizens = null;
   function renderGeoSummaryCard() {
     renderGeoSummary(geoSummaryEl, {
@@ -660,9 +611,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderGeoSummaryCard();
   });
 
-  // No-op unless setupHeatmap() succeeds — a failed map init then just
-  // leaves an empty map instead of taking down the stats, table, and pie
-  // with it.
+  // Does nothing if the map failed to load (the rest of the page still works).
   let renderHeatmapCard = () => {};
   const renderHeatmaps = () => {
     renderHeatmapCard();
@@ -696,8 +645,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     window.addEventListener("resize", () => cardHeatmap.invalidate());
 
-    // Defer the first paint: during DOMContentLoaded the card hasn't been
-    // laid out yet, so Leaflet would measure it at 0×0 and mis-fit the view.
+    // Wait until the card has its size before the first draw.
     requestAnimationFrame(() => {
       cardHeatmap.invalidate();
       renderHeatmapCard();
@@ -713,11 +661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ---- Reports Filed Over Time (line chart) ----
-  //
-  // One line: how many reports were filed in each step of the selected
-  // period — days for anything up to about six weeks, weeks up to about half
-  // a year, months beyond that. Same drawing approach and .cd-trend styles as
-  // the Concerns Dashboard's "Submissions over time" (concerns-dashboard.js).
+  // Reports per day (up to ~6 weeks), per week (up to ~6 months) or per month.
 
   const reportsTrendChart = document.getElementById("reportsTrendChart");
   const reportsTrendSummary = document.getElementById("reportsTrendSummary");
@@ -796,8 +740,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const now = new Date();
     const points = buckets.map((b) => ({
       ...b,
-      // Steps that haven't started yet have no value at all — the line
-      // stops at today instead of dropping to a misleading zero.
+      // Future steps have no value, so the line stops at today.
       future: b.start > now,
       count: reports.filter((r) => r.dateSubmitted >= b.start && r.dateSubmitted <= b.end).length,
     }));
@@ -949,9 +892,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ---- Download Summary (PDF) — whatever the current filters show,
-  // reusing the exact same per-graph effective period each chart already
-  // renders with, rather than re-deriving anything server-side. ----
+  // ---- Download Summary (PDF): sends what the charts currently show ----
 
   function gatherDashboardSummary() {
     const topPeriod = topPeriodValue();
@@ -976,9 +917,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .sort((a, b) => investigatorCounts[b] - investigatorCounts[a])
       .map((name) => ({ name, count: investigatorCounts[name] }));
 
-    // Used server-side only to name the downloaded file (see
-    // StaffReportDashboardPdfView) — the PDF's own content still shows
-    // top_period_label, the human-readable version.
+    // Only used for the file name.
     const topRange = periodDateRange(topPeriod);
 
     return {
@@ -1042,10 +981,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderAgingReports();
   }
 
-  // Deferred two frames, same as setupHeatmap()'s own first paint above —
-  // at DOMContentLoaded the heatmap card hasn't been laid out yet, so
-  // calling renderHeatmaps() (via renderAll) synchronously here would
-  // measure its canvas at 0×0. Later calls (dropdown selection) run
-  // renderAll() directly since layout is already settled by then.
+  // The first draw waits two frames so the heatmap card has its size.
   requestAnimationFrame(() => requestAnimationFrame(renderAll));
 });

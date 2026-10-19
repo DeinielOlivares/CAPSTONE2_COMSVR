@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — My Concerns/Suggestions data, backed by the real API.
+// my-concerns-data.js — loads the citizen's own concerns (GET /api/concerns/).
 
 async function getMyConcerns() {
   const response = await authFetch("/api/concerns/");

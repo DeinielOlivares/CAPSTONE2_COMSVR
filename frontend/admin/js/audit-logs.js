@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — View Audit Logs: render + search + sort + filter every logged
-// action (not just login/logout — see AuditLog/log_action on the backend).
-// Data comes from the real API (see audit-log-data.js).
+// View Audit Logs (admin): search, sort and filter every logged action.
 
 document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 5;
@@ -22,8 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let logs = [];
   let page = memory.get("page", 1);
   let currentPageRows = [];
-  // Only re-filters on Search (or pressing Enter in the field), not on every
-  // keystroke — this tracks the query that was actually searched for.
+  // The last searched text (the list updates on Search / Enter only).
   let appliedQuery = memory.get("query", "");
   searchInput.value = appliedQuery;
 
@@ -96,9 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireFiltersDropdown(document.getElementById("filtersToggleBtn"), document.getElementById("filtersPanel"));
 
-  // ---- Mobile row-tap details (Owner/Type are hidden on mobile
-  // — see the 860px breakpoint in style.css, which keeps only Time/Date and
-  // Action visible) — tapping a row shows everything in one popup instead. ----
+  // ---- Phones: some columns are hidden, so tapping a row shows all details in a popup ----
   let logDetailModal = null;
 
   function ensureLogDetailModal() {

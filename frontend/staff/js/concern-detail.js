@@ -1,38 +1,5 @@
-// Barangay Platero OVRMS — Concern/Suggestion detail: view real info, leave remarks and
-// assign a category (PATCH /api/concerns/staff/<id>/). Status isn't edited
-// here: the server marks it Reviewed once it's categorized or given remarks.
-
-const CONCERN_EVIDENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
-
-// Opens the clicked thumbnail full-size in an overlay on this same page,
-// instead of navigating to it in a new tab.
-function openMediaLightbox(url, isVideo) {
-  const lightbox = document.getElementById("mediaLightbox");
-  const body = document.getElementById("mediaLightboxBody");
-  if (!lightbox || !body) return;
-  body.innerHTML = isVideo
-    ? `<video src="${url}" controls autoplay></video>`
-    : `<img src="${url}" alt="Uploaded evidence" />`;
-  lightbox.hidden = false;
-}
-
-function renderConcernDetailEvidence(container, urls) {
-  if (!urls || !urls.length) {
-    container.innerHTML = `<div class="evidence-photo">No uploaded evidence</div>`;
-    return;
-  }
-  container.className = "evidence-photo-grid";
-  container.innerHTML = urls
-    .map((url) => {
-      const isVideo = CONCERN_EVIDENCE_VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
-      const media = isVideo ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="Uploaded evidence" />`;
-      return `<button type="button" class="evidence-photo-grid__item" data-lightbox-url="${url}" data-lightbox-video="${isVideo}">${media}</button>`;
-    })
-    .join("");
-  container.querySelectorAll("[data-lightbox-url]").forEach((btn) => {
-    btn.addEventListener("click", () => openMediaLightbox(btn.dataset.lightboxUrl, btn.dataset.lightboxVideo === "true"));
-  });
-}
+// Concern/Suggestion detail (staff): the Secretary adds remarks and files it
+// in a folder (PATCH /api/concerns/staff/<id>/). The server marks it Reviewed.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const id = new URLSearchParams(window.location.search).get("id");
@@ -60,7 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("concernText").value = concern.concernText;
 
   const evidenceEl = document.getElementById("concernEvidence");
-  if (evidenceEl) renderConcernDetailEvidence(evidenceEl, concern.attachments);
+  if (evidenceEl) renderEvidence(evidenceEl, concern.attachments);
 
   const timelineItems = document.getElementById("timelineItems");
   const submittedTime = concern.dateSubmitted.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -91,11 +58,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
   const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
 
-  // Concerns/Suggestions is the Secretary's section (see
-  // frontend/staff/js/admin.js's STAFF_NAV_ACCESS + StaffConcernDetailView.
-  // patch's IsSecretaryOrAdmin check) — Barangay Captain reaching this page
-  // from their read-only dashboard just sees it, no editing.
-  const currentUser = getAdminUser();
+  // Only the Secretary edits; the Barangay Captain only views.
+  const currentUser = getCurrentUser();
   const isSecretary = currentUser && currentUser.position === "Secretary";
   if (!isSecretary) saveBtn.hidden = true;
 
@@ -112,8 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   applyPill(concern.status);
 
-  // ---- Folder assignment — saves immediately on Assign/Remove, independent
-  // of the Status/Remarks Save Changes flow below. ----
+  // ---- Folder: saved immediately on Assign / Remove ----
 
   const folderAssigned = document.getElementById("folderAssigned");
   const folderChip = document.getElementById("folderChip");
@@ -130,8 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       folderAssigned.hidden = false;
       assignFolderBtn.hidden = true;
       folderChip.innerHTML = `<svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${concern.folderName}`;
-      // Only the Secretary can remove a folder assignment — Barangay
-      // Captain sees the same chip, read-only.
+      // Only the Secretary can remove it.
       folderUnassignBtn.hidden = !isSecretary;
     } else {
       folderAssigned.hidden = true;
@@ -231,8 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveConfirmModal.hidden = true;
   });
 
-  // Back to the page this was opened from (Concerns/Suggestions, the
-  // dashboard, Notifications...); opened directly, Concerns/Suggestions.
+  // "Back" returns to the page this was opened from (or Concerns/Suggestions).
   function goToConcerns() {
     let target = "concerns.html";
     try {

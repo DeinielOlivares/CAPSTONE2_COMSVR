@@ -1,17 +1,9 @@
-// Barangay Platero OVRMS — Ordinance Categories data, backed by GET/POST/PATCH/DELETE
-// /api/ordinances/categories/ (Administrator only for writes — see
-// accounts.views.IsAdmin and ordinances/views.py's
-// OrdinanceCategoryListCreateView/DetailView). This is the list Upload/Edit
-// Ordinance's Category dropdown is built from (frontend/staff/js/
-// ordinances-data.js's populateCategorySelect); unlike the author roster, an
-// ordinance's category must be one of these — see OrdinanceCategory's
-// docstring for why.
+// ordinance-categories-data.js — API calls for the category list
+// (/api/ordinances/categories/). An ordinance's category must be one of these.
 
 let _ordinanceCategoriesCache = null;
 
-// include_inactive=1 so this management page can also show/reactivate a
-// retired category — Upload/Edit Ordinance's own fetch (staff side) never
-// passes this, since a new ordinance shouldn't be filed under a retired one.
+// include_inactive=1: this page also lists retired categories.
 async function ensureAllOrdinanceCategoriesLoaded() {
   if (_ordinanceCategoriesCache) return _ordinanceCategoriesCache;
   const response = await authFetch("/api/ordinances/categories/?include_inactive=1");

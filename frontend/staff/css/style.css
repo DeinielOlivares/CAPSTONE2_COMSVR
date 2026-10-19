@@ -1,11 +1,12 @@
 /* ==========================================================================
    Barangay Platero — Ordinance Violation Reporting and Monitoring System
-   Shared stylesheet for all pages
+   Staff portal stylesheet (every page in frontend/staff/).
+   Fonts and images come from /shared/. Layout breakpoints: see the @media rules.
    ========================================================================== */
 
 @font-face {
   font-family: "Mate SC";
-  src: url("../assets/MateSC-Regular.ttf") format("truetype");
+  src: url("/shared/fonts/MateSC-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -15,28 +16,28 @@
    Google Fonts, so the navbar/sidebar don't depend on an external request. */
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Regular.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Medium.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-SemiBold.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Poppins";
-  src: url("../assets/Poppins-Bold.woff2") format("woff2");
+  src: url("/shared/fonts/Poppins-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -172,38 +173,7 @@ button {
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  background: url("../assets/logo.png") center / cover no-repeat;
-}
-
-.navbar__links {
-  list-style: none;
-  display: flex;
-  gap: 26px;
-  margin: 0 0 0 auto;
-  padding: 0;
-  flex-wrap: wrap;
-  font-family: "Poppins", var(--serif);
-  font-size: 0.85rem;
-}
-
-.navbar__links a {
-  opacity: 0.9;
-  letter-spacing: 0.3px;
-  transition: opacity 0.15s ease;
-}
-
-.navbar__links a:hover {
-  opacity: 1;
-  text-decoration: underline;
-}
-
-.navbar__links a.active {
-  opacity: 1;
-  color: var(--highlight);
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 3px;
-  text-underline-offset: 6px;
+  background: url("/shared/images/logo.png") center / cover no-repeat;
 }
 
 /* Inverted chip: the topbar itself is white, so the bell's own background
@@ -247,20 +217,6 @@ button {
   animation: navbar-bell-flash 0.35s ease-out 1;
 }
 
-.navbar__profile {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--cream-dark);
-  color: var(--navy);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
 /* ---------- Hero ---------- */
 
 .hero {
@@ -271,7 +227,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background: url("../assets/barangay hall 5 pix.png") center / cover no-repeat;
+  background: url("/shared/images/barangay-hall.png") center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -282,7 +238,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -296,10 +252,6 @@ button {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 34px 36px 28px;
-}
-
-.auth-card--wide {
-  max-width: 560px;
 }
 
 .auth-card--narrow {
@@ -353,49 +305,6 @@ button {
 
 .combobox {
   position: relative;
-}
-
-.combobox__list {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
-  list-style: none;
-  margin: 0;
-  padding: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-}
-
-.combobox__list[hidden] {
-  display: none;
-}
-
-.combobox__list li {
-  padding: 9px 10px;
-  border-radius: 5px;
-  font-size: 0.88rem;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.combobox__list li:hover,
-.combobox__list li:focus {
-  background: #f6f4ef;
-}
-
-.combobox__list li.combobox__empty {
-  color: var(--text-muted);
-  cursor: default;
-}
-
-.combobox__list li.combobox__empty:hover {
-  background: none;
 }
 
 .field label {
@@ -521,8 +430,7 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.upload-drop:hover,
-.upload-drop--dragover {
+.upload-drop:hover {
   border-color: var(--navy);
   background: rgba(5, 122, 18, 0.03);
 }
@@ -534,15 +442,6 @@ button {
 .upload-drop__text {
   font-size: 0.85rem;
   line-height: 1.4;
-}
-
-.upload-preview {
-  display: block;
-  margin: 14px auto 0;
-  max-height: 160px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  object-fit: cover;
 }
 
 .field-hint {
@@ -847,42 +746,6 @@ button {
   justify-content: center;
   font-size: 1.6rem;
   margin: 0 auto 18px;
-}
-
-/* ---------- Info section ---------- */
-
-.info-section {
-  background: var(--cream);
-  padding: 44px 28px 56px;
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.info-section.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.info-grid {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-}
-
-.info-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  color: var(--navy);
-}
-
-.info-card p {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: #4b4536;
 }
 
 /* ---------- Ordinances list ---------- */
@@ -1198,7 +1061,7 @@ button {
   border-color: var(--navy);
 }
 
-/* "Page X of Y" — click to jump to a specific page (see pagination.js) */
+/* "Page X of Y" — click to jump to a specific page (see shared/js/pagination.js) */
 .pagination-jump-btn {
   width: auto !important;
   padding: 0 12px;
@@ -1334,63 +1197,6 @@ button {
   margin-bottom: 26px;
 }
 
-.doc-preview {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 22px 24px;
-  margin: 0 auto 26px;
-  max-width: 460px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
-
-.doc-preview__header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-
-.doc-preview__seal {
-  width: 40px;
-  height: 40px;
-  background: url("../assets/logo.png") center / cover no-repeat;
-  flex-shrink: 0;
-}
-
-.doc-preview__seal--plain {
-  background: radial-gradient(circle at 35% 30%, #d9dce3 0%, #b8bcc6 100%);
-}
-
-.doc-preview__masthead {
-  text-align: center;
-  font-size: 0.62rem;
-  line-height: 1.35;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.doc-preview__masthead strong {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--text);
-}
-
-.doc-preview hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 12px 0 16px;
-}
-
-.doc-preview__line {
-  height: 8px;
-  border-radius: 3px;
-  background: var(--cream);
-  margin-bottom: 8px;
-}
-
 .pdf-preview {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1405,7 +1211,7 @@ button {
   border: none;
   display: block;
   background: #f2f1ec;
-  /* Pages are canvases drawn by js/pdf-preview.js; the frame scrolls them. */
+  /* Pages are canvases drawn by shared/js/pdf-preview.js; the frame scrolls them. */
   overflow-y: auto;
   padding: 10px;
 }
@@ -1457,7 +1263,7 @@ button {
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -1482,15 +1288,6 @@ button {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 32px 36px 30px;
-}
-
-.report-card__title {
-  text-align: center;
-  font-size: 1.02rem;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  margin: 0 0 26px;
 }
 
 .field textarea {
@@ -1545,30 +1342,6 @@ button {
   color: var(--text-muted);
 }
 
-.upload-drop__icons {
-  display: flex;
-  gap: 10px;
-  font-size: 1rem;
-  margin-top: 2px;
-}
-
-.consent-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 8px;
-  margin: 22px auto 0;
-  max-width: 420px;
-  font-size: 0.8rem;
-  color: var(--text);
-  text-align: center;
-}
-
-.consent-row input {
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
 .btn-row {
   display: flex;
   justify-content: center;
@@ -1581,12 +1354,10 @@ button {
   padding: 12px 32px;
 }
 
-.btn-clear,
 .btn-success {
   background: var(--navy);
 }
 
-.btn-clear:hover,
 .btn-success:hover {
   background: var(--navy-hover);
 }
@@ -1670,27 +1441,6 @@ button {
   color: var(--text);
 }
 
-/* ---------- Auth-gate prompt (File Report / Submit Suggestion) ---------- */
-
-.auth-gate__row {
-  margin-bottom: 20px;
-}
-
-.auth-gate__row:last-child {
-  margin-bottom: 0;
-}
-
-.auth-gate__label {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin: 0 0 10px;
-}
-
-.auth-gate__row .btn {
-  width: 100%;
-  margin: 0;
-}
-
 /* ---------- Profile popup ---------- */
 
 .profile-card {
@@ -1718,12 +1468,6 @@ button {
   font-weight: 700;
   flex-shrink: 0;
   overflow: hidden;
-}
-
-.profile-avatar--guest {
-  background: var(--cream);
-  color: var(--navy);
-  font-size: 1.6rem;
 }
 
 .profile-card__name {
@@ -1950,11 +1694,6 @@ button {
   text-align: center;
 }
 
-/* ---------- Create Citizen: header + card centered both ways on the page,
-   not just horizontally — approximates the viewport height minus the
-   topbar and .admin-content's own padding, scoped to this page only so it
-   doesn't touch the shared .admin-content layout every other page uses. ---------- */
-
 /* ---------- My Concerns/Suggestions list ---------- */
 
 .concerns-card {
@@ -1981,13 +1720,6 @@ button {
   font-size: 1rem;
   font-weight: 700;
   margin: 0;
-  color: var(--text);
-}
-
-.reports-section__title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin: 0 0 10px;
   color: var(--text);
 }
 
@@ -2292,16 +2024,6 @@ button {
   box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.4);
 }
 
-/* "Show [5/10/25/50/100]" — how many rows a paginated list renders per page. */
-.page-size-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: var(--text);
-  white-space: nowrap;
-}
-
 /* ---------- Report detail: evidence photo + notice + remarks ---------- */
 
 .evidence-photo {
@@ -2383,42 +2105,6 @@ button {
   object-fit: cover;
 }
 
-.status-timeline__notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  background: var(--cream);
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 0.76rem;
-  color: var(--navy);
-  margin: 6px 0 20px;
-}
-
-.remarks-card {
-  margin-top: 16px;
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 18px 22px;
-}
-
-.remarks-card__title {
-  font-weight: 700;
-  font-size: 0.88rem;
-  margin: 0 0 10px;
-}
-
-.remarks-card__text {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px 14px;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: var(--text);
-  min-height: 90px;
-}
-
 /* ---------- My Concern/Suggestion detail ---------- */
 
 .concern-detail {
@@ -2428,31 +2114,11 @@ button {
   align-items: start;
 }
 
-.concern-detail__main {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 28px 32px;
-}
-
-.concern-detail__sidebar {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 22px 24px;
-}
-
 .field input[disabled],
 .field textarea[disabled] {
   background: var(--white);
   color: var(--text-muted);
   cursor: default;
-}
-
-.upload-drop--disabled {
-  opacity: 0.7;
-  cursor: default;
-  pointer-events: none;
 }
 
 .status-timeline__title {
@@ -2673,17 +2339,9 @@ button {
     font-size: 0.78rem;
   }
 
-  .navbar__links {
-    order: 3;
-    width: 100%;
-    justify-content: flex-start;
-    gap: 16px;
-    overflow-x: auto;
-  }
+  
 
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
+  
 
   .form-row {
     grid-template-columns: 1fr;
@@ -2860,7 +2518,7 @@ button {
   width: 54px;
   height: 54px;
   flex-shrink: 0;
-  background: url("../assets/logo.png") center / cover no-repeat;
+  background: url("/shared/images/logo.png") center / cover no-repeat;
 }
 
 .admin-sidebar__brand-text {
@@ -2988,7 +2646,7 @@ button {
 .admin-main {
   flex: 1;
   min-width: 0;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
 }
 
 .admin-topbar {
@@ -3081,13 +2739,6 @@ button {
   padding: 24px 28px 48px;
 }
 
-.admin-toolbar {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-}
-
 .admin-select {
   background: var(--navy);
   color: var(--white);
@@ -3099,192 +2750,10 @@ button {
   min-width: 150px;
 }
 
-.admin-table-card {
-  background: var(--white);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  overflow-x: auto;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.admin-table thead th {
-  background: var(--navy);
-  color: var(--white);
-  text-align: left;
-  padding: 14px 18px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.admin-table--audit thead th {
-  background: var(--navy);
-}
-
-.admin-table tbody td {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.admin-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.admin-table__owner-link {
-  color: var(--link);
-  text-decoration: underline;
-}
-
-.admin-table__empty {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 24px 18px;
-}
-
-.status-active {
-  color: #2e9e5b;
-  font-weight: 600;
-}
-
-.status-inactive {
-  color: var(--text-muted);
-}
-
 @media (max-width: 860px) {
   .admin-topbar__name {
     display: none;
   }
-}
-
-/* ---------- Edit Account popup ---------- */
-
-.edit-account-card {
-  position: relative;
-  background: var(--white);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  max-width: 340px;
-  width: 100%;
-}
-
-.edit-account-card__header {
-  padding: 8px 18px;
-  background: var(--navy-dark);
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.7rem;
-  letter-spacing: 0.3px;
-}
-
-.edit-account-card__body {
-  position: relative;
-  padding: 30px 24px 24px;
-  text-align: center;
-}
-
-.edit-account-card__back {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid var(--text);
-  background: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: var(--text);
-}
-
-.edit-account-card__avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: var(--cream);
-  margin: 0 auto 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edit-account-card__name {
-  margin: 0 0 2px;
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-.edit-account-card__email {
-  margin: 0 0 18px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.edit-account-card__details {
-  margin: 0 0 22px;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.edit-account-card__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  font-size: 0.85rem;
-}
-
-.edit-account-card__row:nth-child(odd) {
-  background: var(--plain-bg);
-}
-
-.edit-account-card__row dt {
-  font-weight: 700;
-}
-
-.edit-account-card__row dd {
-  margin: 0;
-  color: var(--text-muted);
-}
-
-.edit-account-card__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.edit-account-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  border-radius: 8px;
-  padding: 12px;
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--white);
-}
-
-.edit-account-btn--disable {
-  background: #c0392b;
-}
-
-.edit-account-btn--type {
-  background: var(--link);
-}
-
-.edit-account-btn--reset {
-  background: var(--sage);
 }
 
 /* ---------- Reports Dashboard ---------- */
@@ -3510,17 +2979,6 @@ button {
   font-size: 0.66rem;
 }
 
-.dash-row-bottom {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 20px;
-  margin-top: 20px;
-  /* stretch (grid's default) rather than start — keeps the heatmap and
-     category cards the same height and bottom-aligned even when one has
-     more content (e.g. a long category legend) than the other. */
-  align-items: stretch;
-}
-
 /* A single full-width card row (e.g. Concerns/Suggestions by Category,
    once its dashboard's heatmap card is removed) — no grid needed. */
 .dash-row-single {
@@ -3640,22 +3098,6 @@ button {
   color: #8a2222;
 }
 
-.recent-reports-table__action {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--white);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.recent-reports-table__action:hover {
-  background: #f2f1ec;
-}
-
 .recent-reports-table__view-btn {
   display: inline-block;
   padding: 7px 14px;
@@ -3767,30 +3209,11 @@ button {
   white-space: nowrap;
 }
 
-.stat-card__label--wrap {
-  white-space: normal;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.stat-card__info {
-  flex-shrink: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
 .stat-card__value {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text);
   margin: 2px 0 4px;
-}
-
-.stat-card__value--text {
-  font-size: 0.95rem;
-  line-height: 1.35;
-  margin: 6px 0 0;
 }
 
 .stat-card__delta {
@@ -4296,20 +3719,6 @@ button {
 /* Reports by Status + Investigator Performance — side by side, same
    2-column pattern as .dash-row-bottom above. */
 
-.dash-row-status {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 20px;
-  align-items: start;
-}
-
-@media (max-width: 980px) {
-  .dash-row-status {
-    grid-template-columns: 1fr;
-  }
-}
-
 .status-bar-chart {
   display: flex;
   align-items: flex-end;
@@ -4388,8 +3797,7 @@ button {
 }
 
 @media (max-width: 980px) {
-  .dash-row-top,
-  .dash-row-bottom {
+  .dash-row-top {
     grid-template-columns: 1fr;
   }
 }
@@ -4861,7 +4269,6 @@ button {
   color: var(--navy);
 }
 
-
 /* ---------- Reports Management (search + filters + list) ---------- */
 
 .reports-search-row {
@@ -4923,12 +4330,6 @@ button {
   margin-bottom: 0;
 }
 
-.reports-controls > #downloadResolvedBtn {
-  width: auto;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
 @media (max-width: 860px) {
   .reports-controls {
     flex-direction: column;
@@ -4973,7 +4374,7 @@ button {
 /* ---------- Report detail (view/edit) ---------- */
 
 .report-detail-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: url("/shared/images/barangay-hall.png") center center / cover no-repeat fixed;
   min-height: calc(100vh - 65px);
   padding: 32px 28px 64px;
 }
@@ -5254,9 +4655,7 @@ button {
     padding: 18px 16px 40px;
   }
 
-  .admin-toolbar {
-    gap: 10px;
-  }
+  
 
   .admin-select {
     min-width: 0;
@@ -5310,10 +4709,7 @@ button {
     padding: 14px 12px 26px;
   }
 
-  .admin-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  
 
   .admin-select {
     width: 100%;
@@ -5336,10 +4732,7 @@ button {
     padding-left: 38px;
   }
 
-  .admin-table thead th,
-  .admin-table tbody td {
-    padding: 12px 14px;
-  }
+  
 }
 
 /* ---------- Small phones: tighten spacing, keep touch targets usable ---------- */
@@ -5356,8 +4749,7 @@ button {
     padding: 20px 16px 18px;
   }
 
-  .modal-card,
-  .edit-account-card {
+  .modal-card {
     max-width: calc(100vw - 32px);
   }
 
@@ -5369,30 +4761,7 @@ button {
     min-height: 44px;
   }
 
-  .admin-table {
-    font-size: 0.82rem;
-  }
-}
-
-/* ---------- Ordinance / Resolution type badge (ordinances list) ---------- */
-
-.doc-kind {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.doc-kind--ordinance {
-  background: var(--cream);
-  color: var(--navy-dark);
-}
-
-.doc-kind--resolution {
-  background: #e7eef8;
-  color: #1f4e8c;
+  
 }
 
 /* ---------- Concerns/Suggestions Dashboard (Barangay Captain) ----------
@@ -5400,12 +4769,6 @@ button {
    bars; green (solid) vs blue (dashed) for the two trend lines — the pair
    passes the colour-blind separation check, and the dash + labels mean
    identity never rests on colour alone. */
-
-.cd-subtitle {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
 
 .cd-kpis {
   display: grid;

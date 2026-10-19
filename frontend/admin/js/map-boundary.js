@@ -1,15 +1,7 @@
-// Barangay Platero OVRMS — Map Boundary (Admin Portal): draw, upload or edit the
-// barangay outline shown on the staff incident heatmap, plus add/remove the
-// streets citizens pick from on Sign Up/File Report/My Profile (the yellow
-// dots). Boundary is backed by GET/PUT /api/site/boundary/ (see
-// siteinfo/views.py's BoundaryView), one ring of [lat, lng] points. Streets
-// are backed by GET/POST /api/site/streets/ + DELETE /api/site/streets/<id>/
-// (StreetListCreateView/StreetDetailView) via /staff/js/street-coordinates.js's
-// ensureStreetsLoaded/liveStreets — click "+ Add Street" then a point on the
-// map to add one; remove one from the Streets card's list below.
-//
-// Depends (load order): /staff/vendor/leaflet/leaflet.js,
-// /staff/js/street-coordinates.js — then this file, then admin.js.
+// Map Boundary (admin): draw, upload (GeoJSON/KML) or edit the barangay
+// outline (GET/PUT /api/site/boundary/), and add/remove streets — the yellow
+// dots (/api/site/streets/). "+ Add Street", then click the map to place one.
+// Load after /shared/vendor/leaflet/leaflet.js and /shared/js/streets.js.
 
 const BOUNDARY_TILE_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
@@ -39,8 +31,7 @@ async function saveBoundary(points) {
 }
 
 // ---- Streets (name + the single point placed by clicking the map) ----
-// GET is public (streets-data.js's ensureStreetsLoaded) — only add/remove
-// need the Administrator's token, same split as the boundary above.
+// Adding/removing needs the Administrator's token (reading is public).
 
 async function apiExtractError(response, fallback) {
   const data = await response.json().catch(() => null);
@@ -172,11 +163,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   L.tileLayer(BOUNDARY_TILE_URL, { maxZoom: 19, attribution: BOUNDARY_TILE_ATTRIBUTION }).addTo(map);
   map.attributionControl.setPrefix("");
 
-  // ---- Streets: the yellow-dot layer above, and the Streets card below,
-  // both backed by the real API (streets-data.js's ensureStreetsLoaded) —
-  // added by clicking "+ Add Street" then a point on the map (see the click
-  // handler and streetNameModal wiring further down), removed from the
-  // Streets card's list. ----
+  // ---- Streets: yellow dots on the map and the list in the Streets card ----
 
   function escapeStreetHtml(text) {
     const div = document.createElement("div");
@@ -233,8 +220,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     else streetsLayer.remove();
   });
 
-  // ---- "+ Add Street" mode: arms the map so its next click places a new
-  // street instead of a boundary point (see the click handler below). ----
+  // ---- "+ Add Street": the next map click places a street, not a boundary point ----
   let addStreetMode = false;
   let pendingStreetPoint = null;
 

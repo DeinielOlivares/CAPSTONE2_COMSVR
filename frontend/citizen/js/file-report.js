@@ -1,10 +1,9 @@
-// Barangay Platero OVRMS — File Report: populate the ordinance dropdown from the real
-// uploaded ordinances, then submit the report to the real API
-// (POST /api/reports/) instead of just showing a success modal with
-// nothing actually saved.
+// File a Report (citizen). Fills the ordinance dropdown, suggests ordinances
+// from the description, asks for the email code when needed, and submits
+// the report with POST /api/reports/.
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // Incident date can't be in the future — you can only report something that's already happened.
+  // The incident date can't be in the future.
   document.getElementById("incidentDate").max = new Date().toLocaleDateString("en-CA");
 
   // ---- Reporting As: read-only citizen info, from the session cache ----
@@ -20,7 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (addressField) addressField.value = reportingUser.address || "";
   }
 
-  // ---- Verify It's You gate (first-ever report, or 30+ days since the last one) + cooldown ----
+  // ---- "Verify it's you" code (first report, or 30+ days since the last) and cooldown ----
   const form = document.getElementById("reportForm");
   const submitBtn = form.querySelector('button[type="submit"]');
   const successModal = document.getElementById("successModal");
@@ -42,8 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let verificationNeeded = false;
   let cooldownActive = false;
-  // Only popped up once per page load — repeat gate-status checks (after
-  // verifying, after a 429 on submit, etc.) shouldn't reopen it.
+  // The popup opens at most once per page load.
   let cooldownModalShown = false;
 
   function showVerifyError(message) {
@@ -90,7 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!res.ok) return;
       applyGateStatus(await res.json());
     } catch {
-      // Fail soft — the real gate check still runs again on submit.
+      // Ignore; the server checks again on submit.
     }
   }
 
@@ -184,10 +182,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     ? `<li class="combobox__empty">Could not load ordinances — try reloading the page.</li><li role="option" data-id="other">Other</li>`
     : `${ordinancesForPicker.map((o) => `<li role="option" data-id="${o.id}">${ordinanceLabel(o)}</li>`).join("")}<li role="option" data-id="other">Other</li>`;
 
-  // Single entry point for picking an ordinance, whichever UI triggered it
-  // (the dropdown itself or a TF-IDF suggestion below) — drives the real
-  // (hidden) <select> so its one "change" listener is the only place the
-  // rest of the form's state (Other field, trigger label) gets synced.
+  // Picks an ordinance (from the dropdown or a suggestion) by setting the
+  // hidden <select>; its "change" listener updates the rest of the form.
   function selectOrdinance(id) {
     select.value = id;
     select.dispatchEvent(new Event("change"));
@@ -218,9 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Escape") closeOrdinanceList();
   });
 
-  // "Other" reveals a free-text field for whatever isn't in the list —
-  // that text is what actually gets submitted as the ordinance, not the
-  // literal word "Other" (see the submit handler below).
+  // "Other" shows a text field; what's typed there is submitted as the ordinance.
   const otherField = document.getElementById("otherOrdinanceField");
   const otherInput = document.getElementById("otherOrdinanceInput");
   select.addEventListener("change", () => {
@@ -231,11 +225,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     ordinanceTriggerLabel.textContent = select.value ? select.options[select.selectedIndex].text : "Select";
   });
 
-  // The Clear button is a native type="reset" — it puts the hidden <select>
-  // back to its default option but (per spec) doesn't fire "change" for it,
-  // so the custom dropdown's label and the Other field would otherwise be
-  // left showing the old selection. Deferred so it runs after the browser's
-  // own reset of the form's controls, not before.
+  // Clear (a reset button) doesn't fire "change", so update the dropdown
+  // label and Other field ourselves — after the browser's own reset.
   form.addEventListener("reset", () => {
     setTimeout(() => select.dispatchEvent(new Event("change")), 0);
   });
@@ -275,7 +266,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const { results } = await response.json();
       renderSuggestions(results || []);
     } catch {
-      // Fail soft — a broken suggestion fetch must never block report submission.
+      // Suggestions are optional; never block the report because of them.
       suggestionsPanel.hidden = true;
     }
   }, 400);
@@ -289,46 +280,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     suggestionsPanel.hidden = true;
   });
 
-  // ---- Street: type-to-filter street combobox ----
-  // Best-effort — on failure STREETS just stays empty, same as any other
-  // street-data.js consumer; the field degrades to "no matching street".
-  await ensureStreetsLoaded().catch(() => {});
+  // ---- Street picker (see /shared/js/streets.js) ----
+  await ensureStreetsLoaded().catch(() => {}); // on failure the list is just empty
   const locationInput = document.getElementById("reportLocation");
-  const locationList = document.getElementById("reportLocationList");
+  wireStreetCombobox("reportLocation", "reportLocationList", { announceChange: false });
 
-  function renderLocationOptions() {
-    const query = locationInput.value.trim().toLowerCase();
-    const matches = query ? STREETS.filter((s) => s.toLowerCase().includes(query)) : STREETS;
-    locationList.innerHTML = matches.length
-      ? matches.map((s) => `<li data-value="${s}">${s}</li>`).join("")
-      : `<li class="combobox__empty">No matching street</li>`;
-    locationList.hidden = false;
-  }
-
-  locationInput.addEventListener("focus", renderLocationOptions);
-  locationInput.addEventListener("input", renderLocationOptions);
-  locationList.addEventListener("click", (e) => {
-    const option = e.target.closest("li[data-value]");
-    if (!option) return;
-    locationInput.value = option.dataset.value;
-    locationList.hidden = true;
-  });
-  document.addEventListener("click", (e) => {
-    if (!locationInput.contains(e.target) && !locationList.contains(e.target)) {
-      locationList.hidden = true;
-    }
-  });
-
-  locationInput.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") locationList.hidden = true;
-  });
-
-  // ---- Current location (optional, on top of the required street) ----
-  // Asked for once, the first time the citizen starts on the Street field
-  // (not on page load, so the browser prompt shows up in context). If they
-  // deny it, it times out, or they untick the box, the report is filed with
-  // just the street and the staff heatmap uses that street's centroid
-  // instead. The backend also drops a position outside the barangay.
+  // ---- Current location (optional) ----
+  // The browser asks for the device location the first time the Street field
+  // is used. Without it, the heatmap uses the street's point instead.
+  // (The server ignores positions outside the barangay.)
   const useGeoInput = document.getElementById("reportUseGeo");
   const geoStatus = document.getElementById("reportGeoStatus");
   let geoCoords = null;
@@ -404,9 +364,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // The real <select> is hidden (see the custom dropdown above it), which
-    // takes it out of native constraint validation — so "required" has to
-    // be enforced here instead of relying on the browser to block submit.
+    // The <select> is hidden, so the browser doesn't check "required" — do it here.
     if (!select.value) {
       showFormError(form, "Please select the ordinance in violation.");
       return;
@@ -418,39 +376,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const formData = new FormData();
-    // Combines Block/Lot with the selected street into one location string
-    // — same composition as Sign Up's address field — since Report.location
-    // is a single text field, not separate columns.
+    // Location is saved as one text: "Block/Lot, Street".
     formData.append("location", `${blockLot}, ${locationInput.value.trim()}`);
     if (useGeoInput.checked) {
-      // Usually already resolved from when the Street field was focused;
-      // a still-pending prompt is only waited on briefly so it can't hold
-      // up the submission.
+      // Wait only briefly for a location prompt that is still open.
       const coords = await Promise.race([requestGeo(), new Promise((r) => setTimeout(() => r(null), 3000))]);
       if (coords) {
         formData.append("latitude", coords.lat.toFixed(6));
         formData.append("longitude", coords.lng.toFixed(6));
       }
     }
-    // Stores the ordinance's readable label as free text rather than its id
-    // — Report.ordinance is a text snapshot, not a foreign key, so a report
-    // still shows what it cited even if that ordinance is later edited or removed.
+    // The ordinance is saved as its label ("number — title"), so the report
+    // keeps what was cited even if the ordinance changes later.
     formData.append(
       "ordinance",
       select.value === "other" ? `Other: ${otherInput.value.trim()}` : select.options[select.selectedIndex].text
     );
     formData.append("incident_date", document.getElementById("incidentDate").value);
-    // Time of incident is optional — an unknown/unset time is common for
-    // reports of ongoing or long-standing violations, so only send it when
-    // the citizen actually picked one; an empty string would fail TimeField validation.
+    // The time is optional; only send it when one was picked.
     const incidentTimeValue = document.getElementById("incidentTime").value;
     if (incidentTimeValue) formData.append("incident_time", incidentTimeValue);
     formData.append("nature_of_violation", document.getElementById("violationDetails").value.trim());
     Array.from(document.getElementById("reportFiles").files).forEach((file) => formData.append("files", file));
 
-    // Belt-and-suspenders — the status check on load can go stale (e.g. the
-    // page sat open past a cooldown boundary), so re-check right before
-    // submitting rather than relying solely on refreshGateStatus().
+    // Check the code/cooldown status again right before submitting.
     if (verificationNeeded) {
       openVerifyModal();
       showFormError(form, "Please verify it's you before filing this report.");
@@ -473,10 +422,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (response.status === 429) {
           refreshGateStatus();
         }
-        // Refusals come back as {detail: "..."}, field validation as
-        // {field: ["..."]}. Anything else (a server error page, a request
-        // blocked before it reached the app) has no message, so give the
-        // status code instead of nothing.
+        // Show {detail} or the first field error; otherwise the status code.
         if (typeof data.detail === "string") throw new Error(data.detail);
         const firstError = Object.values(data)[0];
         if (Array.isArray(firstError)) throw new Error(firstError[0]);

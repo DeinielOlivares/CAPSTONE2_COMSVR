@@ -1,79 +1,8 @@
-// Barangay Platero OVRMS — Create Account: Account Type picks which form shows —
-// "Barangay Staff" (just an email + role, see AdminCreateUserSerializer)
-// or "Barangay Citizen" (full details entered directly, created and
-// pre-verified right away, see StaffCreateCitizenSerializer). Either way the
-// person gets a one-time setup link by email and chooses their own password. Citizens can still self-register
-// through the Citizen portal's own Sign Up flow too — this is just the
-// admin-direct path for either.
-
-// Highlights one input/select red with an inline message underneath it —
-// same pattern as frontend/citizen/js/main.js's markFieldInvalid,
-// duplicated here since this page doesn't load that file.
-function markFieldInvalid(input, message) {
-  if (!input) return;
-  input.classList.add("field-invalid");
-  const field = input.closest(".field") || input.parentElement;
-  let errEl = field.querySelector(".field-error");
-  if (!errEl) {
-    errEl = document.createElement("p");
-    errEl.className = "field-error";
-    field.appendChild(errEl);
-  }
-  errEl.textContent = message;
-  input.addEventListener("input", () => clearFieldInvalid(input), { once: true });
-}
-
-function clearFieldInvalid(input) {
-  if (!input) return;
-  input.classList.remove("field-invalid");
-  const field = input.closest(".field") || input.parentElement;
-  const errEl = field.querySelector(".field-error");
-  if (errEl) errEl.remove();
-}
-
-// Same client-checkable password rules as Citizen Sign Up (frontend/citizen/js/main.js) —
-// kept here too since this page loads admin.js rather than main.js.
-const COMMON_PASSWORDS = new Set([
-  "password", "123456", "12345678", "qwerty", "123456789", "12345",
-  "1234567890", "1234567", "password1", "111111", "iloveyou", "1234",
-  "abc123", "123123", "qwerty123", "welcome", "admin123", "letmein",
-  "monkey123", "login", "princess", "solo123", "starwars", "dragon",
-  "passw0rd", "master", "hello123", "freedom", "whatever", "qazwsx",
-  "trustno1", "000000", "football", "baseball", "shadow123", "michael1",
-  "superman1", "batman123", "charlie1", "jordan23", "harley123",
-  "hunter123", "ranger123", "buster123", "soccer123", "hockey123",
-  "computer1", "jessica1", "pepper123", "1qaz2wsx", "flower123",
-]);
-
-function getPasswordRuleStatus(pw, attrs = {}) {
-  const lowerPw = pw.toLowerCase();
-  const candidates = [attrs.firstName, attrs.lastName, (attrs.email || "").split("@")[0]].filter(Boolean);
-  const tooSimilar = candidates.some((candidate) => {
-    const lowerCandidate = candidate.toLowerCase().trim();
-    return lowerCandidate.length >= 3 && (lowerPw.includes(lowerCandidate) || lowerCandidate.includes(lowerPw));
-  });
-  return {
-    length: pw.length >= 8,
-    lowercase: /[a-z]/.test(pw),
-    uppercase: /[A-Z]/.test(pw),
-    special: /[^A-Za-z0-9]/.test(pw),
-    numeric: pw.length > 0 && !/^\d+$/.test(pw),
-    common: pw.length > 0 && !COMMON_PASSWORDS.has(lowerPw),
-    similar: pw.length > 0 && !tooSimilar,
-  };
-}
-
-function getPasswordRequirementError(pw, attrs = {}) {
-  const status = getPasswordRuleStatus(pw, attrs);
-  if (!status.length) return "Password must be at least 8 characters.";
-  if (!status.lowercase) return "Password needs at least 1 lowercase character.";
-  if (!status.uppercase) return "Password needs at least 1 uppercase character.";
-  if (!status.special) return "Password needs at least 1 special character.";
-  if (!status.numeric) return "Password can't be entirely numbers.";
-  if (!status.common) return "That password is too common. Please choose a less predictable one.";
-  if (!status.similar) return "Password is too similar to the account's name or email.";
-  return null;
-}
+// Create Accounts page. "Account Type" chooses the form:
+//   Barangay Staff   — just an email and a role
+//   Barangay Citizen — all the citizen's details
+// Either way the person is emailed a one-time link to finish the account
+// and choose their own password.
 
 document.addEventListener("DOMContentLoaded", () => {
   const accountType = document.getElementById("caAccountType");
@@ -159,42 +88,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const citizenEmail = document.getElementById("ccEmail");
   const citizenPhone = document.getElementById("ccPhone");
   const citizenStreetInput = document.getElementById("ccStreet");
-  const citizenStreetList = document.getElementById("ccStreetList");
   const citizenBlockLot = document.getElementById("ccBlockLot");
   const citizenSubmitBtn = citizenForm.querySelector('button[type="submit"]');
 
-  // Street: type-to-filter combobox over the real street list (see
-  // streets-data.js) — same pattern as citizen Sign Up's street field.
+  // Street picker (see /shared/js/streets.js).
   ensureStreetsLoaded()
-    .then(() => {
-      const renderOptions = () => {
-        const query = citizenStreetInput.value.trim().toLowerCase();
-        const matches = query ? STREETS.filter((s) => s.toLowerCase().includes(query)) : STREETS;
-        citizenStreetList.innerHTML = matches.length
-          ? matches.map((s) => `<li data-value="${s}">${s}</li>`).join("")
-          : `<li class="combobox__empty">No matching street</li>`;
-        citizenStreetList.hidden = false;
-      };
-      citizenStreetInput.addEventListener("focus", renderOptions);
-      citizenStreetInput.addEventListener("input", renderOptions);
-      citizenStreetList.addEventListener("click", (e) => {
-        const option = e.target.closest("li[data-value]");
-        if (!option) return;
-        citizenStreetInput.value = option.dataset.value;
-        citizenStreetList.hidden = true;
-      });
-      document.addEventListener("click", (e) => {
-        if (!citizenStreetInput.contains(e.target) && !citizenStreetList.contains(e.target)) {
-          citizenStreetList.hidden = true;
-        }
-      });
-      citizenStreetInput.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") citizenStreetList.hidden = true;
-      });
-    })
-    .catch(() => {
-      // Best-effort — the combobox just shows no options if this fails.
-    });
+    .then(() => wireStreetCombobox("ccStreet", "ccStreetList", { announceChange: false }))
+    .catch(() => {}); // the picker just shows no streets
 
   citizenForm.addEventListener("submit", async (e) => {
     e.preventDefault();

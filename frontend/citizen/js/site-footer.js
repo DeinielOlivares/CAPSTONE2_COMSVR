@@ -1,15 +1,9 @@
-// Barangay Platero OVRMS — site footer (About Us, Privacy Policy, Terms and Agreements),
-// plus the shared loader for the barangay's details.
-//
-// The details (address, phone, email, About Us text, council, logos) are
-// Admin-editable from the Admin Portal's About Us Setup page and served by
-// GET /api/site/about/ — loadSiteAbout() fetches them once per page and
-// fills the footer's contact column and every [data-barangay="<field>"]
-// element (About Us' cards, the legal pages' contact lines). Add
-// data-barangay-link to make a phone/email/address a tap-to-call/email/map link.
-//
-// Load this BEFORE main.js: the footer's File Report / Submit Suggestion
-// links carry data-auth-gate, which main.js wires up on load.
+// site-footer.js — builds the citizen site footer and loads the barangay's
+// details from GET /api/site/about/ (edited on Admin > About Us Setup).
+// loadSiteAbout() fetches them once per page and fills the footer and every
+// element with data-barangay="<field>" (add data-barangay-link to make a
+// phone/email/address clickable).
+// Load before main.js (main.js handles the footer's data-auth-gate links).
 
 let _siteAboutPromise = null;
 
@@ -90,7 +84,7 @@ function footerLinksHtml(links) {
     .join("");
 }
 
-// Saved lists from Admin's About Us Setup; an empty saved list means "use the defaults".
+// The footer link lists set by the Administrator; an empty list means "use the defaults".
 function renderFooterLists(profile) {
   const lists = [
     ["quick", profile.footer_quick_links, DEFAULT_FOOTER_QUICK_LINKS],

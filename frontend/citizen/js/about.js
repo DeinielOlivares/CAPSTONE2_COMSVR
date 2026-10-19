@@ -1,8 +1,5 @@
-// Barangay Platero OVRMS — About Us: renders the logo strip and the Sangguniang Barangay
-// from GET /api/site/about/ (shared loader in site-footer.js, which also
-// fills the contact card and description cards). All of it is maintained by
-// an Administrator from the Admin Portal's About Us Setup page, so a new
-// administration after an election is a data change, not a code change.
+// About Us (citizen): the logo strip and the Sangguniang Barangay, from
+// GET /api/site/about/ (loaded by site-footer.js, edited on Admin > About Us Setup).
 
 // Row order on the page; members within a row come sorted by the API.
 const COUNCIL_ROWS = [
@@ -25,9 +22,7 @@ function renderAboutLogos(logos) {
 
 const COUNCIL_MAX_PER_ROW = 5;
 
-// Splits a group's members into as few rows as possible with no more than
-// COUNCIL_MAX_PER_ROW each, and as even as possible — e.g. 8 -> 4+4,
-// 10 -> 5+5, 7 -> 4+3 — instead of letting flex-wrap fill rows unevenly.
+// Splits members into even rows of at most COUNCIL_MAX_PER_ROW (8 -> 4+4, 7 -> 4+3).
 function chunkIntoBalancedRows(members, maxPerRow) {
   if (!members.length) return [];
   const rowCount = Math.ceil(members.length / maxPerRow);

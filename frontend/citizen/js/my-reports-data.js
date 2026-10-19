@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — My Reports data, backed by the real API.
+// my-reports-data.js — loads the citizen's own reports (GET /api/reports/).
 
 async function getMyReports() {
   const response = await authFetch("/api/reports/");
@@ -14,9 +14,7 @@ async function getReportById(id) {
   return response.json();
 }
 
-// Maps the backend's status values to the labels the UI already uses (see
-// the statusFilter options in my-reports.html and the badgeClass map in
-// my-reports-list.js).
+// Server status value -> label shown on the page.
 const REPORT_STATUS_LABELS = {
   submitted: "Submitted",
   under_review: "Under Review",

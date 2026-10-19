@@ -1,9 +1,7 @@
-// Barangay Platero OVRMS — Upload Ordinance: a dedicated page (not a modal). Secretary/
-// Admin only — everyone else with access to ordinances.html is sent back,
-// same as OrdinanceListCreateView's IsDocumentManager check on the backend.
+// Upload Ordinance (Secretary / Administrator only; others are sent back).
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!isDocumentManager(getAdminUser())) {
+  if (!isDocumentManager(getCurrentUser())) {
     window.location.href = "ordinances.html";
     return;
   }
@@ -27,11 +25,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const uploadConfirm = document.getElementById("uploadOrdinanceConfirm");
   const uploadError = document.getElementById("uploadOrdinanceError");
 
-  // ---- Multi-author select ----
-  // Picked from the Councilors/Kagawad/Barangay Captain roster (see
-  // ordinances-data.js's fetchOrdinanceAuthors) via the checklist, or typed
-  // in directly for anyone not yet on that roster — then joined into the
-  // single Ordinance.author field on submit (e.g. "Hon. A, Hon. B").
+  // ---- Authors ----
+  // Pick from the officials list or type a name; saved as one text ("Hon. A, Hon. B").
   let authorRoster = [];
   let authors = [];
 
@@ -61,8 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Adds a name whether it came from the roster checklist or was typed —
-  // duplicates (case-insensitively) are ignored rather than added twice.
+  // Adds an author (duplicates, ignoring case, are skipped).
   function addAuthor(name) {
     const trimmed = name.trim();
     if (!trimmed || authors.some((a) => a.toLowerCase() === trimmed.toLowerCase())) return;
@@ -79,10 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderAuthorRoster();
   }
 
-  // The typed name doubles as a live filter on the roster list below it —
-  // this is a short, already-loaded local array, not a paginated list, so
-  // filtering as-you-type (rather than only on Enter) is just a normal
-  // combobox, not the "search-on-submit" pattern used for staff work queues.
+  // Typing filters the officials list as you type.
   function renderAuthorRoster() {
     const query = authorCustomInput.value.trim().toLowerCase();
     const matches = query ? authorRoster.filter((a) => a.name.toLowerCase().includes(query)) : authorRoster;
@@ -137,9 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       e.preventDefault();
       const typed = authorCustomInput.value.trim();
       if (typed) {
-        // Cleared before adding (not after) so addAuthor's own re-render of
-        // the roster list picks up the now-empty filter and shows the full
-        // list again, instead of staying stuck on the just-added query.
+        // Clear the box first so the list shows everyone again.
         authorCustomInput.value = "";
         addAuthor(typed);
       }
@@ -151,20 +140,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       closeAuthorPanel();
     }
   });
-  // composedPath(), not .contains(e.target) — toggling a roster author
-  // re-renders authorRosterList's innerHTML from inside its own click
-  // handler, which detaches the clicked <li> mid-bubble; a plain .contains()
-  // check on the (now detached) target would wrongly think the click landed
-  // outside and close the panel after every single selection. composedPath()
-  // is captured at dispatch time, before that removal, so it isn't fooled.
+  // composedPath() (not .contains()) because picking an author re-draws the
+  // list, removing the clicked element before this check runs.
   document.addEventListener("click", (e) => {
     if (!e.composedPath().includes(authorCombobox)) closeAuthorPanel();
   });
 
-  // Category IS a controlled dropdown (an Administrator maintains that list —
-  // see accounts.views.IsAdmin and ordinances/models.py's OrdinanceCategory),
-  // so it needs loading before the form is usable; a failed author-roster
-  // fetch isn't fatal the same way, since the rest of the form still works.
+  // The category list is required; the officials list is optional.
   try {
     populateCategorySelect(categoryInput, await fetchOrdinanceCategories());
   } catch (err) {
@@ -179,9 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderAuthorRoster();
 
-  // The Secretary types every detail in by hand — picking the PDF only
-  // attaches it. A wrong type/oversize file is flagged right away, rather
-  // than only once Upload is pressed.
+  // A wrong file type or size is shown as soon as the PDF is picked.
   pdfInput.addEventListener("change", () => {
     const file = pdfInput.files[0];
     pdfLabelText.textContent = file ? file.name : "Click to browse for the ordinance PDF";
@@ -201,9 +181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const fields = {
       number: numberInput.value.trim(),
-      // Collapsed to a single line — the field is now a wrapping textarea
-      // (so a long title is never scrolled out of view while typing), but
-      // the title itself is still conceptually one line, not a paragraph.
+      // The title is one line (the textarea only wraps it for display).
       title: titleInput.value.replace(/\s+/g, " ").trim(),
       author: authors.join(", "),
       category: categoryInput.value,

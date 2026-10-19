@@ -1,20 +1,12 @@
-// Barangay Platero OVRMS — Geospatial Analysis: the figures shown beside the incident
-// heatmap. Turns the period's reports into figures
-// a Barangay Captain can read off directly — every one shown as a count AND
-// a percentage, with what the percentage is "of" spelled out, since a bare
-// count says nothing about share or rate.
+// geo-analysis.js — the figures shown beside the incident heatmap: for the
+// selected period, which streets and ordinances have the most reports, how
+// many were resolved and how many citizens reported — each as a count and a
+// percentage. ("Resolved" = reached Resolved or With Remarks.)
 //
-// Built only from what a report already records (where, which ordinance,
-// its status, who filed it). It can't say whether a resolved report ended
-// in a confirmed violation — Report has no outcome field — so "resolved"
-// here means the report reached its final stage (Resolved or With
-// Remarks), nothing more.
-//
-// createGeoAnalysis is the full panel on the Geospatial Analysis page
-// (geo-analysis-page.js); renderGeoSummary is the short version beside the
-// heatmap on the Reports Dashboard. Depends on heatmap.js (streetOf).
+// createGeoAnalysis() is the full panel on the Geospatial Analysis page;
+// renderGeoSummary() is the short version on the Reports Dashboard.
+// Needs heatmap.js (streetOf).
 
-const GEO_OPEN_STATUSES = ["New Submission", "Under Review", "In Action"];
 const GEO_STATUS_ORDER = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
 const GEO_ORDINANCE_ROWS = 6;
 
@@ -83,10 +75,10 @@ function geoBreakdownRows(entries, whole, clickAttr, activeKey) {
     .join("");
 }
 
-// el: the panel container. opts.categories: every ordinance category (so
-// ones with no reports still get a 0% row). opts.onChange({ reports, street })
-// fires whenever the category filter or selected street changes — `reports`
-// is what the map should plot, `street` what it should ring (or null).
+// The full analysis panel in `el`.
+//   opts.categories  every ordinance category (categories without reports show 0%)
+//   opts.onChange({ reports, street })  called when the category filter or the
+//   selected street changes: what the map should show and which street to circle.
 function createGeoAnalysis(el, opts = {}) {
   const categories = opts.categories || [];
   const onChange = typeof opts.onChange === "function" ? opts.onChange : () => {};
@@ -346,9 +338,7 @@ function createGeoAnalysis(el, opts = {}) {
   };
 }
 
-// The few figures shown beside the small heatmap on the Reports Dashboard —
-// where reports cluster, what about, and how far along they are — with a
-// link to the full Geospatial Analysis page for the same period.
+// The short summary beside the heatmap on the Reports Dashboard.
 function renderGeoSummary(el, { reports, registeredCitizens, href }) {
   const link = `<a class="btn geo-summary__link" href="${geoEscape(href)}">View full analysis &rarr;</a>`;
   const total = reports.length;

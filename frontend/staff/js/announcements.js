@@ -1,10 +1,8 @@
-// Barangay Platero OVRMS — Announcements (Secretary / Barangay Captain): post, edit and
-// remove barangay-wide announcements. Posting emails every citizen (server-side,
-// see announcements/views.py) — editing doesn't; the post date is set by the
-// server when it's first saved and an edit leaves it alone.
+// Announcements (Secretary / Barangay Captain): post, edit and delete
+// announcements. Posting emails every citizen; editing doesn't.
 
 document.addEventListener("DOMContentLoaded", () => {
-  const user = getAdminUser();
+  const user = getCurrentUser();
   const canManage = !!user && user.role === "staff" && ["Secretary", "Barangay Captain"].includes(user.position);
 
   const listEl = document.getElementById("announcementsList");
@@ -142,8 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     filePreview.hidden = false;
   }
 
-  // Editing: the picture already on the announcement, shown in the same
-  // preview row as a freshly picked file.
+  // Editing: shows the current picture like a newly picked one.
   function showExistingImage(url) {
     fileThumb.src = url;
     fileName.textContent = "Current picture";
@@ -199,8 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
     exitModal.hidden = true;
   });
 
-  // With an announcement, opens the same form pre-filled to edit it;
-  // without one, a blank form to post a new one.
+  // Opens the form: filled in to edit `announcement`, or empty for a new one.
   function openForm(announcement) {
     editing = announcement || null;
     removeExistingImage = false;

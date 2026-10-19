@@ -1,10 +1,8 @@
-// Barangay Platero OVRMS — Legal pages (Privacy Policy, Terms and Agreements): render the
-// Administrator-edited sections from GET /api/site/legal/<key>/ into the
-// #legalSections container. The text format is described on siteinfo's
-// LegalDocument model: blank lines separate blocks; "- " bullets, "1. " numbered
-// items, "| a | b |" table rows (first row is the header), **bold**,
-// [text](url), and {{address}} / {{email}} / {{phone}} / {{name}} filled from
-// the barangay's details.
+// Privacy Policy and Terms pages (citizen): shows the sections from
+// GET /api/site/legal/<key>/. Text format (see siteinfo.models.LegalSection):
+// blank lines separate blocks; "- " bullet, "1. " numbered item, "| a | b |"
+// table row (first row = header), **bold**, [text](url), and
+// {{address}} / {{email}} / {{phone}} / {{name}} from the barangay's details.
 
 function legalEscape(str) {
   const div = document.createElement("div");

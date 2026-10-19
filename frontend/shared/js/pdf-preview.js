@@ -1,30 +1,15 @@
-// Barangay Platero OVRMS — in-page PDF preview for the ordinance detail pages (citizen
-// and staff both load this file).
-//
-// Renders each page of the PDF onto a <canvas> with PDF.js instead of
-// pointing an <iframe> at something else:
-//   - <iframe src="file.pdf"> shows only a bare "Open" fallback on mobile
-//     browsers, which have no built-in PDF plugin.
-//   - Google's Docs viewer (docs.google.com/viewer?url=...), used before
-//     this, answers with a file download whenever it can't fetch or convert
-//     the document — the browser then shows failed "viewer" downloads the
-//     moment the page opens, without anyone clicking Download.
-// Drawing the pages ourselves has neither problem and never downloads
-// anything to the user's device.
-//
-// Depends (load order): /citizen/vendor/pdfjs/pdf.min.js — then this file.
+// pdf-preview.js — shows an ordinance PDF inside the page (citizen and staff
+// ordinance detail pages). Each PDF page is drawn on a <canvas> with PDF.js,
+// which also works on phones (they can't show PDFs in an <iframe>).
+// Load /shared/vendor/pdfjs/pdf.min.js first.
 
-const PDF_PREVIEW_WORKER_SRC = "/citizen/vendor/pdfjs/pdf.worker.min.js";
-// Sharp enough on phones' high-density screens without making a long
-// ordinance's canvases enormous.
+const PDF_PREVIEW_WORKER_SRC = "/shared/vendor/pdfjs/pdf.worker.min.js";
+// Sharp on high-density phone screens without making huge canvases.
 const PDF_PREVIEW_MAX_PIXEL_RATIO = 2;
 
-// Renders the PDF at `url` into `container` (a .pdf-preview__frame div),
-// one canvas per page, each scaled to the container's width. Calling it
-// again on the same container (e.g. Staff replaced the PDF) cancels the
-// previous render. Resolves true once every page is drawn, false if the
-// PDF couldn't be shown — a short message is left in the container then,
-// and the page's download button remains the way to get the file.
+// Draws the PDF at `url` into `container` (one canvas per page, full width).
+// Calling it again on the same container cancels the previous drawing.
+// Resolves true when done, or false (with a short message) if it failed.
 async function renderPdfPreview(container, url) {
   const token = {};
   container._pdfPreviewToken = token;

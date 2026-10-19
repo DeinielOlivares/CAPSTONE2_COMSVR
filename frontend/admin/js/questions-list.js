@@ -1,8 +1,4 @@
-// Barangay Platero OVRMS — Answer Questions (Admin): view + respond to
-// citizen-asked questions (same as Staff's). FAQ management now lives on
-// its own page — see manage-faqs.html/js/faqs-manage.js. Answered questions
-// stay in the list (never removed) — see StaffQuestionAnswerView's
-// docstring — so a repeat pattern stays visible to notice in the first place.
+// Answer Questions (admin): citizens' questions with a reply box (answered ones stay listed).
 
 function escapeHtml(str) {
   const div = document.createElement("div");

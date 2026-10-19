@@ -1,8 +1,5 @@
-// Barangay Platero OVRMS — Secretary Dashboard: a workload overview across the three
-// things a Secretary maintains — concerns/suggestions, the ordinance
-// repository, and citizen questions — rather than the incident-geography
-// view Barangay Captain gets on the Reports Dashboard. No date-range
-// filter: this is today's backlog, not a historical trend.
+// Secretary Dashboard: today's workload — concerns/suggestions, ordinances
+// and citizen questions (no date filter).
 
 document.addEventListener("DOMContentLoaded", async () => {
   const AGING_LIST_LIMIT = 8;
@@ -35,8 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Math.max(0, Math.floor((to - from) / (1000 * 60 * 60 * 24)));
   }
 
-  // Assigned by each folder's stable position in liveFolders(), not a hash
-  // of its id — a hash can (and did) collide two folders onto the same color.
+  // Each folder's color, by its position in liveFolders().
   const FOLDER_COLOR_BY_ID = new Map(
     liveFolders().map((f, i) => [f.id, FOLDER_COLOR_PALETTE[i % FOLDER_COLOR_PALETTE.length]])
   );
@@ -55,9 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("statActiveOrdinances").textContent = liveOrdinances().filter((o) => !o.isArchived).length;
   }
 
-  // ---- Concerns by Folder pie (same technique as concerns-dashboard.js's
-  // Captain-only Concerns/Suggestions by Category, scoped to all concerns
-  // since this page has no date filter) ----
+  // ---- Concerns by Folder pie (all concerns) ----
 
   function countByFolder(concerns) {
     const counts = {};
@@ -110,8 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       categoryPie.appendChild(span);
     });
 
-    // Only folders that have a slice — one with no concerns has nothing in
-    // the pie to match its colour to.
+    // Only folders that have concerns.
     categoryLegend.innerHTML = folders
       .filter((f) => (counts[f.id] || 0) > 0)
       .map((f) => `<li title="${f.name} (${counts[f.id] || 0})"><span class="pie-legend__dot" style="background:${folderColor(f.id)}"></span><span class="pie-legend__label">${f.name} (${counts[f.id] || 0})</span></li>`)

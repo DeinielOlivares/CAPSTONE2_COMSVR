@@ -1,7 +1,4 @@
-// Barangay Platero OVRMS — Manage FAQs: the public FAQ list shown on the
-// citizen FAQs page. Split out from Answer Questions (questions-list.js),
-// which is now citizen questions only — see questions-data.js for the
-// shared FAQ API calls (getManagedFAQs/createFAQ/updateFAQ/deleteFAQ).
+// Manage FAQs (admin): add, edit and delete the public FAQs (API calls in questions-data.js).
 
 function escapeHtml(str) {
   const div = document.createElement("div");

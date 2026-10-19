@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — Ordinance detail: populate the page from the ?id= query param.
+// Ordinance detail (citizen): shows the ordinance given by ?id= with a PDF preview.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const id = new URLSearchParams(window.location.search).get("id");
@@ -58,10 +58,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     downloadBtn.href = "#";
     downloadBtn.textContent = `Download ${ordinance.number}`;
 
-    // Downloading goes through the API (not a plain href straight to
-    // storage) so it can actually be gated to one download per citizen and
-    // logged — see OrdinanceDownloadView. Guests get the same sign-up/login
-    // prompt as every other gated action on the citizen portal.
+    // Downloads go through the API (one per citizen, logged).
+    // Guests get the Sign Up / Login prompt.
     downloadBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       if (!isLoggedIn()) {

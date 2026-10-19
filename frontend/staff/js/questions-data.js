@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — Questions data, backed by the real API (GET /api/questions/staff/).
+// questions-data.js (staff) — loads citizens' questions (GET /api/questions/staff/) and saves answers.
 
 async function getQuestions() {
   const response = await authFetch("/api/questions/staff/");

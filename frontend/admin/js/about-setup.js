@@ -1,7 +1,5 @@
-// Barangay Platero OVRMS — About Us Setup: the Administrator maintains everything on the
-// citizen About Us page (and the site footer's contact details) here, so a
-// new hotline or a new administration after an election doesn't need a
-// code change. Every save is audit-logged server-side (siteinfo/views.py).
+// About Us Setup (admin): edits the citizen About Us page — barangay details
+// (also used by the footer), council members and logos.
 
 const COUNCIL_GROUP_ORDER = ["chairman", "member", "officer"];
 const COUNCIL_GROUP_LABELS = {
@@ -49,8 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return !!(savedProfile && Object.keys(changedProfileFields()).length);
   }
 
-  // Returns true on success — shared between the form's own submit and the
-  // unsaved-changes modal's "Save Changes" option below.
+  // Saves the barangay details. Returns true on success.
   async function commitProfileSave() {
     clearFormError(profileForm);
     const changes = changedProfileFields();
@@ -82,10 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await commitProfileSave();
   });
 
-  // ---- Leaving with unsaved details — easy to do by accident on a long
-  // form. beforeunload covers browser back/refresh/close; the click
-  // interceptor below covers in-page navigation (sidebar, etc.), with the
-  // same "Save Changes?" modal every other editable page in the app uses. ----
+  // ---- Leaving with unsaved details: clicking a link asks "Save Changes?" ----
   window.addEventListener("beforeunload", (e) => {
     if (!isProfileDirty()) return;
     e.preventDefault();
@@ -168,8 +162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Same limits the server enforces (siteinfo/serializers.py), checked here
-  // too so a bad pick is caught before the upload, not after.
+  // The server's upload limits, checked before uploading.
   const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
   const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const IMAGE_MIN_SIDE = 400;
@@ -200,9 +193,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { notes };
   }
 
-  // Previews a chosen image before upload; returns a function that clears it.
-  // `framed`: draw the green ring on the preview, as About Us will for an
-  // uploaded portrait (seeded ones have it baked into the image already).
+  // Previews a chosen image; returns a function that clears it.
+  // `framed`: add the green ring, as About Us does for uploaded portraits.
   function wireImagePicker(input, preview, empty, warn, options) {
     let objectUrl = null;
     let previousFramed = false;

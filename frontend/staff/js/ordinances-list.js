@@ -1,6 +1,5 @@
-// Barangay Platero OVRMS — Ordinances list: search, paginate, render, navigate to
-// detail, plus uploading (Secretary/Admin — see ordinances-data.js's
-// isDocumentManager).
+// Ordinances list (staff): search and page through ordinances; the
+// Secretary/Administrator also gets the Upload button.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const tbody = document.getElementById("ordinanceRows");
@@ -19,17 +18,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let pageSize = pageSizeFrom(pageSizeSelect, 5);
   let currentPage = memory.get("page", 1);
-  // Only re-filters on Search (or pressing Enter in the field), not on every
-  // keystroke — this tracks the query that was actually searched for, kept
-  // separate from whatever's currently typed in the box.
+  // The last searched text (the list updates on Search / Enter only).
   let appliedQuery = memory.get("query", "");
   let appliedField = memory.get("queryField", filterField.value);
   searchInput.value = appliedQuery;
 
-  // Search box placeholder follows the selected filter, suggesting example
-  // keywords for that field. Author/No./Category examples are pulled from the
-  // loaded ordinances so they always match real data; the static lists are
-  // just the fallback while loading (or when there's nothing loaded yet).
+  // The search box hint shows example words for the selected field, taken
+  // from the loaded ordinances when possible.
   const PLACEHOLDER_FALLBACKS = {
     title: ["curfew", "business permit", "garbage"],
     number: ["No. 1-(2026)"],
@@ -134,9 +129,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Only actually filters when Search is pressed (or Enter in the field) —
-  // not on every keystroke — and only searches whichever single field is
-  // selected, not every column at once.
+  // Search runs on the Search button / Enter, in the selected field only.
   searchForm.addEventListener("submit", (e) => {
     e.preventDefault();
     appliedField = filterField.value;
@@ -162,9 +155,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   render();
 
-  // ---- Upload FAB ----
-  // Secretary/Admin only; everyone else with access here views only (the
-  // server enforces this too — see OrdinanceListCreateView).
+  // ---- Upload button (Secretary / Administrator only) ----
   const uploadBtn = document.getElementById("uploadOrdinanceBtn");
-  uploadBtn.hidden = !isDocumentManager(getAdminUser());
+  uploadBtn.hidden = !isDocumentManager(getCurrentUser());
 });

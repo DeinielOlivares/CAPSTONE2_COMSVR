@@ -1,9 +1,6 @@
-// Barangay Platero OVRMS — Concerns/Suggestions data, backed by the real API
-// (GET /api/concerns/staff/). Status/remarks work the same way as Reports
-// (Submitted/Reviewed + free-text remarks). Folders are a separate,
-// orthogonal categorization staff assign after the fact — backed by
-// /api/concerns/folders/ — used to group concerns for the (future)
-// category breakdown, the same role Report.ordinance plays for Reports.
+// concerns-data.js (staff) — loads every concern/suggestion
+// (GET /api/concerns/staff/) and the folders they can be filed under
+// (/api/concerns/folders/), and saves remarks / folder changes.
 
 const CONCERN_STATUS_TO_LABEL = {
   submitted: "Submitted",
@@ -14,8 +11,7 @@ const CONCERN_LABEL_TO_STATUS = {
   Reviewed: "reviewed",
 };
 
-// Newest-first within each status, Submitted before Reviewed — same idea as
-// reports-data.js's REPORT_STATUS_RANK, just with Concern's 2-stage status.
+// Submitted before Reviewed, newest first within each.
 const CONCERN_STATUS_RANK = {
   Submitted: 0,
   Reviewed: 1,
@@ -176,9 +172,7 @@ async function assignConcernFolder(concernId, folderId) {
   return updated;
 }
 
-// ---- Date helpers (small local copies — see reports-data.js for the
-// Reports Dashboard's equivalents; kept separate so the two pages don't
-// have to load each other's dataset). ----
+// ---- Date helpers (used by the Concerns/Suggestions dashboard) ----
 
 function formatConcernDate(date) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -190,46 +184,11 @@ function endOfDay(date) {
   return d;
 }
 
-function startOfWeek(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-const THIS_WEEK_START = startOfWeek(new Date());
-
-function getWeekRange(offset) {
-  const start = addDays(THIS_WEEK_START, -7 * offset);
-  const end = addDays(start, 6);
-  return { start, end, label: `${formatConcernDate(start)} - ${formatConcernDate(end)}` };
-}
-
 function getMonthRange(monthsBack) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
   const end = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 0);
   return { start, end };
-}
-
-// quartersBack counts back from the current quarter (0 = this quarter).
-function getQuarterRange(quartersBack) {
-  const now = new Date();
-  const currentQuarter = Math.floor(now.getMonth() / 3);
-  const totalQuarters = now.getFullYear() * 4 + currentQuarter - quartersBack;
-  const year = Math.floor(totalQuarters / 4);
-  const quarter = totalQuarters % 4;
-  const start = new Date(year, quarter * 3, 1);
-  const end = new Date(year, quarter * 3 + 3, 0);
-  return { start, end, quarter: quarter + 1, year };
 }
 
 // yearsBack counts back from the current year (0 = this year).
@@ -238,20 +197,4 @@ function getYearRange(yearsBack) {
   const start = new Date(year, 0, 1);
   const end = new Date(year, 11, 31);
   return { start, end, year };
-}
-
-function getConcernsForWeekOffset(offset) {
-  const { start, end } = getWeekRange(offset);
-  const endDate = endOfDay(end);
-  return liveConcerns().filter((c) => c.dateSubmitted >= start && c.dateSubmitted <= endDate);
-}
-
-function getConcernsForPeriod(periodValue) {
-  if (periodValue === "all") return liveConcerns();
-  if (periodValue === "week") return getConcernsForWeekOffset(0);
-  if (periodValue.startsWith("week")) return getConcernsForWeekOffset(Number(periodValue.slice(4)));
-  const monthsBack = Number(periodValue.replace("month", ""));
-  const { start, end } = getMonthRange(monthsBack);
-  const endDate = endOfDay(end);
-  return liveConcerns().filter((c) => c.dateSubmitted >= start && c.dateSubmitted <= endDate);
 }

@@ -1,6 +1,4 @@
-// Barangay Platero OVRMS — FAQs page: renders the public FAQ accordion. (The floating
-// "Ask a Question" "?" button itself is wired globally in main.js — it's on
-// every citizen page, not just this one.)
+// FAQs page (citizen): the public FAQ list. (The "Ask a Question" button is in main.js.)
 
 function escapeHtml(str) {
   const div = document.createElement("div");

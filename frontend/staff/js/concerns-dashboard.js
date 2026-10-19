@@ -1,10 +1,6 @@
-// Barangay Platero OVRMS — Concerns/Suggestions Dashboard (Barangay Captain, read-only).
-//
-// An oversight view rather than a work queue (that's the Secretary's
-// concerns.html): what residents are raising, whether it's being answered,
-// and what needs following up. One period selector drives every section.
-// "Topic" is the folder the Secretary files a concern under (see
-// concerns-data.js); "reviewed" timing uses Concern.reviewed_at.
+// Concerns/Suggestions Dashboard (Barangay Captain, read-only): what residents
+// are raising, whether it's being answered, and what needs follow-up, for the
+// selected period. "Topic" = the folder the Secretary filed a concern under.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const OVERDUE_DAYS = 7;

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Barangay Platero OVRMS — My Profile</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="/shared/js/common.js"></script>
+  <script src="js/staff-nav.js"></script>
 </head>
 <body>
 
@@ -30,19 +32,7 @@
       </button>
     </div>
   </header>
-<script>
-  // Fills the topbar name/role and sidebar portal label from the stored login
-  // before first paint — admin.js does the same later, but waiting for it
-  // flashed placeholder text for a moment on every page load.
-  (function () {
-    var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
-    var user;
-    try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
-    if (!user) return;
-    document.querySelectorAll(".admin-topbar__name strong").forEach(function (el) { el.textContent = user.name; });
-    document.querySelectorAll(".admin-topbar__name small").forEach(function (el) { el.textContent = user.position || "Barangay Official"; });
-  })();
-</script>
+<script>fillStaffTopbar();</script>
 
   <div class="plain-page">
     <div class="plain-page__inner plain-page__inner--wide">
@@ -198,7 +188,7 @@
   </div>
 
   <script src="js/staff-profile.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/layout.js"></script>
 
 </body>
 </html>

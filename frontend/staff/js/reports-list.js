@@ -1,16 +1,11 @@
-// Barangay Platero OVRMS — Reports Management: search + filter (type/status) +
-// paginate across real reports from reports-data.js (GET /api/reports/staff/).
-// Reports is the Investigator's claimable work queue — see reports-data.js's
-// claimReport. Claims are permanent (no forfeiting), so claiming confirms first.
-// Split into subpages from the sidebar's Reports group (?view= — see
-// REPORT_VIEWS below). Investigator: Unclaimed Reports, My Claimed Reports,
-// Other Claimed Reports. Barangay Captain: Unclaimed Reports, Claimed
-// Reports (with an extra filter by Investigator).
+// Reports list (staff): search, filter and page through reports. It is the
+// Investigators' work queue: they claim unclaimed reports.
+// The sidebar's Reports sub-pages use ?view=:
+//   Investigator      Unclaimed, My Claimed, Other Claimed
+//   Barangay Captain  Unclaimed, Claimed (with a filter by Investigator)
 
-// Each subpage is this same page showing one of its three lists (Claimed
-// by Me / Unclaimed / Claimed by Others). `roles` must match the sidebar's
-// entries (admin.js's STAFF_NAV_ACCESS); a subpage the role can't see, or
-// no ?view= at all, falls back to Unclaimed Reports.
+// The sub-pages. `roles` must match STAFF_NAV_ACCESS (staff-nav.js); an
+// unknown or not-allowed ?view= shows Unclaimed Reports.
 const REPORT_VIEWS = {
   unclaimed: { heading: "Unclaimed Reports", group: "unclaimed", roles: ["Investigator", "Barangay Captain"] },
   mine: { heading: "My Claimed Reports", group: "mine", roles: ["Investigator"] },
@@ -42,10 +37,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pagination = document.getElementById("reportsPagination");
   const pageSizeSelect = document.getElementById("reportsPageSize");
 
-  const currentUser = getAdminUser();
-  // Claiming is Investigator-only (same rule as report-detail.js and
-  // the backend's IsInvestigatorOrAdmin) — Barangay Captain can reach this
-  // page but only gets a read-only view of who's working what.
+  const currentUser = getCurrentUser();
+  // Only Investigators can claim; the Barangay Captain only sees who claimed what.
   const isInvestigator = !!currentUser && currentUser.position === "Investigator";
   let viewKey = new URLSearchParams(window.location.search).get("view") || "unclaimed";
   if (!REPORT_VIEWS[viewKey] || !REPORT_VIEWS[viewKey].roles.includes(currentUser && currentUser.position)) {
@@ -69,8 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const listsByGroup = { mine: listMine, unclaimed: listUnclaimed, others: listOthers };
 
   let page = 1;
-  // Only re-filters on Search (or pressing Enter in the field), not on every
-  // keystroke — this tracks the query that was actually searched for.
+  // The last searched text (the list updates on Search / Enter only).
   let appliedQuery = "";
 
   listMine.innerHTML = skeletonCards(2);
@@ -85,8 +77,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // No fixed category list anymore (that was mock data) — the type filter
-  // now only ever offers ordinances that actually appear in real reports.
+  // The type filter lists the ordinances that appear in reports.
   Array.from(new Set(liveReports().map((r) => r.incidentType)))
     .sort()
     .forEach((type) => {
@@ -96,9 +87,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeFilter.appendChild(opt);
     });
 
-  // Claimed Reports (Barangay Captain): every Investigator currently holding
-  // at least one claim, by name — filtered by id, since two people can
-  // share a name.
+  // Claimed Reports (Barangay Captain): filter by Investigator (by id; names can repeat).
   if (view.investigatorFilter) {
     const investigators = new Map();
     liveReports().forEach((r) => {
@@ -109,11 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .forEach(([id, name]) => investigatorFilter.appendChild(new Option(name, id)));
   }
 
-  // Filters, search, page size and page survive opening a report and coming
-  // back, or visiting other pages, for the rest of this browser tab.
-  // sessionStorage (not localStorage) so they reset with a fresh tab; keyed
-  // per user and subpage so someone else signing in on the same tab starts
-  // clean, and each subpage keeps its own.
+  // Filters, search and page are remembered for this browser tab, per user and sub-page.
   const filtersKey = `orms_reports_filters_${currentUser?.id ?? "anon"}_${viewKey}`;
 
   function saveFilters() {
@@ -139,8 +124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     if (!saved) return;
-    // Only restore a select's value if that option still exists — e.g. the
-    // saved ordinance type may no longer appear in any report.
+    // Restore a select only if the saved option still exists.
     const setIfOption = (select, value) => {
       if (select && Array.from(select.options).some((o) => o.value === value)) select.value = value;
     };
@@ -171,9 +155,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (statusFilter.value !== "all") {
       rows = rows.filter((r) => r.status === statusFilter.value);
     } else {
-      // "all": every status shows, ranked New Submission > Under Review >
-      // In Action > Resolved/With Remarks, newest first within each group —
-      // so a backlog of old closed reports doesn't bury what's still active.
+      // "all": open statuses first (timeline order), newest first within each.
       rows = sortReportsByStatusThenDate(rows);
     }
 
@@ -237,9 +219,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function render() {
     const rows = getFiltered();
 
-    // Sorted into the three lists — unclaimed, claimed by the current user,
-    // claimed by anyone else — and this subpage shows (and pages through)
-    // just its own one.
+    // Split into unclaimed / claimed by me / claimed by others; this sub-page shows one.
     const groups = { mine: [], unclaimed: [], others: [] };
     rows.forEach((r) => {
       if (!r.assignedInvestigatorId) groups.unclaimed.push(r);
@@ -284,8 +264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       page = n;
       render();
     });
-    // Every filter, search, Clear and page change ends up here, so this one
-    // call keeps the saved state current.
+    // Save the current filters (every change ends up here).
     saveFilters();
   }
 

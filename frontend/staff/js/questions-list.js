@@ -1,8 +1,5 @@
-// Barangay Platero OVRMS — Questions: staff/admin view + respond to citizen-asked
-// questions. Answered ones stay in the list (never removed) — see
-// StaffQuestionAnswerView's docstring — just shown with their answer
-// instead of a reply box, so a pattern of repeat questions stays visible
-// for Admin to notice and promote into a real FAQ.
+// Answer Questions (staff): citizens' questions with a reply box. Answered
+// questions stay in the list, shown with their answer.
 
 function escapeHtml(str) {
   const div = document.createElement("div");

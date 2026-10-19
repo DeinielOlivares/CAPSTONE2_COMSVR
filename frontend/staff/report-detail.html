@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Barangay Platero OVRMS — Report Details</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="/shared/js/common.js"></script>
+  <script src="js/staff-nav.js"></script>
 </head>
 <body>
 
@@ -30,19 +32,7 @@
       </button>
     </div>
   </header>
-<script>
-  // Fills the topbar name/role and sidebar portal label from the stored login
-  // before first paint — admin.js does the same later, but waiting for it
-  // flashed placeholder text for a moment on every page load.
-  (function () {
-    var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
-    var user;
-    try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
-    if (!user) return;
-    document.querySelectorAll(".admin-topbar__name strong").forEach(function (el) { el.textContent = user.name; });
-    document.querySelectorAll(".admin-topbar__name small").forEach(function (el) { el.textContent = user.position || "Barangay Official"; });
-  })();
-</script>
+<script>fillStaffTopbar();</script>
 
   <div class="report-detail-page">
     <div class="report-detail-layout">
@@ -126,9 +116,10 @@
 
   <script src="js/ordinances-data.js"></script>
   <script src="js/reports-data.js"></script>
-  <script src="/citizen/js/report-form-download.js"></script>
+  <script src="/shared/js/report-form-download.js"></script>
+  <script src="/shared/js/evidence.js"></script>
   <script src="js/report-detail.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/layout.js"></script>
 
   <!-- Profile popup -->
   <div class="modal-overlay" id="profileModal" hidden>

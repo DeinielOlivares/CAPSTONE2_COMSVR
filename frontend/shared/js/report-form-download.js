@@ -1,16 +1,8 @@
-// Barangay Platero OVRMS — Download Report: draws one report the way the File a
-// Report form looked when it was filled in (the "Reporting As" card, then
-// the "Report Details" card with every field in its own place — Street,
-// Block/Lot, Date and Time of Incident, Ordinance in Violation, Nature of
-// Violation, the uploaded photos/videos when there are any, and the consent
-// line) and saves that picture as a one-page PDF, like a screenshot of the form.
-// Shared by the citizen's My Report Detail page and the Investigator's
-// Report Detail page (staff/report-detail.html loads it from here) — those
-// are the only two places it's offered. Drawn with the plain Canvas API and
-// wrapped in a minimal hand-built PDF, so there's nothing extra to load.
-//
-// The file is named after the report number: "20260101-5.pdf" is the fifth
-// report filed on January 1, 2026 (see Report.report_number on the backend).
+// report-form-download.js — "Download Report": draws a report as the filled-in
+// File a Report form (Reporting As, Report Details, photos, consent line) on a
+// canvas and saves it as a one-page PDF named after the report number
+// (e.g. "20260101-5.pdf"). Used by the citizen's My Report detail page and the
+// staff Report detail page. Needs no extra library.
 //
 // downloadReportForm(data) takes:
 //   { id, reportNumber ("YYYYMMDD-N"), reporter, contactNumber, location

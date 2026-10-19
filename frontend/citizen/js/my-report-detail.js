@@ -1,4 +1,4 @@
-// Barangay Platero OVRMS — My Report detail: fetch the real report by the ?id= query param.
+// My Report detail (citizen): shows the report given by ?id=.
 
 const REPORT_TIMELINE_STEPS = [
   { label: "Submitted", description: "Your report has been submitted successfully." },
@@ -7,11 +7,8 @@ const REPORT_TIMELINE_STEPS = [
   { label: "Resolved/With Remarks", description: "Your report is finished and closed." },
 ];
 
-// How many of the 4 steps count as "done" for a given backend status. There's
-// no per-stage history yet (just one status field), so anything past step 1
-// is dated with updated_at as the best available approximation of when that
-// stage was reached, rather than a fabricated date. Resolved and With Remarks
-// both complete the last stage.
+// How many of the 4 timeline steps are done for a status. Steps after the
+// first are dated with updated_at (only the current status is stored).
 const REPORT_COMPLETED_STEPS = { submitted: 1, under_review: 2, in_action: 3, resolved: 4, with_remarks: 4 };
 
 function formatTime12h(hhmm) {
@@ -25,43 +22,6 @@ function formatTime12h(hhmm) {
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString("en-US", {
     month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-  });
-}
-
-const VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
-
-// Opens the clicked thumbnail full-size in an overlay on this same page,
-// instead of navigating to it in a new tab.
-function openMediaLightbox(url, isVideo) {
-  const lightbox = document.getElementById("mediaLightbox");
-  const body = document.getElementById("mediaLightboxBody");
-  if (!lightbox || !body) return;
-  body.innerHTML = isVideo
-    ? `<video src="${url}" controls autoplay></video>`
-    : `<img src="${url}" alt="Uploaded evidence" />`;
-  lightbox.hidden = false;
-}
-
-// Renders the real uploaded files (photos/videos) into `container`, or
-// falls back to a plain "No uploaded evidence" notice when nothing was
-// attached — same box either way, just with or without real content.
-function renderEvidence(container, urls) {
-  if (!urls || !urls.length) {
-    container.innerHTML = `<div class="evidence-photo">No uploaded evidence</div>`;
-    return;
-  }
-  container.className = "evidence-photo-grid";
-  container.innerHTML = urls
-    .map((url) => {
-      const isVideo = VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
-      const media = isVideo
-        ? `<video src="${url}" muted></video>`
-        : `<img src="${url}" alt="Uploaded evidence" />`;
-      return `<button type="button" class="evidence-photo-grid__item" data-lightbox-url="${url}" data-lightbox-video="${isVideo}">${media}</button>`;
-    })
-    .join("");
-  container.querySelectorAll("[data-lightbox-url]").forEach((btn) => {
-    btn.addEventListener("click", () => openMediaLightbox(btn.dataset.lightboxUrl, btn.dataset.lightboxVideo === "true"));
   });
 }
 

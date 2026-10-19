@@ -1,8 +1,6 @@
-// Barangay Platero OVRMS — Reports data, backed by the real API (GET /api/reports/staff/).
-// Replaces the previous randomly-generated 28-week mock dataset. The rest
-// of the dashboard/list/detail code was written assuming a synchronously-
-// available array, so this loads once per page into a cache — call
-// `await ensureReportsLoaded()` before using liveReports()/getReportById().
+// reports-data.js (staff) — loads every report from GET /api/reports/staff/
+// once per page and keeps it in memory; also the date/period helpers used by
+// the dashboards. Call `await ensureReportsLoaded()` before liveReports() / getReportById().
 
 const REPORT_STATUS_TO_LABEL = {
   submitted: "New Submission",
@@ -19,13 +17,10 @@ const REPORT_LABEL_TO_STATUS = {
   "With Remarks": "with_remarks",
 };
 
-// Every status, in timeline order — what the status dropdowns/filters list.
-// "New Submission" is the status's name here; only the status timeline (a
-// record of the report) calls that first stage "Submitted".
+// Every status label, in timeline order (the timeline shows the first as "Submitted").
 const REPORT_STATUS_LABELS_ORDERED = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
 
-// Resolved and With Remarks both close a report (the status timeline's last,
-// "Resolved/With Remarks" stage) — anything else is still open.
+// Resolved and With Remarks close a report; anything else is still open.
 const REPORT_CLOSED_LABELS = ["Resolved", "With Remarks"];
 function isReportClosed(status) {
   return REPORT_CLOSED_LABELS.includes(status);
@@ -47,10 +42,7 @@ const REPORT_STATUS_PILL_CLASS = {
   "With Remarks": "status-pill--remarked",
 };
 
-// Newest-first within each status, with statuses themselves ordered by
-// where they sit in the timeline (New Submission -> ... -> Resolved/With Remarks
-// last) — so the list reads as "what needs attention" at a glance rather
-// than pure chronological order.
+// Sorted by status (timeline order), then newest first.
 const REPORT_STATUS_RANK = {
   "New Submission": 0,
   "Under Review": 1,
@@ -69,12 +61,9 @@ function sortReportsByStatusThenDate(reports) {
 
 let _reportsCache = null;
 
-// Reports store the exact ordinance text the citizen picked (see
-// file-report.js) — that's matched back against liveOrdinances()
-// (ordinances-data.js) to get its category. Report.ordinance stays free
-// text rather than a foreign key, since a report should keep showing what
-// ordinance it cited even if that ordinance is later edited or removed.
-// Callers must await ensureOrdinancesLoaded() before ensureReportsLoaded().
+// A report keeps the ordinance text the citizen picked; its category is found
+// by matching that text against liveOrdinances().
+// Call ensureOrdinancesLoaded() before ensureReportsLoaded().
 function categoryForOrdinance(ordinanceText) {
   const match = liveOrdinances().find((o) => `${o.number} — ${o.title}` === ordinanceText);
   return match ? match.category : "Other";
@@ -87,8 +76,7 @@ function mapReport(r) {
     ordinance: r.ordinance,
     category: categoryForOrdinance(r.ordinance),
     location: r.location,
-    // Device position at filing time, if the citizen shared it (null otherwise
-    // — the heatmap then falls back to the street in `location`).
+    // Device position when filed, or null (the heatmap then uses the street).
     latitude: r.latitude,
     longitude: r.longitude,
     reporter: r.reporter,
@@ -98,18 +86,15 @@ function mapReport(r) {
     status: REPORT_STATUS_TO_LABEL[r.status] || r.status,
     remarks: r.remarks,
     dateSubmitted: new Date(r.created_at),
-    // Only one status field exists (no per-stage history), so this is the
-    // best real timestamp available for whichever stage was most recently
-    // reached — see report-detail.js's renderTimeline.
+    // When the current status was reached (only the latest status is stored).
     dateUpdated: new Date(r.updated_at),
     incidentDate: r.incident_date,
     incidentTimeRaw: r.incident_time,
     attachments: r.attachments,
-    // Who's claimed this report (Investigator only — see
-    // StaffReportClaimView/StaffReportForfeitView), null if unclaimed.
+    // The Investigator who claimed it, or null.
     assignedInvestigator: r.assignedInvestigator,
     assignedInvestigatorId: r.assignedInvestigatorId,
-    // "YYYYMMDD-N" — names the Download Report PDF (see Report.report_number).
+    // "YYYYMMDD-N" (also the Download Report file name).
     reportNumber: r.report_number,
   };
 }
@@ -127,10 +112,7 @@ function liveReports() {
   return _reportsCache || [];
 }
 
-// How many approved, active citizen accounts exist — the base the Reports
-// Dashboard's geospatial analysis uses for "% of registered citizens".
-// Resolves to null if it can't be loaded; the analysis then shows the count
-// without that percentage rather than failing.
+// Number of approved, active citizens (for "% of registered citizens"), or null.
 let _registeredCitizensPromise = null;
 function loadRegisteredCitizenCount() {
   if (!_registeredCitizensPromise) {
@@ -146,8 +128,7 @@ function getReportById(id) {
   return (_reportsCache || []).find((r) => r.id === id) || null;
 }
 
-// Refetches just the one report and patches it into the cache — used after
-// a status/remarks save so the dashboard/list reflect it without a full reload.
+// Reloads one report into the cache (after a save).
 async function refreshReportInCache(id) {
   const response = await authFetch(`/api/reports/staff/${encodeURIComponent(id)}/`);
   if (!response.ok) throw new Error("Could not reload this report.");
@@ -173,9 +154,7 @@ async function updateReportStatus(id, patch) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    // A permission/claim rejection comes back as {detail: "..."} (a plain
-    // string, e.g. "Claim this report before updating its status."), field
-    // validation errors as {field: ["..."]} — surface either one.
+    // Show {detail} (e.g. "Claim this report first") or the first field error.
     if (typeof data.detail === "string") throw new Error(data.detail);
     const firstError = Object.values(data)[0];
     throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not update this report.");
@@ -183,9 +162,8 @@ async function updateReportStatus(id, patch) {
   return refreshReportInCache(id);
 }
 
-// Investigator claims an unclaimed report (or takes over their own claim,
-// idempotently) — see StaffReportClaimView. Throws with the backend's
-// message (e.g. "already claimed by X") on conflict.
+// Claims a report for the logged-in Investigator. Throws the server's message
+// (e.g. "already claimed by X").
 async function claimReport(id) {
   const response = await authFetch(`/api/reports/staff/${encodeURIComponent(id)}/claim/`, { method: "POST" });
   if (!response.ok) {
@@ -200,16 +178,11 @@ async function claimReport(id) {
   return updated;
 }
 
-// Claims are permanent for Investigators (only an Administrator can release
-// one — see StaffReportForfeitView), so both Claim buttons (reports-list.js,
-// report-detail.js) confirm first — with just "Are you sure?", no extra
-// message (siteConfirm skips an empty one).
+// Claiming can't be undone by the Investigator, so both Claim buttons ask first.
 const CLAIM_CONFIRM_MESSAGE = "";
 const CLAIM_CONFIRM_OPTIONS = { title: "Are you sure?", confirmText: "Claim Report" };
 
-// ---- Date/period helpers — kept from the old mock generator, since
-// filtering real created_at timestamps by week/month is still legitimate,
-// just no longer feeding fabricated numbers. ----
+// ---- Date / period helpers ----
 
 function formatReportDate(date) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -271,9 +244,7 @@ function getYearRange(yearsBack) {
   return { start, end, year };
 }
 
-// The period choices both the Reports Dashboard's dropdowns and the
-// Geospatial Analysis page's Period select offer — values are what
-// getReportsForPeriod below takes.
+// The period choices (values understood by getReportsForPeriod).
 const REPORT_PERIOD_MONTHS_BACK = 5;
 const REPORT_PERIOD_QUARTERS_BACK = 3;
 const REPORT_PERIOD_YEARS_BACK = 2;
@@ -299,9 +270,7 @@ function buildReportPeriodOptions() {
   return opts;
 }
 
-// The comparison period for a delta — one week/month/quarter/year further
-// back than the given one. "all" and a custom date range have no previous
-// period to compare against (null).
+// The period before the given one (for "vs last month" etc.), or null.
 function previousReportPeriod(period) {
   if (typeof period !== "string") return null;
   if (period === "week") return "week1";
@@ -310,10 +279,8 @@ function previousReportPeriod(period) {
   return `${match[1]}${Number(match[2]) + 1}`;
 }
 
-// A period as a query string and back, so the dashboard's heatmap can open
-// the Geospatial Analysis page on the same period (and that page's address
-// can be bookmarked). reportPeriodFromQuery returns null for anything it
-// doesn't recognise.
+// A period <-> URL query string (so the Geospatial Analysis page opens on
+// the dashboard's period). reportPeriodFromQuery returns null if unknown.
 function reportPeriodToQuery(period) {
   if (period && typeof period === "object") {
     return `from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`;
@@ -338,9 +305,7 @@ function getReportsForWeekOffset(offset) {
 }
 
 function getReportsForPeriod(periodValue) {
-  // A custom "Date From - Date To" range (see reports-dashboard.js's top
-  // filter) — {type: "custom", from: "YYYY-MM-DD", to: "YYYY-MM-DD"},
-  // inclusive of both ends.
+  // A custom range: {type: "custom", from: "YYYY-MM-DD", to: "YYYY-MM-DD"} (both days included).
   if (periodValue && typeof periodValue === "object" && periodValue.type === "custom") {
     const start = new Date(`${periodValue.from}T00:00:00`);
     const end = endOfDay(new Date(`${periodValue.to}T00:00:00`));

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Barangay Platero OVRMS — Login</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="/shared/js/common.js"></script>
 </head>
 <body>
 
@@ -43,60 +44,11 @@
     </div>
   </section>
 
-  <script src="js/main.js"></script>
+  <script src="/shared/js/auth-pages.js"></script>
 
   <script>
     // Landing on the login page always starts a fresh, logged-out session.
     logOut();
   </script>
-
-  <!-- Guests are prompted to sign up / log in before filing a report or suggestion -->
-  <div class="modal-overlay" id="authGateModal" hidden>
-    <div class="modal-card">
-      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
-      <h2 id="authGateTitle">Want to Submit a Report?</h2>
-      <div class="auth-gate__row">
-        <p class="auth-gate__label">Don't Have An Account?</p>
-        <a class="btn" href="signup.html">Sign Up now</a>
-      </div>
-      <div class="auth-gate__row">
-        <p class="auth-gate__label">Already Have An Account?</p>
-        <a class="btn" href="index.html">Login now</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Profile popup: Guest Account, or the logged-in account card -->
-  <div class="modal-overlay" id="profileModal" hidden>
-    <div class="modal-card profile-card">
-      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
-      <div id="profileGuestView">
-        <div class="profile-card__row">
-          <span class="profile-avatar profile-avatar--guest"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></span>
-          <p class="profile-card__name">Guest Account</p>
-        </div>
-        <a class="btn btn-muted" href="index.html">Login</a>
-      </div>
-      <div id="profileUserView" hidden>
-        <div class="profile-card__row">
-          <span class="profile-avatar" id="profileUserInitials"></span>
-          <p class="profile-card__name" id="profileUserName"></p>
-        </div>
-        <a class="btn btn-muted" href="profile.html">View Details</a>
-        <button type="button" class="btn btn-muted" id="logoutBtn">Log Out</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Logout confirmation -->
-  <div class="modal-overlay" id="logoutConfirmModal" hidden>
-    <div class="modal-card">
-      <h2>Continue to Logout?</h2>
-      <div class="btn-row">
-        <button type="button" class="btn" id="logoutYes">Yes</button>
-        <button type="button" class="btn btn-danger" id="logoutNo">No</button>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

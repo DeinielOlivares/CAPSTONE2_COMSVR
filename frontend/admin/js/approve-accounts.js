@@ -1,8 +1,5 @@
-// Barangay Platero OVRMS — Approve Accounts: render + filter the pending account list, and
-// handle the approve/reject popup + ID photo preview.
-// Data now comes from the real API (see pending-accounts-data.js) instead
-// of a hardcoded array, so this file is async where it fetches/reviews
-// accounts, and the photo preview shows the actual uploaded image.
+// Approve Accounts (admin): citizens waiting for approval, their voter's ID
+// photo, and Approve / Reject (with a reason).
 
 document.addEventListener("DOMContentLoaded", async () => {
   const tbody = document.getElementById("pendingTableBody");
@@ -11,8 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pageSizeSelect = document.getElementById("pendingPageSize");
 
   let accounts = [];
-  // null = "All" (no limit) — the default, since there's usually not enough
-  // pending accounts at once to need paging through them.
+  // null = show all (the default).
   const memory = createFilterMemory("approve_accounts");
   memory.bindSelect(typeFilter);
   memory.bindSelect(pageSizeSelect);
@@ -110,10 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // The owner link still works on its own (desktop), and on mobile the
-    // other columns are hidden (see style.css) so the whole row — really
-    // just the name — is what's left to tap. "View ID Photo" itself still
-    // reaches the photo from inside the popup this opens.
+    // On phones the whole row opens the account.
     const row = e.target.closest("tr[data-id]");
     if (!row) return;
     e.preventDefault();
@@ -137,8 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Shared by the Approve/Reject buttons: calls the given API action for
-  // the active account, then drops it from the list on success.
+  // Approve/Reject: calls the API, then removes the account from the list.
   async function reviewActiveAccount(actionFn, ...args) {
     if (!activeAccountId) return null;
     try {
@@ -161,8 +153,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Reject Account popup: asks for a reason (emailed to the applicant, see
-  // AdminRejectVerificationView) instead of a plain confirm dialog.
+  // Reject Account popup: asks for a reason (emailed to the applicant).
   const rejectReasonModal = document.getElementById("rejectReasonModal");
   const rejectReasonForm = document.getElementById("rejectReasonForm");
   const rejectReasonInput = document.getElementById("rejectReasonInput");

@@ -1,10 +1,5 @@
-// Barangay Platero OVRMS — Ordinance Authors: Administrator-only management of the roster
-// behind Upload/Edit Ordinance's Author autocomplete suggestions (see
-// ordinance-authors-data.js — the field itself stays free text). List, add,
-// edit (name/position/active), and remove — deactivating (rather than
-// deleting) is the normal way a term ends, since it keeps the entry around
-// for past ordinances' history; delete is only for an entry added by
-// mistake (see the backend's docstring).
+// Ordinance Authors (admin, part of the Ordinance Setup page): the officials
+// list. When a term ends, set the official inactive; delete only mistakes.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const tbody = document.getElementById("authorsTableBody");
@@ -119,7 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // ---- Row actions (event delegation — rows are re-rendered wholesale on every change) ----
+  // ---- Row buttons (one listener on the table; rows are re-drawn on every change) ----
 
   tbody.addEventListener("click", async (e) => {
     const editId = e.target.dataset.edit;

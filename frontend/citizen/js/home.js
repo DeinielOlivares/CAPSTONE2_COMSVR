@@ -1,6 +1,5 @@
-// Barangay Platero OVRMS — Home page: announcements as news cards (full text in a popup,
-// with per-citizen unread banners), Latest Ordinances (unread for logged-in
-// citizens, the most recent for guests), and notifications (logged-in only).
+// Home page (citizen): News and Announcements (full text in a popup, with an
+// "unread" mark per citizen), Latest Ordinances, and Ordinances by Category.
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -43,12 +42,10 @@ function isUnread(announcement, loggedIn) {
 }
 
 const HOME_PAGE_SIZE = 3;
-// Latest Ordinances and Ordinances by Category sit side by side, so both
-// start with the same number of rows to keep the two columns level.
+// Rows shown before "See more" (the same for both side-by-side lists).
 const LATEST_ORDINANCES_COUNT = 5;
 
-// Matches the page's own 560px "mobile" breakpoint (where these grids drop to
-// a single column) — a smaller starting count reads better stacked that narrow.
+// Fewer rows on phones (the page's 560px breakpoint).
 function isMobileWidth() {
   return window.matchMedia("(max-width: 560px)").matches;
 }
@@ -56,9 +53,7 @@ function isMobileWidth() {
 const SEE_MORE_CHEVRON =
   '<svg class="home-see-more__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
-// Fades/slides each element in, one after another, the first time it scrolls
-// into view (see .home-reveal in style.css — a category bar's fill also grows
-// from zero then). Without IntersectionObserver they're simply shown.
+// Fades each element in the first time it scrolls into view (.home-reveal in style.css).
 const _revealObserver =
   "IntersectionObserver" in window
     ? new IntersectionObserver(
@@ -82,9 +77,8 @@ function revealItems(elements) {
   });
 }
 
-// Shows the first `perPage` cards with a "See more" button below; clicking it
-// reveals the rest. `wire` (optional) attaches any listeners the cards need —
-// called again after "See more" since the cards are freshly rendered then.
+// Shows the first `perPage` cards and a "See more" button for the rest.
+// `wire` (optional) adds the cards' click listeners after each render.
 function renderPaginated(container, gridClass, cardsHtml, perPage, wire) {
   if (cardsHtml.length <= perPage) {
     container.innerHTML = `<div class="${gridClass}">${cardsHtml.join("")}</div>`;
@@ -92,8 +86,7 @@ function renderPaginated(container, gridClass, cardsHtml, perPage, wire) {
     if (wire) wire(container.querySelector(`.${gridClass}`));
     return;
   }
-  // `initial` is the first paint (everything animates in once scrolled to);
-  // after "See more" only the newly added cards do, and "See less" none.
+  // Only newly shown cards animate in.
   function paint(showAll, initial) {
     const items = showAll ? cardsHtml : cardsHtml.slice(0, perPage);
     container.innerHTML =
@@ -134,8 +127,7 @@ function renderNewsGrid(container, announcements, loggedIn) {
   });
 
   renderPaginated(container, "news-grid", cardsHtml, isMobileWidth() ? 1 : HOME_PAGE_SIZE, () => {
-    // The whole card opens the announcement, not just "Read more" — that
-    // button stays as the keyboard target, and its click bubbles up to here.
+    // Clicking anywhere on the card opens the announcement.
     container.querySelectorAll(".news-card").forEach((card) => {
       card.addEventListener("click", () => openAnnouncement(card.dataset.announcementId, container));
     });
@@ -153,8 +145,7 @@ function openAnnouncement(id, grid) {
     <p class="news-modal__description">${escapeHtml(a.description)}</p>`;
   modal.hidden = false;
 
-  // Reading an announcement is what "viewing" it means: its banner goes away
-  // on screen and server-side.
+  // Opening an announcement marks it as read (on screen and on the server).
   if (isUnread(a, isLoggedIn())) {
     a.is_read = true;
     const card = grid.querySelector(`[data-announcement-id="${id}"]`);
@@ -180,9 +171,7 @@ async function renderLatestOrdinances(container, loggedIn) {
     container.innerHTML = `<div class="ordinances-empty">No ordinances have been posted yet.</div>`;
     return;
   }
-  // A compact list of the few most recent, one row each — it shares the row
-  // with "Ordinances by Category", and the full list lives on the Ordinances
-  // page (linked below) rather than expanding in place here.
+  // A short list of the most recent; the full list is on the Ordinances page.
   const rowsHtml = rows.slice(0, isMobileWidth() ? 3 : LATEST_ORDINANCES_COUNT).map(
     (o) => `
         <a class="latest-ord-row" href="ordinance-detail.html?id=${encodeURIComponent(o.id)}">
@@ -226,10 +215,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 
-// Opens a popup listing the ordinances in one category — clicking a bar in
-// "Ordinances by Category" instead of navigating away. Still offers a link to
-// the full filtered Ordinances page for anyone who wants the real list page
-// (sorting, search, etc.).
+// Clicking a bar in "Ordinances by Category" opens a popup listing that
+// category's ordinances (with a link to the filtered Ordinances page).
 function openCategoryOrdinances(category, items) {
   const modal = document.getElementById("categoryOrdinancesModal");
   const sorted = items.slice().sort((a, b) => b.date_approved.localeCompare(a.date_approved));

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Barangay Platero OVRMS — Reports Management</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="/shared/js/common.js"></script>
+  <script src="js/staff-nav.js"></script>
 </head>
 <body>
 
@@ -36,56 +38,7 @@
               <li><a href="announcements.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11v2a1 1 0 001 1h2l5 4V6L7 10H5a1 1 0 00-1 1z"/><path d="M17 9.5a4 4 0 010 5"/></svg> Announcements</a></li>
               <li><a href="questions.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.7-1.2c.5.9.3 1.7-.5 2.4l-.7.6c-.6.5-1 .9-1 1.7v.3"/><circle cx="12" cy="17" r="0.2" fill="currentColor"/></svg> Answer Questions</a></li>
 </ul>
-      <script>
-        // Hides sidebar items this role can't see BEFORE the rest of the
-        // page (and its script tags) finish parsing — admin.js's own
-        // enforceStaffSectionAccess does the same thing but only runs after
-        // the whole body is parsed, which on a full page navigation let the
-        // full/wrong-role nav flash visible for a moment on every page
-        // load. Keep this object in sync with STAFF_NAV_ACCESS in admin.js.
-        (function () {
-          var STAFF_NAV_ACCESS = {
-            "investigator-dashboard.html": ["Investigator"],
-            "reports-dashboard.html": ["Barangay Captain"],
-            "reports.html": ["Investigator", "Barangay Captain"],
-            "reports.html?view=mine": ["Investigator"],
-            "reports.html?view=others": ["Investigator"],
-            "reports.html?view=claimed": ["Barangay Captain"],
-            "concerns-dashboard.html": ["Barangay Captain"],
-            "secretary-dashboard.html": ["Secretary"],
-            "concerns.html": ["Secretary", "Barangay Captain"],
-            "ordinances.html": ["Barangay Captain", "Secretary", "Investigator"],
-            "questions.html": ["Barangay Captain", "Secretary", "Investigator"],
-            "announcements.html": ["Barangay Captain", "Secretary"],
-          };
-          var remembered = localStorage.getItem("orms_remember_me") === "1";
-          var store = remembered ? localStorage : sessionStorage;
-          var user;
-          try {
-            user = JSON.parse(store.getItem("orms_auth_user"));
-          } catch (e) {
-            user = null;
-          }
-          if (!user) return;
-          var allowed = Object.keys(STAFF_NAV_ACCESS).filter(function (page) {
-            return STAFF_NAV_ACCESS[page].indexOf(user.position) !== -1;
-          });
-          document.querySelectorAll(".admin-sidebar__nav a[href]").forEach(function (link) {
-            // A subpage link (reports.html?view=mine) can have its own entry;
-            // otherwise it falls under its page's (reports.html).
-            var page = link.getAttribute("href");
-            if (!Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page)) page = page.split("?")[0];
-            if (Object.prototype.hasOwnProperty.call(STAFF_NAV_ACCESS, page) && allowed.indexOf(page) === -1) {
-              var item = link.closest("li");
-              if (item) item.hidden = true;
-            }
-          });
-          // A sidebar group with none of its subpages left visible goes too.
-          document.querySelectorAll(".admin-sidebar__group").forEach(function (group) {
-            if (!group.querySelector(".admin-sidebar__subnav li:not([hidden])")) group.hidden = true;
-          });
-        })();
-      </script>
+      <script>hideStaffNavLinks();</script>
       <button type="button" class="admin-sidebar__logout" id="logoutBtn">&#8618; Logout</button>
     </aside>
 
@@ -113,19 +66,7 @@
           </button>
         </div>
       </header>
-<script>
-  // Fills the topbar name/role and sidebar portal label from the stored login
-  // before first paint — admin.js does the same later, but waiting for it
-  // flashed placeholder text for a moment on every page load.
-  (function () {
-    var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
-    var user;
-    try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
-    if (!user) return;
-    document.querySelectorAll(".admin-topbar__name strong").forEach(function (el) { el.textContent = user.name; });
-    document.querySelectorAll(".admin-topbar__name small").forEach(function (el) { el.textContent = user.position || "Barangay Official"; });
-  })();
-</script>
+<script>fillStaffTopbar();</script>
 
       <div class="admin-content">
         <h1 class="page-heading" id="reportsHeading">Reports</h1>
@@ -210,9 +151,9 @@
 
   <script src="js/ordinances-data.js"></script>
   <script src="js/reports-data.js"></script>
-  <script src="js/pagination.js"></script>
+  <script src="/shared/js/pagination.js"></script>
   <script src="js/reports-list.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/layout.js"></script>
 
   <!-- Profile popup -->
   <div class="modal-overlay" id="profileModal" hidden>

@@ -1,10 +1,5 @@
-// Barangay Platero OVRMS — Admin Portal "Reports" page: every unclaimed report, oldest
-// first, with an inline "Assign to Investigator" control per row — lets an
-// Administrator hand a report straight to a specific Investigator instead
-// of leaving it for one to self-claim (see reports.StaffReportAssignView).
-// Deliberately just this one list rather than the full Reports Dashboard
-// (graphs/stats) — assigning work is the one thing only an Administrator
-// can do here that an Investigator/Captain's own pages don't already cover.
+// Reports (admin): every unclaimed report, oldest first, with "Assign to
+// Investigator" on each row, plus each Investigator's current workload.
 
 const REPORT_STATUS_LABEL = {
   submitted: "New Submission",
@@ -25,11 +20,7 @@ const REPORT_STATUS_BADGE_CLASS = {
 // Resolved and With Remarks both close a report.
 const CLOSED_REPORT_STATUSES = ["resolved", "with_remarks"];
 
-// The 3 "currently being worked" statuses shown in the workload bars —
-// Resolved/With Remarks are deliberately excluded (see WORKLOAD_STATUSES's own comment).
-// Same colors as the Staff Portal's Reports Dashboard "Reports by Status"
-// bar chart (.status-bar-chart__bar--new/--process/--remarks), for the same
-// statuses to always mean the same color everywhere in the app.
+// The open statuses shown in the workload bars (same colors as the staff dashboard).
 const WORKLOAD_STATUSES = [
   { key: "submitted", label: "Submitted", color: "#9aa0a6" },
   { key: "under_review", label: "Under Review", color: "#e8c547" },
@@ -81,10 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // One stacked bar per active Investigator: their currently-claimed
-  // reports that aren't Resolved yet, broken down by status. A report
-  // leaves this the moment it's claimed-and-resolved or reassigned away,
-  // same as it leaves the unclaimed table the moment it's claimed.
+  // One bar per active Investigator: their open claimed reports, by status.
   function renderInvestigatorWorkload() {
     if (!workloadEl) return;
     if (!investigators.length) {

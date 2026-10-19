@@ -1,6 +1,6 @@
-// Barangay Platero OVRMS — Citizen Profile: tab switching, real field population from the
-// API, a real Apply Changes save (including profile picture upload) to
-// PATCH /api/auth/me/, and a real Change Password to POST /api/auth/change-password/.
+// My Profile (citizen): two tabs — Edit Account Information and Change
+// Password — plus Delete Account. Saves with PATCH /api/auth/me/ and
+// POST /api/auth/change-password/.
 
 document.addEventListener("DOMContentLoaded", async () => {
   const avatarUpload = document.getElementById("avatarUpload");
@@ -45,9 +45,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .toUpperCase();
   }
 
-  // Populates both the form and the avatar preview from a user object —
-  // called once with whatever's cached (fast paint), then again once the
-  // real API response comes back (in case it's changed since login).
+  // Fills the form and the avatar from a user object: first from the saved
+  // session (instant), then again with the server's latest data.
   function populate(user) {
     document.getElementById("passwordAvatar").textContent = user.initials || "";
     if (user.profilePicture) {
@@ -67,16 +66,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     splitAddress(user.address);
     syncAddress();
 
-    // Feeds the New Password field's "too similar to your name/email" hint
-    // (see setupPasswordHints in main.js) — Change Password has no visible
-    // name/email fields of its own to read those from.
+    // Hidden fields used by the password checklist's "too similar to your name/email" rule.
     document.getElementById("passwordHintFirstName").value = user.firstName || "";
     document.getElementById("passwordHintLastName").value = user.lastName || "";
     document.getElementById("passwordHintEmail").value = user.email || "";
   }
 
-  // Awaited before the first populate() below, since splitAddress() (inside
-  // it) needs STREETS to actually recognize the saved address's street.
+  // splitAddress() needs the street list to recognize the saved street.
   await ensureStreetsLoaded().catch(() => {});
 
   const cached = getCurrentUser();
@@ -98,13 +94,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
   } catch {
-    // Network hiccup — the cached values already painted above are fine to leave.
+    // Network problem: keep the saved-session values shown above.
   }
 
-  // ---- Unsaved-changes tracking ----
-  // Snapshotted right after the form is populated from the server, then
-  // re-snapshotted after every successful save — isDirty() just compares
-  // the live inputs against whichever snapshot is current.
+  // ---- Unsaved changes ----
+  // The values as last saved; isEditDirty() compares the inputs with them.
   let savedSnapshot = {
     firstName: firstNameInput.value,
     middleInitial: middleInitialInput.value,
@@ -135,26 +129,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     return isEditDirty() || isPasswordDirty();
   }
 
-  // What to actually do once the user resolves the unsaved-changes modal
-  // (Save/Discard) — either "go to this link" or "switch to this tab". Set
-  // right before the modal opens, read by its buttons further down.
+  // What to do after the unsaved-changes popup is answered (open a link or switch tab).
   let pendingAction = null;
   const unsavedChangesModal = document.getElementById("unsavedChangesModal");
   const unsavedSaveBtn = document.getElementById("unsavedSaveBtn");
   const unsavedDiscardBtn = document.getElementById("unsavedDiscardBtn");
   const unsavedCancelBtn = document.getElementById("unsavedCancelBtn");
 
-  // Catch-all for navigation this page doesn't otherwise intercept (navbar
-  // links, browser back/refresh/close) — the Cancel button below gets a
-  // nicer custom modal instead of this native browser prompt.
+  // Closing the tab or going back with unsaved changes shows the browser's own warning.
   window.addEventListener("beforeunload", (e) => {
     if (!isDirty()) return;
     e.preventDefault();
     e.returnValue = "";
   });
 
-  // Profile picture upload preview (Edit Account Information only) — shows the
-  // newly-picked file immediately; the actual upload happens on submit.
+  // Shows the chosen profile picture right away (it is uploaded on Apply Changes).
   avatarUpload.addEventListener("change", () => {
     const file = avatarUpload.files[0];
     if (!file) return;
@@ -203,11 +192,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     onUpdatedConfirm();
   });
 
-  // ---- Email verification for sensitive changes ----
-  // Changing email/mobile/address requires a code emailed to the address
-  // already on file (see accounts.views.MeView.patch) — a profile photo
-  // change alone doesn't. openVerifyCodeModal() just collects the code the
-  // user was emailed; the real check happens server-side on the PATCH itself.
+  // ---- Code check for email / mobile / address changes ----
+  // The server emails a code to the current email address; the user types it
+  // into this popup and it is sent along with the save (the server checks it).
   function openVerifyCodeModal() {
     return new Promise((resolve) => {
       const modal = document.getElementById("verifyEditModal");
@@ -241,14 +228,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await authFetch("/api/auth/profile-edit/request-code/", { method: "POST" });
     } catch {
-      // Best-effort — if sending failed, the PATCH below will just reject
-      // whatever code the user enters, which surfaces its own error.
+      // If sending failed, the save will reject the code and show why.
     }
     return openVerifyCodeModal();
   }
 
-  // Returns true on success — shared between the form's own submit handler
-  // and the unsaved-changes modal's "Save Changes" button.
+  // Saves Edit Account Information. Returns true on success.
   async function commitEditSave() {
     clearFormError(editForm);
     const submitBtn = editForm.querySelector('button[type="submit"]');
@@ -299,12 +284,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       const updated = await response.json();
 
-      // Refresh the cached session so the navbar/profile popup reflect the
-      // change immediately, without needing to log in again. Writes back to
-      // whichever bucket (session/local) the session is actually in — see
-      // authStorage() in main.js — rather than always localStorage, or a
-      // non-"Stay signed in" session would end up with a stale cached user
-      // in sessionStorage and an orphaned copy in localStorage.
+      // Update the saved session so the navbar shows the change right away.
       authStorage().setItem(
         AUTH_STORAGE_KEY,
         JSON.stringify({
@@ -412,10 +392,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Delete Account ----
-  // Permanent and self-service — Report/Concern/Question all CASCADE off
-  // User (see accounts.views.MeView.delete), so this wipes everything the
-  // citizen ever submitted along with the account itself. Requires the
-  // current password, same reasoning as Change Password above.
+  // Deletes the account and everything the citizen submitted (password required).
   const deleteAccountBtn = document.getElementById("deleteAccountBtn");
   const deleteAccountModal = document.getElementById("deleteAccountModal");
   const deleteAccountForm = document.getElementById("deleteAccountForm");
@@ -456,9 +433,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           Array.isArray(firstError) ? firstError[0] : data.detail || "Could not delete your account."
         );
       }
-      // Neutralizes any unsaved Edit/Password form changes so beforeunload's
-      // isDirty() check doesn't throw up a native "leave site?" prompt on
-      // the way out, right after the account was just deleted on purpose.
+      // Mark everything as saved so the browser doesn't warn when leaving.
       savedSnapshot = {
         firstName: firstNameInput.value,
         middleInitial: middleInitialInput.value,
@@ -483,13 +458,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Leaving with unsaved changes ----
-  // Catches every in-page link on the page (navbar, Cancel, the profile
-  // popup, notification "View All", etc.) while something's unsaved — not
-  // just the Cancel button — so there's no way to click away from an
-  // unsaved edit without being asked first. beforeunload above is the
-  // fallback for anything that isn't a click (browser back/refresh/close).
-  // Switching from Edit Account Information to Change Password (or back)
-  // while dirty goes through the same modal — see the tabs handler above.
+  // Clicking any link while something is unsaved opens the Save / Discard / Cancel popup.
   document.addEventListener(
     "click",
     (e) => {
