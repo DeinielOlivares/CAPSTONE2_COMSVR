@@ -469,7 +469,10 @@ function wireSignupTermsGate() {
 function wireIdPhotoPreview() {
   const idInput = document.getElementById("idPhoto");
   if (!idInput) return;
+  // The preview sits inside the dropzone label, replacing the camera icon;
+  // clicking the photo reopens the picker to swap it.
   const preview = document.getElementById("idPreview");
+  const drop = preview.closest(".upload-drop");
   idInput.addEventListener("change", () => {
     const file = idInput.files[0];
     if (!file) return;
@@ -477,12 +480,15 @@ function wireIdPhotoPreview() {
     reader.onload = (e) => {
       preview.src = e.target.result;
       preview.hidden = false;
+      if (drop) drop.classList.add("upload-drop--has-preview");
     };
     reader.readAsDataURL(file);
   });
   if (idInput.form) {
     idInput.form.addEventListener("reset", () => {
       preview.hidden = true;
+      preview.removeAttribute("src");
+      if (drop) drop.classList.remove("upload-drop--has-preview");
     });
   }
 }

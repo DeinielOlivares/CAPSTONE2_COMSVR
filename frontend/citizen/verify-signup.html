@@ -47,10 +47,10 @@
           <label for="idPhoto">Voter's ID</label>
           <label class="upload-drop" for="idPhoto">
             <span class="upload-drop__icon"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 015.5 7H8l1-2h6l1 2h2.5A1.5 1.5 0 0120 8.5V18a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18z"/><circle cx="12" cy="12.5" r="3.3"/></svg></span>
+            <img id="idPreview" class="upload-preview" alt="Voter's ID preview" hidden />
             <span class="upload-drop__text" id="uploadFileName">Click to upload or drag and drop a photo of your Voter's ID</span>
           </label>
           <input type="file" id="idPhoto" name="idPhoto" accept="image/*" required hidden />
-          <img id="idPreview" class="upload-preview" alt="Voter's ID preview" hidden />
         </div>
         <button type="submit" class="btn">Submit</button>
       </form>

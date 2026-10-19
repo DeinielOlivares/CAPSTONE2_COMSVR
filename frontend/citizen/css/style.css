@@ -738,6 +738,22 @@ button {
   object-fit: cover;
 }
 
+/* Voter's ID: the chosen photo replaces the camera icon inside the box. */
+.upload-drop .upload-preview {
+  margin: 0 auto 10px;
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+.upload-drop--has-preview {
+  padding: 14px 16px;
+}
+
+.upload-drop--has-preview .upload-drop__icon {
+  display: none;
+}
+
 /* Evidence tray: chosen photos/videos listed below the dropzone, each
    with a thumbnail, a View link and a Remove button (see main.js). */
 .evidence-list {
