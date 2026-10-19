@@ -20,7 +20,7 @@ Both use the system's master key from .env, which is how the demo is given
 "the same key" — the demo files otherwise invent a random key on every run.
 
 Run from the project folder:
-    venv\\Scripts\\python "modif blowfish\\verify_system_matches_demo.py"
+    venv\\Scripts\\python research\\modified_blowfish\\verify_system_matches_demo.py
 """
 
 import base64
@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PROJECT = HERE.parent
+PROJECT = HERE.parent.parent  # research/modified_blowfish/ -> project folder
 sys.path.insert(0, str(PROJECT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orms_backend.settings")
 
