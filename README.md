@@ -1,10 +1,21 @@
 # CAPSTONE2_COMSVR
-this folder contains the resources for the "Web-Based Community Ordinance Management System and Violations Reporting for the City of Binan Using Modified Blowfish Data Protection Algorithm"
 
-## Development setup
+**Web-Based Community Ordinance Management System and Violations Reporting for the City of Biñan
+Using Modified Blowfish Data Protection Algorithm** (Barangay Platero OVRMS).
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to get this running on
-your machine, including the choice between a local SQLite database (zero
-setup) or a local PostgreSQL database (matches the live site, browsable in
-pgAdmin) — and how we work together on this repo without breaking the live
-deployment.
+* **[SYSTEM_GUIDE.md](./SYSTEM_GUIDE.md)** — how the whole system works: every folder, file,
+  endpoint, database table, security feature and main flow, plus what changed in the refactor.
+  Start here.
+* **[CONTRIBUTING.md](./CONTRIBUTING.md)** — setting up a development copy (SQLite or PostgreSQL)
+  and how the team works with Git without breaking the live site.
+
+Quick start:
+
+```bash
+python -m venv venv && venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env      # fill in SECRET_KEY and DATA_ENCRYPTION_KEY
+python manage.py migrate
+python manage.py runserver  # http://127.0.0.1:8000/
+python manage.py test       # run the automated tests
+```

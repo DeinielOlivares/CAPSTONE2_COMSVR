@@ -105,8 +105,8 @@ stop and fix `.gitignore` first.
 
 - `role` (`citizen` / `staff` / `admin`) on the `User` model controls what
   someone can do — it's checked via DRF permission classes (`IsAdmin`,
-  `IsStaffOrAdmin` in `accounts/views.py`). Add new permission classes
-  there rather than checking `request.user.role` inline in each view.
+  `IsStaffOrAdmin`, … in `accounts/permissions.py`). Add new permission
+  classes there rather than checking `request.user.role` inline in each view.
 - Disabling an account (`is_active = False`) takes effect immediately —
   even an already-issued, unexpired login token gets rejected on the very
   next request. Don't rely on the frontend alone to keep someone out of a
@@ -120,10 +120,14 @@ stop and fix `.gitignore` first.
 ## 6. Project structure & conventions
 
 ```
-accounts/           — user model, auth endpoints (register/login/JWT)
-frontend/            — citizen/, staff/, admin/ portals (HTML/CSS/JS)
-orms_backend/        — Django project settings/urls
+accounts/ reports/ ordinances/ siteinfo/ announcements/   — Django apps (one per feature area)
+orms_backend/        — Django project settings/urls + shared code (encryption, emails, codes)
+frontend/shared/     — CSS fonts/images, vendor libraries and JS used by every portal
+frontend/citizen/ staff/ admin/   — the three portals (HTML/CSS/JS)
+research/            — the study's Modified Blowfish demo files and sample ordinances (not run by the site)
 ```
+
+The full map of every file and endpoint is in [SYSTEM_GUIDE.md](./SYSTEM_GUIDE.md).
 
 When adding a new app (e.g. `ordinances`, `reports`), follow the patterns
 already in `accounts/models.py`:
@@ -143,7 +147,7 @@ The Admin and Staff portals share the same sidebar+topbar shell
 (`.admin-shell`, `.admin-sidebar`, `.admin-topbar`) and already handle
 mobile screens — below 900px the sidebar becomes an off-canvas drawer
 (see the "Mobile navigation" section near the end of each portal's
-`style.css`, and the matching JS in `js/admin.js`). If you add a new page
+`style.css`, and the matching JS in `js/layout.js`). If you add a new page
 using this shell, you get that behavior for free — no extra work needed.
 
 When adding new UI:
