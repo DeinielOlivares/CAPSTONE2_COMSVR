@@ -1,0 +1,2 @@
+requests,failures,rps,avg_ms,p95_ms,max_ms
+1000,1000,25.57,2048.9,2100,2089.6
