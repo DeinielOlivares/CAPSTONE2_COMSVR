@@ -3922,6 +3922,25 @@ button {
   color: var(--white);
 }
 
+/* Website Setup: logo and background pickers side by side. */
+.setup-photo-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+  align-items: start;
+}
+
+.setup-photo-row .setup-photo > div {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .setup-photo-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Website background: a 16:9 thumbnail of the page backdrop. */
 .setup-photo--background img,
 .setup-photo--background .setup-photo__empty {
