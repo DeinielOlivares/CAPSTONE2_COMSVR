@@ -1115,13 +1115,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- Account setup / first-login screen (account-setup.html) ----
   // Opened from the emailed link (#uid=...&token=...): checks the link, then
   // shows the details form — pre-filled for a citizen an Administrator
-  // created with their details — plus the new password. Opened without a
-  // link (the login page's "First time here?"), or with an expired one, it
-  // offers to email a new link instead. Guarded on the forms existing since
-  // this only ever runs on account-setup.html.
-  const setupRequestForm = document.getElementById("setupRequestForm");
+  // created with their details — plus the new password. With an expired
+  // link it offers to email a new one; opened without a link it just points
+  // to the email (accounts are only set up from the link an Administrator's
+  // account creation sends). Guarded on the form existing since this only
+  // ever runs on account-setup.html.
   const setupDetailsForm = document.getElementById("setupDetailsForm");
-  if (setupRequestForm && setupDetailsForm) {
+  if (setupDetailsForm) {
     const setupLoading = document.getElementById("setupLoading");
     const setupSent = document.getElementById("setupSent");
     const setupInvalid = document.getElementById("setupInvalid");
@@ -1135,7 +1135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (uid || token) history.replaceState(null, "", window.location.pathname + window.location.search);
 
     function showSetupStep(step) {
-      [setupLoading, setupRequestForm, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
+      [setupLoading, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
         el.hidden = el !== step;
       });
     }
@@ -1181,39 +1181,18 @@ document.addEventListener("DOMContentLoaded", () => {
           showSetupStep(setupInvalid);
         });
     } else {
-      const emailFromQuery = new URLSearchParams(window.location.search).get("email");
-      if (emailFromQuery) document.getElementById("setupEmail").value = emailFromQuery;
-      showSetupStep(setupRequestForm);
+      document.getElementById("setupInvalidMessage").textContent =
+        "This page only works from the setup link emailed to you when your account was created. Please open that link from your email.";
+      document.getElementById("setupNewLinkOffer").hidden = true;
+      showSetupStep(setupInvalid);
     }
-
-    setupRequestForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("setupEmail").value.trim();
-      const submitBtn = setupRequestForm.querySelector('button[type="submit"]');
-      clearFormError(setupRequestForm);
-      if (!email) {
-        showFormError(setupRequestForm, "Enter the email your account was created with.");
-        return;
-      }
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Sending...";
-      try {
-        await apiRequestSetupLink({ email });
-        showSetupStep(setupSent);
-      } catch (err) {
-        showFormError(setupRequestForm, err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Email Me a Setup Link";
-      }
-    });
 
     document.getElementById("setupNewLinkBtn").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
         // The expired link still says whose it was, so no need to retype the email.
-        await apiRequestSetupLink(uid ? { uid } : { email: setupEmail });
+        await apiRequestSetupLink({ uid });
         showSetupStep(setupSent);
       } catch (err) {
         document.getElementById("setupInvalidMessage").textContent = err.message;
