@@ -166,6 +166,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const wasHidden = menu.hidden;
       closeAllDropdowns();
       menu.hidden = !wasHidden;
+      if (!menu.hidden) positionDropdown(menu);
     });
   });
 

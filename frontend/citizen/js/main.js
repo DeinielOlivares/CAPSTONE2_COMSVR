@@ -292,6 +292,23 @@ function isLoggedIn() {
   return !!getAccessToken();
 }
 
+// After a dropdown panel becomes visible, nudge its inline position so it
+// stays within the viewport on both sides. Resets any previous inline
+// adjustment first so the CSS default is the measurement baseline.
+function positionDropdown(el) {
+  el.style.left = "";
+  el.style.right = "";
+  const rect = el.getBoundingClientRect();
+  const vw = window.innerWidth || document.documentElement.clientWidth;
+  if (rect.right > vw - 4) {
+    el.style.left = "auto";
+    el.style.right = "0";
+  } else if (rect.left < 4) {
+    el.style.left = "0";
+    el.style.right = "auto";
+  }
+}
+
 // Wires a ".filters-dropdown" trigger+panel pair (sort/filter/page-size
 // controls behind a single "Order" button — see style.css's .filters-dropdown
 // rules). Each page with one calls this once with its own #filtersToggleBtn/
@@ -310,6 +327,7 @@ function wireFiltersDropdown(toggleBtn, panel) {
     const willOpen = panel.hidden;
     panel.hidden = !willOpen;
     toggleBtn.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) positionDropdown(panel);
   });
   document.addEventListener("click", (e) => {
     if (!panel.hidden && !panel.contains(e.target) && e.target !== toggleBtn) closePanel();

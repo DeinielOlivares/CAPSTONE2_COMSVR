@@ -135,6 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   periodBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     periodMenu.hidden = !periodMenu.hidden;
+    if (!periodMenu.hidden) positionDropdown(periodMenu);
   });
   document.addEventListener("click", (e) => {
     if (!periodDropdown.contains(e.target)) periodMenu.hidden = true;
