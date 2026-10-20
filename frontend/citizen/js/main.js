@@ -1006,6 +1006,20 @@ function setupPasswordHints() {
     }
     hintList.updatePasswordHints = update;
 
+    if (missingOnly) {
+      // Reveal the unmet requirements once the user tries to submit (capture
+      // phase, so it runs before the form's own submit handler), and hide
+      // the list again when the form is cleared after a successful save.
+      form.addEventListener("submit", () => {
+        hintList.dataset.prompted = "";
+        update();
+      }, true);
+      form.addEventListener("reset", () => {
+        delete hintList.dataset.prompted;
+        setTimeout(update);
+      });
+    }
+
     [passwordField, firstNameField, lastNameField, emailField].forEach((field) => {
       if (field) field.addEventListener("input", update);
     });

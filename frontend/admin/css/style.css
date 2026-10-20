@@ -399,6 +399,17 @@ button {
   color: #2e7d32;
 }
 
+/* Only appears when something's missing, and only lists what's missing
+   (display: flex above would otherwise override [hidden]). */
+.password-hint[hidden],
+.password-hint--missing-only li.is-satisfied {
+  display: none;
+}
+
+.password-hint--missing-only {
+  flex-direction: column;
+}
+
 .combobox {
   position: relative;
 }

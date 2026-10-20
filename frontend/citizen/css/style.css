@@ -463,6 +463,11 @@ button {
   font-size: 1.9rem;
 }
 
+/* Same body font as the rest of the page instead of the serif heading. */
+.auth-card--outline .auth-card__title--plain {
+  font-family: inherit;
+}
+
 .auth-card__title {
   text-align: center;
   font-size: 1.5rem;

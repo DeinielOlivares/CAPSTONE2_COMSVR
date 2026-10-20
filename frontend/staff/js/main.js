@@ -746,17 +746,40 @@ function setupPasswordHints() {
     const lastNameField = form.querySelector('[name="last_name"]');
     const emailField = form.querySelector('[name="email"]');
 
+    // .password-hint--missing-only lists stay hidden until the user submits
+    // with requirements unmet, and then only list the unmet ones.
+    const missingOnly = hintList.classList.contains("password-hint--missing-only");
+
     function update() {
       const status = getPasswordRuleStatus(passwordField.value, {
         firstName: firstNameField ? firstNameField.value : "",
         lastName: lastNameField ? lastNameField.value : "",
         email: emailField ? emailField.value : "",
       });
+      let allSatisfied = true;
       hintList.querySelectorAll("li[data-rule]").forEach((li) => {
         const satisfied = !!status[li.dataset.rule];
+        if (!satisfied) allSatisfied = false;
         li.classList.toggle("is-satisfied", satisfied);
         const checkbox = li.querySelector('input[type="checkbox"]');
         if (checkbox) checkbox.checked = satisfied;
+      });
+      if (missingOnly) {
+        hintList.hidden = allSatisfied || hintList.dataset.prompted === undefined;
+      }
+    }
+
+    if (missingOnly) {
+      // Reveal the unmet requirements once the user tries to submit (capture
+      // phase, so it runs before the form's own submit handler), and hide
+      // the list again when the form is cleared after a successful save.
+      form.addEventListener("submit", () => {
+        hintList.dataset.prompted = "";
+        update();
+      }, true);
+      form.addEventListener("reset", () => {
+        delete hintList.dataset.prompted;
+        setTimeout(update);
       });
     }
 
