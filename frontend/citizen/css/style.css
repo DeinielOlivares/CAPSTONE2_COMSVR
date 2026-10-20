@@ -417,7 +417,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background: url("../assets/barangay hall 5 pix.png") center / cover no-repeat;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -428,7 +428,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -1121,7 +1121,7 @@ label.geo-toggle {
 
 .page-shell {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 32px 28px 64px;
@@ -1639,7 +1639,7 @@ label.geo-toggle {
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -3391,7 +3391,7 @@ label.geo-toggle {
 /* ---------- About Us (about.html) ---------- */
 
 .about-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 .about-intro__inner {
@@ -3636,7 +3636,7 @@ label.geo-toggle {
 /* ---------- Legal pages (privacy-policy.html, terms.html) ---------- */
 
 .legal-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 40px 20px 64px;
 }
 

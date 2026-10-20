@@ -270,7 +270,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background: url("../assets/barangay hall 5 pix.png") center / cover no-repeat;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -281,7 +281,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -1091,7 +1091,7 @@ button {
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -2641,7 +2641,7 @@ button {
 .admin-main {
   flex: 1;
   min-width: 0;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 .admin-topbar {
@@ -3920,6 +3920,36 @@ button {
 
 .setup-photo--logo .setup-photo__empty {
   color: var(--white);
+}
+
+/* Website background: a 16:9 thumbnail of the page backdrop. */
+.setup-photo--background img,
+.setup-photo--background .setup-photo__empty {
+  width: 160px;
+  height: 90px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.setup-photo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.setup-photo__actions .setup-photo__pick {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .setup-photo--background {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .modal-card .setup-photo__pick {

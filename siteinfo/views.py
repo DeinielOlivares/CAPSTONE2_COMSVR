@@ -99,12 +99,15 @@ class BrandingView(APIView):
         profile = BarangayProfile.load()
         serializer = BrandingSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        old_logo = profile.site_logo
-        old_logo_name = old_logo.name if old_logo else None
+        old_files = {field: getattr(profile, field).name or None for field in ("site_logo", "site_background")}
         serializer.save()
-        if old_logo_name and old_logo_name != profile.site_logo.name:
-            profile.site_logo.storage.delete(old_logo_name)
-        log_action(request.user, "Updated the website's brand name/logo")
+        for field, old_name in old_files.items():
+            if old_name and old_name != getattr(profile, field).name:
+                getattr(profile, field).storage.delete(old_name)
+        if old_files["site_background"] != (profile.site_background.name or None):
+            log_action(request.user, "Updated the website's background")
+        if {"site_name", "site_logo"} & set(request.data.keys()):
+            log_action(request.user, "Updated the website's brand name/logo")
         return Response(serializer.data)
 
 

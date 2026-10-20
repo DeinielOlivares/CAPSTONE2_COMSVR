@@ -271,7 +271,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background: url("../assets/barangay hall 5 pix.png") center / cover no-repeat;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -282,7 +282,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -1474,7 +1474,7 @@ button {
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -3016,7 +3016,7 @@ button {
 .admin-main {
   flex: 1;
   min-width: 0;
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 .admin-topbar {
@@ -5001,7 +5001,7 @@ button {
 /* ---------- Report detail (view/edit) ---------- */
 
 .report-detail-page {
-  background: url("../assets/barangay hall 5 pix.png") center center / cover no-repeat fixed;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   min-height: calc(100vh - 65px);
   padding: 32px 28px 64px;
 }

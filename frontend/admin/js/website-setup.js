@@ -1,6 +1,7 @@
 // Barangay Platero OVRMS — Website Setup: the Administrator's site-wide settings — the
-// navbar/sidebar brand name and logo, and the footer's text and links. Saves
-// go to the same /api/site/ endpoints as About Us Setup (see siteinfo/views.py).
+// navbar/sidebar brand name and logo, the page background, and the footer's
+// text and links. Saves go to the same /api/site/ endpoints as About Us
+// Setup (see siteinfo/views.py).
 
 document.addEventListener("DOMContentLoaded", async () => {
   function escapeHtml(str) {
@@ -12,10 +13,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
   const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const IMAGE_MIN_SIDE = 400;
+  const BACKGROUND_MIN_WIDTH = 1280;
+  // Shown in the background preview while no custom one is set.
+  const DEFAULT_BACKGROUND_URL = "assets/barangay%20hall%205%20pix.png";
 
   // Warnings for a picked image. A hard problem (wrong type, too big) also
   // clears the pick; soft ones (small, not square) just advise.
-  function checkPickedImage(file, img, { isLogo }) {
+  function checkPickedImage(file, img, { isLogo, isBackground }) {
     if (!IMAGE_TYPES.includes(file.type)) return { error: "Use a JPG, PNG or WebP image." };
     if (file.size > IMAGE_MAX_BYTES) {
       return { error: `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. Use an image up to 5 MB.` };
@@ -23,6 +27,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const w = img.naturalWidth;
     const h = img.naturalHeight;
     const notes = [];
+    if (isBackground) {
+      if (w < BACKGROUND_MIN_WIDTH) {
+        notes.push(`This image is ${w} px wide, smaller than the recommended ${BACKGROUND_MIN_WIDTH} px, so it may look pixelated on large screens.`);
+      }
+      if (h > w) {
+        notes.push("It's taller than it is wide, so most of the top and bottom will be cropped off on a computer screen.");
+      }
+      return { notes };
+    }
     if (Math.min(w, h) < IMAGE_MIN_SIDE) {
       notes.push(`This image is ${w} × ${h} px, smaller than the recommended ${IMAGE_MIN_SIDE} × ${IMAGE_MIN_SIDE} px, so it may look blurry.`);
     }
@@ -50,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       preview.src = url || "";
       preview.hidden = !url;
       empty.hidden = !!url;
-      preview.classList.toggle("is-framed", !!(url && framed && !options.isLogo));
+      preview.classList.toggle("is-framed", !!(url && framed && !options.isLogo && !options.isBackground));
     }
     function setWarning(text, isError) {
       warn.textContent = text || "";
@@ -108,17 +121,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("brandingLogoWarn"),
     { isLogo: true }
   );
+  const brandingBgInput = document.getElementById("brandingBgInput");
+  const brandingBgReset = document.getElementById("brandingBgReset");
+  const resetBrandingBg = wireImagePicker(
+    brandingBgInput,
+    document.getElementById("brandingBgPreview"),
+    document.getElementById("brandingBgEmpty"),
+    document.getElementById("brandingBgWarn"),
+    { isBackground: true }
+  );
   let savedBranding = null;
+  // "Use Default Background" was pressed but not saved yet. A newly picked
+  // file still wins over it (the server ignores the reset when a file is sent).
+  let bgResetPending = false;
+
+  function updateBgResetButton() {
+    const hasCustom = !!(savedBranding && savedBranding.site_background_url) && !bgResetPending;
+    brandingBgReset.hidden = !(hasCustom || brandingBgInput.files.length > 0);
+  }
 
   function fillBrandingForm(branding) {
     savedBranding = branding;
     brandingSiteName.value = branding.site_name || "";
     resetBrandingLogo(branding.site_logo_url || "");
+    bgResetPending = false;
+    resetBrandingBg(branding.site_background_url || DEFAULT_BACKGROUND_URL);
+    updateBgResetButton();
   }
+
+  brandingBgInput.addEventListener("change", updateBgResetButton);
+  brandingBgReset.addEventListener("click", () => {
+    bgResetPending = !!(savedBranding && savedBranding.site_background_url);
+    resetBrandingBg(DEFAULT_BACKGROUND_URL);
+    updateBgResetButton();
+  });
 
   function isBrandingDirty() {
     if (!savedBranding) return false;
-    return brandingSiteName.value.trim() !== (savedBranding.site_name || "") || brandingLogoInput.files.length > 0;
+    return (
+      brandingSiteName.value.trim() !== (savedBranding.site_name || "") ||
+      brandingLogoInput.files.length > 0 ||
+      brandingBgInput.files.length > 0 ||
+      bgResetPending
+    );
   }
 
   // Returns true on success — shared between the form's own submit and the
@@ -133,6 +178,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const fields = {};
     if (savedBranding && siteName !== savedBranding.site_name) fields.site_name = siteName;
     if (brandingLogoInput.files[0]) fields.site_logo = brandingLogoInput.files[0];
+    if (brandingBgInput.files[0]) fields.site_background = brandingBgInput.files[0];
+    else if (bgResetPending) fields.reset_site_background = true;
     if (!Object.keys(fields).length) {
       brandingStatus.textContent = "Nothing to save.";
       return true;
@@ -141,7 +188,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     brandingSave.disabled = true;
     brandingSave.textContent = "Saving...";
     try {
-      fillBrandingForm(await saveBranding(fields));
+      const saved = await saveBranding(fields);
+      fillBrandingForm(saved);
+      // admin.js's — so this page shows the new background right away too.
+      setSiteBackground(saved.site_background_url || "");
       brandingStatus.textContent = "Saved. The brand is updated across every portal.";
       return true;
     } catch (err) {

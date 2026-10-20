@@ -26,16 +26,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   let appliedField = memory.get("queryField", filterField.value);
   searchInput.value = appliedQuery;
 
-<<<<<<< HEAD
-    return getOrdinances().filter((o) => {
-      return (
-        !query ||
-        o.title.toLowerCase().includes(query) ||
-        o.author.toLowerCase().includes(query) ||
-        o.number.toLowerCase().includes(query)
-      );
-    });
-=======
   // Search box placeholder follows the selected filter, suggesting example
   // keywords for that field. Author/No./Category examples are pulled from the
   // loaded ordinances so they always match real data; the static lists are
@@ -55,7 +45,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (seen.length === 2) break;
     }
     return seen.length ? seen : PLACEHOLDER_FALLBACKS[field] || [];
->>>>>>> 4bd403fa8b958eb6c00c605f8ebfcc15fba528e1
   }
 
   function updateSearchPlaceholder() {
@@ -173,56 +162,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   render();
 
-<<<<<<< HEAD
-  // Upload Ordinance popup
-  const uploadBtn = document.getElementById("uploadOrdinanceBtn");
-  const uploadModal = document.getElementById("uploadOrdinanceModal");
-  const uploadForm = document.getElementById("uploadOrdinanceForm");
-  const uploadedModal = document.getElementById("ordinanceUploadedModal");
-  const uploadedConfirm = document.getElementById("ordinanceUploadedConfirm");
-
-  const pdfInput = document.getElementById("ordPdf");
-  const pdfFileName = document.getElementById("ordPdfFileName");
-  const defaultPdfText = pdfFileName.textContent;
-  pdfInput.addEventListener("change", () => {
-    const file = pdfInput.files[0];
-    pdfFileName.textContent = file ? file.name : defaultPdfText;
-  });
-
-  uploadBtn.addEventListener("click", () => {
-    uploadForm.reset();
-    pdfFileName.textContent = defaultPdfText;
-    uploadModal.hidden = false;
-  });
-
-  uploadForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (!uploadForm.reportValidity()) return;
-
-    addOrdinance({
-      number: document.getElementById("ordNumber").value.trim(),
-      title: document.getElementById("ordTitle").value.trim(),
-      author: document.getElementById("ordAuthor").value.trim(),
-      category: document.getElementById("ordCategory").value.trim(),
-      dateApproved: document.getElementById("ordDate").value,
-      description: document.getElementById("ordDescription").value.trim(),
-      pdf: pdfInput.files[0] ? pdfInput.files[0].name : "#",
-    });
-
-    uploadModal.hidden = true;
-    uploadedModal.hidden = false;
-  });
-
-  uploadedConfirm.addEventListener("click", () => {
-    uploadedModal.hidden = true;
-    currentPage = 1;
-    render();
-  });
-=======
-  // ---- Upload FAB ----
+  // ---- Upload Ordinance button ----
   // Secretary/Admin only; everyone else with access here views only (the
   // server enforces this too — see OrdinanceListCreateView).
   const uploadBtn = document.getElementById("uploadOrdinanceBtn");
   uploadBtn.hidden = !isDocumentManager(getAdminUser());
->>>>>>> 4bd403fa8b958eb6c00c605f8ebfcc15fba528e1
 });

@@ -25,6 +25,9 @@ class BarangayProfile(models.Model):
         max_length=120, default="Barangay Platero | Ordinance Violation Reporting and Monitoring System"
     )
     site_logo = models.ImageField(upload_to="site/", blank=True)
+    # The page background behind every portal. Blank means the built-in
+    # barangay hall photo (frontend/*/assets/barangay hall 5 pix.png).
+    site_background = models.ImageField(upload_to="site/", blank=True)
     city = models.CharField(max_length=100, default="City of Biñan, Laguna")
     address = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=50, blank=True)

@@ -84,7 +84,7 @@
         <!-- Website branding -->
         <section class="setup-card" aria-labelledby="brandingHeading">
           <h2 class="setup-card__title" id="brandingHeading">Website Branding</h2>
-          <p class="field-hint" style="margin: -4px 0 16px;">The brand shown in the navbar/sidebar across the Citizen, Staff and Admin portals. Takes effect right away everywhere, but doesn't change the browser tab's title.</p>
+          <p class="field-hint" style="margin: -4px 0 16px;">The brand shown in the navbar/sidebar and the page background across the Citizen, Staff and Admin portals. Takes effect right away everywhere, but doesn't change the browser tab's title.</p>
           <form id="brandingForm" novalidate>
             <div class="setup-photo setup-photo--logo">
               <img id="brandingLogoPreview" alt="" hidden />
@@ -94,6 +94,19 @@
                 <input type="file" id="brandingLogoInput" accept="image/jpeg,image/png,image/webp" hidden />
                 <p class="field-hint">Recommended: a <strong>square</strong> image, ideally a <strong>PNG with a transparent background</strong>. JPG or WebP also work, up to 5 MB. Leave unset to keep the default leaf icon.</p>
                 <p class="setup-photo__warn" id="brandingLogoWarn" role="status" hidden></p>
+              </div>
+            </div>
+            <div class="setup-photo setup-photo--background">
+              <img id="brandingBgPreview" alt="" hidden />
+              <span class="setup-photo__empty" id="brandingBgEmpty">Default background</span>
+              <div>
+                <div class="setup-photo__actions">
+                  <label class="btn btn-muted setup-photo__pick" for="brandingBgInput">Choose Background</label>
+                  <button type="button" class="btn btn-muted setup-photo__pick" id="brandingBgReset" hidden>Use Default Background</button>
+                </div>
+                <input type="file" id="brandingBgInput" accept="image/jpeg,image/png,image/webp" hidden />
+                <p class="field-hint">The photo behind every page across the Citizen, Staff and Admin portals. Recommended: a <strong>landscape</strong> photo at least <strong>1920 px wide</strong>. JPG, PNG or WebP, up to 5 MB. It's softly blurred when saved so the text on top stays readable.</p>
+                <p class="setup-photo__warn" id="brandingBgWarn" role="status" hidden></p>
               </div>
             </div>
             <div class="field">

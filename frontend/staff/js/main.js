@@ -823,6 +823,38 @@ function setupPasswordVisibilityToggles() {
   });
 }
 
+// Admin-uploaded page background (Website Setup → Website Branding). The
+// CSS falls back to the built-in barangay hall photo when --site-bg isn't
+// set. The last-seen URL is cached and applied as soon as this script runs,
+// so a custom background doesn't flash the default photo on every page load
+// while the branding request is still in flight.
+const SITE_BG_CACHE_KEY = "orms_site_background";
+
+function setSiteBackground(url) {
+  const root = document.documentElement;
+  if (url) root.style.setProperty("--site-bg", `url("${url}")`);
+  else root.style.removeProperty("--site-bg");
+  try {
+    if (url) localStorage.setItem(SITE_BG_CACHE_KEY, url);
+    else localStorage.removeItem(SITE_BG_CACHE_KEY);
+  } catch (e) {}
+}
+
+try {
+  setSiteBackground(localStorage.getItem(SITE_BG_CACHE_KEY) || "");
+} catch (e) {}
+
+// These pages (login, password reset, account setup) have no sidebar, so
+// they skip admin.js's full applySiteBranding and only need the background.
+function applySiteBackground() {
+  fetch("/api/site/branding/")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((branding) => {
+      if (branding) setSiteBackground(branding.site_background_url || "");
+    })
+    .catch(() => {});
+}
+
 // Runs on every Staff/Admin portal page except the login page itself. The
 // Citizen portal deliberately allows guest browsing (viewing ordinances
 // without an account, per the scope doc), so it's excluded here — the
@@ -860,6 +892,7 @@ function enforcePortalAccess() {
 document.addEventListener("DOMContentLoaded", () => {
   expireStaleSession();
   enforcePortalAccess();
+  applySiteBackground();
   setupPasswordHints();
   setupPasswordVisibilityToggles();
 

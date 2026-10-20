@@ -1,6 +1,8 @@
+import io
 import re
 
-from PIL import Image
+from django.core.files.base import ContentFile
+from PIL import Image, ImageFilter, ImageOps
 from rest_framework import serializers
 
 from .models import AboutLogo, BarangayProfile, CouncilMember, Street
@@ -103,18 +105,57 @@ class BrandingSerializer(serializers.ModelSerializer):
 
     site_logo = serializers.ImageField(write_only=True, required=False)
     site_logo_url = serializers.SerializerMethodField()
+    # Same as site_logo; reset_site_background=true goes back to the
+    # built-in barangay hall photo instead.
+    site_background = serializers.ImageField(write_only=True, required=False)
+    site_background_url = serializers.SerializerMethodField()
+    reset_site_background = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = BarangayProfile
-        fields = ["site_name", "site_logo", "site_logo_url", "updated_at"]
+        fields = [
+            "site_name", "site_logo", "site_logo_url",
+            "site_background", "site_background_url", "reset_site_background", "updated_at",
+        ]
         read_only_fields = ["updated_at"]
         extra_kwargs = {"site_name": {"allow_blank": False}}
 
     def get_site_logo_url(self, obj):
         return obj.site_logo.url if obj.site_logo else ""
 
+    def get_site_background_url(self, obj):
+        return obj.site_background.url if obj.site_background else ""
+
     def validate_site_logo(self, file):
         return validate_image_upload(file)
+
+    def validate_site_background(self, file):
+        return soften_background(validate_image_upload(file))
+
+    def update(self, instance, validated_data):
+        if validated_data.pop("reset_site_background", False) and "site_background" not in validated_data:
+            instance.site_background = None
+        return super().update(instance, validated_data)
+
+
+BACKGROUND_MAX_SIDE = 1920
+BACKGROUND_BLUR_RADIUS = 5
+
+
+def soften_background(file):
+    """
+    Shrinks an uploaded background to at most BACKGROUND_MAX_SIDE px and
+    blurs it like the built-in "barangay hall 5 pix.png", so the cards and
+    text on top stay readable whatever photo is chosen. Re-saved as JPEG,
+    which also keeps a background that loads on every page small.
+    """
+    file.seek(0)
+    img = ImageOps.exif_transpose(Image.open(file)).convert("RGB")
+    img.thumbnail((BACKGROUND_MAX_SIDE, BACKGROUND_MAX_SIDE))
+    img = img.filter(ImageFilter.GaussianBlur(BACKGROUND_BLUR_RADIUS))
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=85)
+    return ContentFile(out.getvalue(), name="background.jpg")
 
 
 MAX_BOUNDARY_POINTS = 2000

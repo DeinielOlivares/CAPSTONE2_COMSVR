@@ -745,6 +745,27 @@ function setupPasswordVisibilityToggles() {
   });
 }
 
+// Admin-uploaded page background (Website Setup → Website Branding). The
+// CSS falls back to the built-in barangay hall photo when --site-bg isn't
+// set. The last-seen URL is cached and applied as soon as this script runs,
+// so a custom background doesn't flash the default photo on every page load
+// while the branding request is still in flight.
+const SITE_BG_CACHE_KEY = "orms_site_background";
+
+function setSiteBackground(url) {
+  const root = document.documentElement;
+  if (url) root.style.setProperty("--site-bg", `url("${url}")`);
+  else root.style.removeProperty("--site-bg");
+  try {
+    if (url) localStorage.setItem(SITE_BG_CACHE_KEY, url);
+    else localStorage.removeItem(SITE_BG_CACHE_KEY);
+  } catch (e) {}
+}
+
+try {
+  setSiteBackground(localStorage.getItem(SITE_BG_CACHE_KEY) || "");
+} catch (e) {}
+
 // Swaps the browser tab's favicon — there's no <link rel="icon"> in any
 // page's <head>, so the tab just shows the browser's own default icon
 // until this runs. Called once with the portal's static default logo.png
@@ -771,6 +792,7 @@ function applySiteBranding() {
     .then((r) => (r.ok ? r.json() : null))
     .then((branding) => {
       if (!branding) return;
+      setSiteBackground(branding.site_background_url || "");
       if (branding.site_name) {
         // "Name | Kind of system" — the part after the bar goes on its own
         // smaller line under the name (dropped if the name has no bar).

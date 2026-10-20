@@ -174,7 +174,8 @@
                 <span class="ordinances-search__text">Search</span>
               </button>
             </form>
-            <button type="button" class="btn btn--inline" id="uploadOrdinanceBtn">&#8593; Upload Ordinance</button>
+            <!-- Secretary/Admin only (see ordinances-list.js). -->
+            <a class="btn btn--inline" id="uploadOrdinanceBtn" href="upload-ordinance.html" hidden>+ Upload Ordinance</a>
           </div>
 
           <div class="ordinances-table-wrap">
@@ -199,19 +200,8 @@
     </div>
   </div>
 
-  <!-- Secretary-only (see ordinances-list.js) — floating instead of in the
-       toolbar so it stays reachable at a glance no matter how far the table
-       is scrolled. Navigates to its own page rather than opening a modal. -->
-  <a class="fab-upload-ordinance" id="uploadOrdinanceBtn" href="upload-ordinance.html" title="Upload Ordinance" aria-label="Upload Ordinance">
-    <svg class="nav-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-  </a>
-
   <script src="js/ordinances-data.js"></script>
-<<<<<<< HEAD
-  <script src="js/ordinances-store.js"></script>
-=======
   <script src="js/pagination.js"></script>
->>>>>>> 4bd403fa8b958eb6c00c605f8ebfcc15fba528e1
   <script src="js/ordinances-list.js"></script>
   <script src="js/admin.js"></script>
 

@@ -111,6 +111,20 @@ DATABASES = {
     )
 }
 
+# --- Logging -----------------------------------------------------------
+# Django's default only prints errors to the console while DEBUG is on, so on
+# Render (DEBUG=False) a 500 showed up as nothing but a one-line access log.
+# This sends unhandled request errors, traceback included, to stderr, which
+# Render's Logs tab picks up.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
