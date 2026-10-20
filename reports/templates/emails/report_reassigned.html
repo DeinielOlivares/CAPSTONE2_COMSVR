@@ -1,0 +1,7 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#226b3f;">A new investigator is handling your report</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ report.citizen.first_name|default:report.citizen.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Your report regarding <strong>{{ report.ordinance }}</strong> at {{ report.location }} has been reassigned to a new investigator and is still being actively worked on.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">Log in to Barangay Platero OVRMS to view the full details.</p>
+{% endblock %}

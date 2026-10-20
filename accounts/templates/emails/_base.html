@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#f4f1ea;font-family:Arial, Helvetica, sans-serif;color:#2b2b2b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2ddd0;max-width:480px;">
+          <tr>
+            <td style="background:#057a12;padding:20px 28px;">
+              {% block header %}
+              <span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.5px;">Barangay Platero</span><br />
+              <span style="color:#e4f5e6;font-size:12px;">Ordinance Violation Reporting and Monitoring System</span>
+              {% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px;background:#f7f5ef;border-top:1px solid #e2ddd0;">
+              {% block footer %}<span style="color:#8a8578;font-size:11px;">This is an automated message from Barangay Platero OVRMS. Please do not reply to this email.</span>{% endblock %}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">{{ announcement.title }}</h2>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.5;">A new announcement has been posted. Visit Barangay Platero OVRMS to read the full details.</p>
+<p style="margin:0;"><a href="{{ link }}" style="display:inline-block;padding:10px 20px;background:#16223f;color:#ffffff;border-radius:6px;font-size:14px;text-decoration:none;">View on Barangay Platero OVRMS</a></p>
+{% endblock %}

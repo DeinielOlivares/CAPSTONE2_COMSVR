@@ -1,0 +1,7 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#a15d1c;">Your account has been disabled</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Hi {{ user.first_name|default:user.username }},</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">Your Barangay Platero OVRMS account has been disabled by a Barangay Administrator. You won't be able to log in until it's re-enabled.</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">If you believe this was a mistake, please contact the Barangay.</p>
+{% endblock %}

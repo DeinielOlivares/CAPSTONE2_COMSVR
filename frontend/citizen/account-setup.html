@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barangay Platero OVRMS — Set Up Your Account</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar__brand">
+      <span class="navbar__logo" aria-hidden="true"></span>
+      <div class="navbar__brand-text"><strong>Barangay Platero</strong><small>Ordinance Violation Reporting and Monitoring System</small></div>
+    </div>
+  </nav>
+
+  <section class="hero hero--login">
+    <div class="auth-card">
+      <h1 class="auth-card__title">Set Up Your Account</h1>
+
+      <p class="auth-card__subtitle" id="setupLoading">Checking your setup link...</p>
+
+      <div id="setupSent" hidden>
+        <p class="auth-card__subtitle">If that account is waiting to be set up, we've emailed it a new setup link. Use the newest email &mdash; earlier links no longer work.</p>
+      </div>
+
+      <div id="setupInvalid" hidden>
+        <p class="auth-card__subtitle" id="setupInvalidMessage"></p>
+        <div id="setupNewLinkOffer">
+          <p class="auth-card__subtitle">Already finished setting up? <a href="login.html">Log in</a>. Otherwise we can email you a new link.</p>
+          <button type="button" class="btn" id="setupNewLinkBtn">Email Me a New Link</button>
+        </div>
+      </div>
+
+      <form id="setupDetailsForm" novalidate hidden>
+        <p class="auth-card__subtitle">Welcome! Confirm your details and choose your own password for <strong id="setupAccountEmail"></strong>.</p>
+        <!-- Feeds the password-hint "not too similar to your name or email"
+             check (see setupPasswordHints in main.js). -->
+        <input type="hidden" name="email" id="setupHintEmail" />
+        <div class="field">
+          <label for="setupLastName">Last Name</label>
+          <input type="text" id="setupLastName" name="last_name" placeholder="lastname" required />
+        </div>
+        <div class="field">
+          <label for="setupFirstName">Given Name</label>
+          <input type="text" id="setupFirstName" name="first_name" placeholder="given name" required />
+        </div>
+        <div class="field field--narrow">
+          <label for="setupMiddleInitial">Middle Initial</label>
+          <input type="text" id="setupMiddleInitial" name="middle_initial" placeholder="M.I." maxlength="10" />
+        </div>
+        <div class="field">
+          <label for="setupPhone">Phone Number</label>
+          <input type="tel" id="setupPhone" name="phone" placeholder="09XXXXXXXXX" required />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="setupStreet">Street</label>
+            <div class="combobox" id="setupStreetCombobox">
+              <input type="text" id="setupStreet" placeholder="Type to search streets..." autocomplete="off" required />
+              <ul class="combobox__list" id="setupStreetList" hidden></ul>
+            </div>
+          </div>
+          <div class="field">
+            <label for="setupBlockLot">Block, Lot, etc.</label>
+            <input type="text" id="setupBlockLot" placeholder="e.g. Block 1, Lot 2" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="setupPassword">Password</label>
+          <input type="password" id="setupPassword" name="password" placeholder="Enter your password" autocomplete="new-password" required />
+        </div>
+        <ul class="password-hint password-hint--missing-only" aria-live="polite" hidden data-password-field="setupPassword">
+          <li data-rule="length">At least 8 characters</li>
+          <li data-rule="lowercase">At least 1 lowercase character</li>
+          <li data-rule="uppercase">At least 1 uppercase character</li>
+          <li data-rule="special">At least 1 special character</li>
+          <li data-rule="numeric">Not entirely numbers</li>
+          <li data-rule="common">Not a commonly used password</li>
+          <li data-rule="similar">Not too similar to your name or email</li>
+        </ul>
+        <div class="field">
+          <label for="setupConfirmPassword">Confirm Password</label>
+          <input type="password" id="setupConfirmPassword" name="confirmPassword" placeholder="Enter your password" autocomplete="new-password" required />
+        </div>
+        <button type="submit" class="btn">Complete Setup</button>
+      </form>
+
+
+      <p class="form-footer"><a href="/citizen/index.html">Back to Login</a></p>
+    </div>
+  </section>
+
+  <script src="js/streets-data.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

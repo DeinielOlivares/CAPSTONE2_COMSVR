@@ -1,62 +1,226 @@
-// O.R.M.S. — mock report records for the Staff Reports Dashboard (no backend wired up yet).
-// Records are generated relative to today so the dashboard always has data to show
-// for "this week" and the preceding weeks/months.
+// Barangay Platero OVRMS — Reports data, backed by the real API (GET /api/reports/staff/).
+// Replaces the previous randomly-generated 28-week mock dataset. The rest
+// of the dashboard/list/detail code was written assuming a synchronously-
+// available array, so this loads once per page into a cache — call
+// `await ensureReportsLoaded()` before using liveReports()/getReportById().
 
-const INCIDENT_TYPES = [
-  { name: "Public Drinking", color: "#e88ea0" },
-  { name: "Noise Disturbance", color: "#6c7ae0" },
-  { name: "Curfew for Minors", color: "#8fd19e" },
-  { name: "Shirtless Loitering", color: "#f2c94c" },
-  { name: "Others", color: "#9e9e9e" },
-];
-
-const LOCATIONS = [
-  "Alberta Street", "Tapsilog Street", "Lucky Me Street", "Motorcentral Street",
-  "Sto. Tomas Road", "Zapote Street", "Mabuhay Street", "Rizal Street",
-  "Bonifacio Street", "Sampaguita Street", "Ilang-Ilang Street", "Purok 3",
-];
-
-const REPORTERS = [
-  "John Cena", "Maria Santos", "Pedro Reyes", "Ana Cruz", "Carlo Mendoza",
-  "Liza Ramos", "Ferdinand Tan", "Grace Villanueva", "Ronnie Bautista", "Corazon Dizon",
-];
-
-const STATUSES = ["New Submission", "In Process", "Resolved", "With Remarks"];
-const SEVERITIES = ["low", "moderate", "high", "critical"];
-
-const ORDINANCE_BY_TYPE = {
-  "Public Drinking": "Anti-Public Drinking and Disorderly Conduct",
-  "Noise Disturbance": "Noise Nuisance and Noise Pollution",
-  "Curfew for Minors": "Minor Curfew Ordinance",
-  "Shirtless Loitering": "Public Decency and Attire Ordinance",
-  Others: "General Peace and Order Ordinance",
+const REPORT_STATUS_TO_LABEL = {
+  submitted: "New Submission",
+  under_review: "Under Review",
+  in_action: "In Action",
+  resolved: "Resolved",
+  with_remarks: "With Remarks",
+};
+const REPORT_LABEL_TO_STATUS = {
+  "New Submission": "submitted",
+  "Under Review": "under_review",
+  "In Action": "in_action",
+  Resolved: "resolved",
+  "With Remarks": "with_remarks",
 };
 
-const NATURE_TEMPLATES = {
-  "Public Drinking": (loc) => `Residents reported a group drinking alcohol in public near ${loc}, causing disturbance to nearby households.`,
-  "Noise Disturbance": (loc) => `Loud noise (videoke/music) was reported coming from ${loc} late into the night.`,
-  "Curfew for Minors": (loc) => `Minors were seen loitering past curfew hours near ${loc}.`,
-  "Shirtless Loitering": (loc) => `An individual was seen shirtless and loitering in a public area near ${loc}, violating the barangay's public decency ordinance.`,
-  Others: (loc) => `A miscellaneous ordinance violation was reported near ${loc}.`,
+// Every status, in timeline order — what the status dropdowns/filters list.
+// "New Submission" is the status's name here; only the status timeline (a
+// record of the report) calls that first stage "Submitted".
+const REPORT_STATUS_LABELS_ORDERED = ["New Submission", "Under Review", "In Action", "Resolved", "With Remarks"];
+
+// Resolved and With Remarks both close a report (the status timeline's last,
+// "Resolved/With Remarks" stage) — anything else is still open.
+const REPORT_CLOSED_LABELS = ["Resolved", "With Remarks"];
+function isReportClosed(status) {
+  return REPORT_CLOSED_LABELS.includes(status);
+}
+
+// Badge (list rows) and pill (tables/detail) classes per status label.
+const REPORT_STATUS_BADGE_CLASS = {
+  "New Submission": "status-badge--submitted",
+  "Under Review": "status-badge--in-process",
+  "In Action": "status-badge--with-remarks",
+  Resolved: "status-badge--resolved",
+  "With Remarks": "status-badge--remarked",
+};
+const REPORT_STATUS_PILL_CLASS = {
+  "New Submission": "status-pill--new",
+  "Under Review": "status-pill--in-process",
+  "In Action": "status-pill--remarks",
+  Resolved: "status-pill--resolved",
+  "With Remarks": "status-pill--remarked",
 };
 
-// Small seeded PRNG (mulberry32) so the mock data is stable within a day
-// instead of reshuffling on every render.
-function mulberry32(seed) {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+// Newest-first within each status, with statuses themselves ordered by
+// where they sit in the timeline (New Submission -> ... -> Resolved/With Remarks
+// last) — so the list reads as "what needs attention" at a glance rather
+// than pure chronological order.
+const REPORT_STATUS_RANK = {
+  "New Submission": 0,
+  "Under Review": 1,
+  "In Action": 2,
+  Resolved: 3,
+  "With Remarks": 3,
+};
+
+function sortReportsByStatusThenDate(reports) {
+  return reports.slice().sort((a, b) => {
+    const rankDiff = (REPORT_STATUS_RANK[a.status] ?? 99) - (REPORT_STATUS_RANK[b.status] ?? 99);
+    if (rankDiff !== 0) return rankDiff;
+    return b.dateSubmitted - a.dateSubmitted;
+  });
+}
+
+let _reportsCache = null;
+
+// Reports store the exact ordinance text the citizen picked (see
+// file-report.js) — that's matched back against liveOrdinances()
+// (ordinances-data.js) to get its category. Report.ordinance stays free
+// text rather than a foreign key, since a report should keep showing what
+// ordinance it cited even if that ordinance is later edited or removed.
+// Callers must await ensureOrdinancesLoaded() before ensureReportsLoaded().
+function categoryForOrdinance(ordinanceText) {
+  const match = liveOrdinances().find((o) => `${o.number} — ${o.title}` === ordinanceText);
+  return match ? match.category : "Other";
+}
+
+function mapReport(r) {
+  return {
+    id: r.id,
+    incidentType: r.ordinance, // closest real analog to the old mock "category" — Ordinances aren't a separate model yet
+    ordinance: r.ordinance,
+    category: categoryForOrdinance(r.ordinance),
+    location: r.location,
+    // Device position at filing time, if the citizen shared it (null otherwise
+    // — the heatmap then falls back to the street in `location`).
+    latitude: r.latitude,
+    longitude: r.longitude,
+    reporter: r.reporter,
+    reporterId: r.reporterId,
+    contactNumber: r.contact_number,
+    natureOfViolation: r.nature_of_violation,
+    status: REPORT_STATUS_TO_LABEL[r.status] || r.status,
+    remarks: r.remarks,
+    dateSubmitted: new Date(r.created_at),
+    // Only one status field exists (no per-stage history), so this is the
+    // best real timestamp available for whichever stage was most recently
+    // reached — see report-detail.js's renderTimeline.
+    dateUpdated: new Date(r.updated_at),
+    incidentDate: r.incident_date,
+    incidentTimeRaw: r.incident_time,
+    attachments: r.attachments,
+    // Who's claimed this report (Investigator only — see
+    // StaffReportClaimView/StaffReportForfeitView), null if unclaimed.
+    assignedInvestigator: r.assignedInvestigator,
+    assignedInvestigatorId: r.assignedInvestigatorId,
+    // "YYYYMMDD-N" — names the Download Report PDF (see Report.report_number).
+    reportNumber: r.report_number,
   };
 }
 
-function pick(rng, arr) {
-  return arr[Math.floor(rng() * arr.length)];
+async function ensureReportsLoaded() {
+  if (_reportsCache) return _reportsCache;
+  const response = await authFetch("/api/reports/staff/");
+  if (!response.ok) throw new Error("Could not load reports.");
+  const data = await response.json();
+  _reportsCache = sortReportsByStatusThenDate(data.map(mapReport));
+  return _reportsCache;
 }
 
-// Monday-based start of the week containing `date`.
+function liveReports() {
+  return _reportsCache || [];
+}
+
+// How many approved, active citizen accounts exist — the base the Reports
+// Dashboard's geospatial analysis uses for "% of registered citizens".
+// Resolves to null if it can't be loaded; the analysis then shows the count
+// without that percentage rather than failing.
+let _registeredCitizensPromise = null;
+function loadRegisteredCitizenCount() {
+  if (!_registeredCitizensPromise) {
+    _registeredCitizensPromise = authFetch("/api/reports/staff/analysis-base/")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => (data && typeof data.registered_citizens === "number" ? data.registered_citizens : null))
+      .catch(() => null);
+  }
+  return _registeredCitizensPromise;
+}
+
+function getReportById(id) {
+  return (_reportsCache || []).find((r) => r.id === id) || null;
+}
+
+// Refetches just the one report and patches it into the cache — used after
+// a status/remarks save so the dashboard/list reflect it without a full reload.
+async function refreshReportInCache(id) {
+  const response = await authFetch(`/api/reports/staff/${encodeURIComponent(id)}/`);
+  if (!response.ok) throw new Error("Could not reload this report.");
+  const updated = mapReport(await response.json());
+  if (_reportsCache) {
+    const idx = _reportsCache.findIndex((r) => r.id === id);
+    if (idx !== -1) _reportsCache[idx] = updated;
+    _reportsCache = sortReportsByStatusThenDate(_reportsCache);
+  }
+  return updated;
+}
+
+// patch: { status?: <display label>, remarks?: <string> }
+async function updateReportStatus(id, patch) {
+  const body = {};
+  if (patch.status !== undefined) body.status = REPORT_LABEL_TO_STATUS[patch.status] || patch.status;
+  if (patch.remarks !== undefined) body.remarks = patch.remarks;
+
+  const response = await authFetch(`/api/reports/staff/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    // A permission/claim rejection comes back as {detail: "..."} (a plain
+    // string, e.g. "Claim this report before updating its status."), field
+    // validation errors as {field: ["..."]} — surface either one.
+    if (typeof data.detail === "string") throw new Error(data.detail);
+    const firstError = Object.values(data)[0];
+    throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not update this report.");
+  }
+  return refreshReportInCache(id);
+}
+
+// Investigator claims an unclaimed report (or takes over their own claim,
+// idempotently) — see StaffReportClaimView. Throws with the backend's
+// message (e.g. "already claimed by X") on conflict.
+async function claimReport(id) {
+  const response = await authFetch(`/api/reports/staff/${encodeURIComponent(id)}/claim/`, { method: "POST" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not claim this report.");
+  }
+  const updated = mapReport(await response.json());
+  if (_reportsCache) {
+    const idx = _reportsCache.findIndex((r) => r.id === id);
+    if (idx !== -1) _reportsCache[idx] = updated;
+  }
+  return updated;
+}
+
+// Claims are permanent for Investigators (only an Administrator can release
+// one — see StaffReportForfeitView), so both Claim buttons (reports-list.js,
+// report-detail.js) confirm first — with just "Are you sure?", no extra
+// message (siteConfirm skips an empty one).
+const CLAIM_CONFIRM_MESSAGE = "";
+const CLAIM_CONFIRM_OPTIONS = { title: "Are you sure?", confirmText: "Claim Report" };
+
+// ---- Date/period helpers — kept from the old mock generator, since
+// filtering real created_at timestamps by week/month is still legitimate,
+// just no longer feeding fabricated numbers. ----
+
+function formatReportDate(date) {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 function startOfWeek(date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -72,60 +236,7 @@ function addDays(date, days) {
   return d;
 }
 
-const WEEKS_OF_HISTORY = 28;
 const THIS_WEEK_START = startOfWeek(new Date());
-
-const REPORTS = (function generateReports() {
-  const rows = [];
-  let seq = 1;
-
-  for (let w = WEEKS_OF_HISTORY - 1; w >= 0; w--) {
-    const weekStart = addDays(THIS_WEEK_START, -7 * w);
-    const rng = mulberry32(Number(`${weekStart.getFullYear()}${weekStart.getMonth()}${weekStart.getDate()}`));
-    const daysInWeek = w === 0 ? Math.min(7, new Date().getDay() === 0 ? 7 : new Date().getDay()) : 7;
-    const count = 24 + Math.floor(rng() * 20);
-
-    for (let i = 0; i < count; i++) {
-      const dayOffset = Math.floor(rng() * daysInWeek);
-      const date = addDays(weekStart, dayOffset);
-      date.setHours(7 + Math.floor(rng() * 15), Math.floor(rng() * 60), 0, 0);
-      const incidentType = pick(rng, INCIDENT_TYPES);
-
-      const location = pick(rng, LOCATIONS);
-      const contactNumber = `09${String(Math.floor(rng() * 1e9)).padStart(9, "0")}`;
-
-      rows.push({
-        id: `RP-${weekStart.getFullYear()}-${String(seq).padStart(5, "0")}`,
-        incidentType: incidentType.name,
-        incidentColor: incidentType.color,
-        location,
-        reporter: pick(rng, REPORTERS),
-        contactNumber,
-        ordinance: ORDINANCE_BY_TYPE[incidentType.name],
-        natureOfViolation: NATURE_TEMPLATES[incidentType.name](location),
-        status: pick(rng, STATUSES),
-        severity: pick(rng, SEVERITIES),
-        dateSubmitted: date,
-      });
-      seq++;
-    }
-  }
-
-  // Newest first.
-  return rows.sort((a, b) => b.dateSubmitted - a.dateSubmitted);
-})();
-
-// ---- Shared date/period helpers (used by the dashboard and the reports list) ----
-
-function formatReportDate(date) {
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-}
-
-function endOfDay(date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
 
 function getWeekRange(offset) {
   const start = addDays(THIS_WEEK_START, -7 * offset);
@@ -140,37 +251,84 @@ function getMonthRange(monthsBack) {
   return { start, end };
 }
 
-// ---- Status/remarks edits (staff-side, kept in localStorage since there's no
-// backend — edits made on the report detail page show up everywhere else). ----
+// quartersBack counts back from the current quarter (0 = this quarter).
+function getQuarterRange(quartersBack) {
+  const now = new Date();
+  const currentQuarter = Math.floor(now.getMonth() / 3);
+  const totalQuarters = now.getFullYear() * 4 + currentQuarter - quartersBack;
+  const year = Math.floor(totalQuarters / 4);
+  const quarter = totalQuarters % 4;
+  const start = new Date(year, quarter * 3, 1);
+  const end = new Date(year, quarter * 3 + 3, 0);
+  return { start, end, quarter: quarter + 1, year };
+}
 
-const REPORT_OVERRIDES_KEY = "orms_report_overrides";
+// yearsBack counts back from the current year (0 = this year).
+function getYearRange(yearsBack) {
+  const year = new Date().getFullYear() - yearsBack;
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31);
+  return { start, end, year };
+}
 
-function getReportOverrides() {
-  try {
-    return JSON.parse(localStorage.getItem(REPORT_OVERRIDES_KEY)) || {};
-  } catch {
-    return {};
+// The period choices both the Reports Dashboard's dropdowns and the
+// Geospatial Analysis page's Period select offer — values are what
+// getReportsForPeriod below takes.
+const REPORT_PERIOD_MONTHS_BACK = 5;
+const REPORT_PERIOD_QUARTERS_BACK = 3;
+const REPORT_PERIOD_YEARS_BACK = 2;
+
+function buildReportPeriodOptions() {
+  const opts = [{ value: "week", label: "This Week" }];
+  for (let m = 0; m <= REPORT_PERIOD_MONTHS_BACK; m++) {
+    const { start } = getMonthRange(m);
+    opts.push({
+      value: `month${m}`,
+      label: m === 0 ? "This Month" : start.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    });
   }
+  for (let q = 0; q <= REPORT_PERIOD_QUARTERS_BACK; q++) {
+    const { quarter, year } = getQuarterRange(q);
+    opts.push({ value: `quarter${q}`, label: q === 0 ? `This Quarter (Q${quarter} ${year})` : `Q${quarter} ${year}` });
+  }
+  for (let y = 0; y <= REPORT_PERIOD_YEARS_BACK; y++) {
+    const { year } = getYearRange(y);
+    opts.push({ value: `year${y}`, label: y === 0 ? `This Year (${year})` : `${year}` });
+  }
+  opts.push({ value: "all", label: "All Time" });
+  return opts;
 }
 
-function saveReportOverride(id, patch) {
-  const overrides = getReportOverrides();
-  overrides[id] = { ...overrides[id], ...patch };
-  localStorage.setItem(REPORT_OVERRIDES_KEY, JSON.stringify(overrides));
+// The comparison period for a delta — one week/month/quarter/year further
+// back than the given one. "all" and a custom date range have no previous
+// period to compare against (null).
+function previousReportPeriod(period) {
+  if (typeof period !== "string") return null;
+  if (period === "week") return "week1";
+  const match = period.match(/^(week|month|quarter|year)(\d+)$/);
+  if (!match) return null;
+  return `${match[1]}${Number(match[2]) + 1}`;
 }
 
-// Reports with any staff edits (status/remarks) merged in.
-function liveReports() {
-  const overrides = getReportOverrides();
-  if (!Object.keys(overrides).length) return REPORTS;
-  return REPORTS.map((r) => (overrides[r.id] ? { ...r, ...overrides[r.id] } : r));
+// A period as a query string and back, so the dashboard's heatmap can open
+// the Geospatial Analysis page on the same period (and that page's address
+// can be bookmarked). reportPeriodFromQuery returns null for anything it
+// doesn't recognise.
+function reportPeriodToQuery(period) {
+  if (period && typeof period === "object") {
+    return `from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`;
+  }
+  return `period=${encodeURIComponent(period)}`;
 }
 
-function getReportById(id) {
-  const overrides = getReportOverrides();
-  const report = REPORTS.find((r) => r.id === id);
-  if (!report) return null;
-  return overrides[id] ? { ...report, ...overrides[id] } : report;
+function reportPeriodFromQuery(search) {
+  const params = new URLSearchParams(search);
+  const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "");
+  const from = params.get("from");
+  const to = params.get("to");
+  if (isDate(from) && isDate(to) && from <= to) return { type: "custom", from, to };
+  const period = params.get("period");
+  return buildReportPeriodOptions().some((o) => o.value === period) ? period : null;
 }
 
 function getReportsForWeekOffset(offset) {
@@ -180,9 +338,27 @@ function getReportsForWeekOffset(offset) {
 }
 
 function getReportsForPeriod(periodValue) {
+  // A custom "Date From - Date To" range (see reports-dashboard.js's top
+  // filter) — {type: "custom", from: "YYYY-MM-DD", to: "YYYY-MM-DD"},
+  // inclusive of both ends.
+  if (periodValue && typeof periodValue === "object" && periodValue.type === "custom") {
+    const start = new Date(`${periodValue.from}T00:00:00`);
+    const end = endOfDay(new Date(`${periodValue.to}T00:00:00`));
+    return liveReports().filter((r) => r.dateSubmitted >= start && r.dateSubmitted <= end);
+  }
   if (periodValue === "all") return liveReports();
   if (periodValue === "week") return getReportsForWeekOffset(0);
   if (periodValue.startsWith("week")) return getReportsForWeekOffset(Number(periodValue.slice(4)));
+  if (periodValue.startsWith("quarter")) {
+    const { start, end } = getQuarterRange(Number(periodValue.slice(7)));
+    const endDate = endOfDay(end);
+    return liveReports().filter((r) => r.dateSubmitted >= start && r.dateSubmitted <= endDate);
+  }
+  if (periodValue.startsWith("year")) {
+    const { start, end } = getYearRange(Number(periodValue.slice(4)));
+    const endDate = endOfDay(end);
+    return liveReports().filter((r) => r.dateSubmitted >= start && r.dateSubmitted <= endDate);
+  }
   const monthsBack = Number(periodValue.replace("month", ""));
   const { start, end } = getMonthRange(monthsBack);
   const endDate = endOfDay(end);

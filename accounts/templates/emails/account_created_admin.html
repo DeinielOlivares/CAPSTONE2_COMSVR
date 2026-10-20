@@ -1,0 +1,10 @@
+{% extends "emails/_base.html" %}
+{% block content %}
+<h2 style="margin:0 0 12px;font-size:18px;color:#16223f;">A new account is pending approval</h2>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;">A resident just signed up for Barangay Platero OVRMS and is waiting for their voter's ID to be reviewed:</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;padding:12px 16px;background:#f0eee6;border-left:3px solid #5b7fd1;">
+  <strong>{{ user.first_name }} {{ user.last_name }}</strong><br />
+  {{ user.email }}
+</p>
+<p style="margin:0;font-size:13px;color:#5b5748;">Log in to the Admin portal's Approve Accounts page to review it.</p>
+{% endblock %}

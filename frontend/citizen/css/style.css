@@ -1,5 +1,5 @@
 /* ==========================================================================
-   O.R.M.S. — Ordinance Reporting and Monitoring System
+   Barangay Platero — Ordinance Violation Reporting and Monitoring System
    Shared stylesheet for all pages
    ========================================================================== */
 
@@ -11,38 +11,87 @@
   font-display: swap;
 }
 
+/* Brand/nav font — self-hosted (like Mate SC above) rather than linked from
+   Google Fonts, so the navbar/sidebar don't depend on an external request. */
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --navy: #14213d;
-  --navy-dark: #0d1626;
-  --cream: #f6e7c4;
-  --cream-dark: #efd9a3;
+  --navy: #057a12;
+  --navy-dark: #045c0e;
+  --green-soft: #e3f7e5;
+  --green-mist: #f7fdf8;
+  --cream: #e3f7e5;
+  --cream-dark: #c2ecc7;
   --white: #ffffff;
-  --text: #1f2430;
-  --text-muted: #6b7280;
-  --link: #2f6fed;
-  --border: #d9dce3;
-  --heart: #e63946;
+  --text: #2b2a27;
+  --text-muted: #5e665c;
+  --link: #04700f;
+  --border: #cde8d0;
+  --heart: #d66b52;
   --radius: 10px;
-  --shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
-  --max-width: 1180px;
+  --shadow: 0 10px 35px rgba(5, 122, 18, 0.15);
+  --max-width: 1360px;
   --serif: Georgia, "Times New Roman", Times, serif;
-  --plain-bg: #e9e5dc;
+  --plain-bg: #f2fbf3;
+  --navy-hover: #068f15;
+  --sage: #4a6b52;
+  --sage-dark: #3a5641;
+  --highlight: #d9f7dc;
+  --accent: #03ac13;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Belt-and-suspenders: several elements below set their own `display`
+   unconditionally (e.g. `img { display: block }`), which otherwise
+   silently overrides the browser's default hide-on-[hidden] behavior since
+   author styles beat the UA stylesheet regardless of specificity. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
+  /* Matches body's background so a browser repaint (e.g. switching back to
+     this tab) never shows a flash of white at the root before body paints. */
+  background: var(--green-mist);
 }
 
 body {
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
-  background: var(--white);
+  background: var(--green-mist);
 }
 
 a {
@@ -69,28 +118,54 @@ button {
   background: var(--navy);
   color: var(--white);
   padding: 12px 28px;
+  border-bottom: 4px solid var(--accent);
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
 .navbar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-family: "Mate SC", var(--serif);
+  gap: 6px;
+  font-family: "Poppins", var(--serif);
   font-weight: 400;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
   white-space: nowrap;
 }
 
+/* Brand name with the kind of system on a smaller line under it. The
+   underline moves from .navbar__brand onto the name alone (see below). */
+.navbar__brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.navbar__brand-text strong {
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.navbar__brand-text small {
+  font-size: 0.68rem;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+}
+
+@media (max-width: 1100px) {
+  .navbar__brand-text small {
+    display: none;
+  }
+}
+
 .navbar__logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  background: #fff url("../assets/logo.jpg") center / cover no-repeat;
-  border: 2px solid var(--cream);
+  background: url("../assets/logo.png") center / cover no-repeat;
 }
 
 .navbar__links {
@@ -100,32 +175,202 @@ button {
   margin: 0 0 0 auto;
   padding: 0;
   flex-wrap: wrap;
-  font-family: "Mate SC", var(--serif);
+  font-family: "Poppins", var(--serif);
   font-size: 0.85rem;
 }
 
+/* Mobile menu toggle — hidden on desktop, where .navbar__links shows
+   inline as normal (see the media query below for its mobile behavior). */
+.navbar__hamburger {
+  display: none;
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--white);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .navbar__links a {
+  display: inline-block;
   opacity: 0.9;
   letter-spacing: 0.3px;
-  transition: opacity 0.15s ease;
+  padding-bottom: 4px;
+  border-bottom: 3px solid transparent;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .navbar__links a:hover {
   opacity: 1;
-  text-decoration: underline;
 }
 
+/* Same idea as the Staff/Admin sidebar's active link (a solid bar in an
+   accent color) — a left border there, a bottom border here since this
+   navbar runs horizontally instead of vertically. Yellow rather than the
+   brand green (#03ac13), per request. */
 .navbar__links a.active {
   opacity: 1;
-  color: #f2994a;
-  text-decoration: underline;
+  color: var(--highlight);
+  border-bottom-color: var(--accent);
 }
 
+/* Login and Sign Up each have two copies for guests: one inline in the top
+   row (desktop), one inside the hamburger dropdown after Submit Suggestion
+   (mobile) — see the guest-nav wiring in main.js. Only one of each pair is
+   ever visible at a time; the mobile breakpoint and .navbar--compact below
+   flip which. Declared here (ahead of both) so these unconditional rules
+   don't win the cascade over them by sheer source order despite equal
+   specificity. */
+.navbar__links-login,
+.navbar__links-signup {
+  display: none;
+}
+
+/* A logged-in citizen's dropdown leads with the logo + brand name (see
+   navbar--authed in main.js) — desktop-hidden like the pair above, for the
+   same reason. */
+.navbar__links-brand {
+  display: none;
+}
+
+.navbar__links-brand .navbar__logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+/* A logged-in citizen's dropdown also ends with Logout (see navbar--authed
+   in main.js) — desktop-hidden like the pair above, for the same reason. */
+.navbar__links-logout {
+  display: none;
+}
+
+.navbar__links-logout a {
+  opacity: 0.75;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin-top: 4px;
+}
+
+.navbar__links-logout a:hover {
+  opacity: 1;
+}
+
+/* The dropdown has room for the subtitle that .navbar__brand-text small
+   hides below 1100px up in the cramped top row — shown again here
+   regardless of width (specificity alone beats that rule; this is already
+   display: none outside the dropdown's own mobile-only context anyway). */
+.navbar__links-brand .navbar__brand-text small {
+  display: block;
+}
+
+/* Same collapsed-into-hamburger treatment as the mobile media query further
+   down, but triggered by actual overflow (see syncNavCompact in main.js)
+   instead of a fixed viewport width — above the mobile breakpoint the links
+   would otherwise wrap onto a second row rather than fit in one. */
+.navbar--compact {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.navbar--compact .navbar__hamburger {
+  display: block;
+}
+
+.navbar--compact .navbar__links {
+  display: flex;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  background: var(--navy);
+  box-shadow: var(--shadow);
+  border-top: 0 solid rgba(255, 255, 255, 0.15);
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+}
+
+.navbar--compact .navbar__links.is-open {
+  max-height: 600px;
+  opacity: 1;
+  padding: 10px 0;
+  border-top-width: 1px;
+}
+
+.navbar--compact .navbar__links a {
+  display: block;
+  /* The dropdown now spans edge-to-edge (position: absolute, no longer
+     inset by .navbar's own 28px side padding) — matched here so link text
+     still lines up under the brand/hamburger above it. */
+  padding: 10px 28px;
+}
+
+.navbar--compact .navbar__links-signup {
+  display: block;
+}
+
+.navbar--compact .navbar__links-login {
+  display: block;
+}
+
+.navbar--compact .navbar__links-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 28px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.navbar--compact .navbar__links-logout {
+  display: block;
+}
+
+/* Login (and, for a guest, the inline Sign Up next to it) move into the
+   dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+.navbar--compact .navbar__profile--login {
+  display: none;
+}
+
+/* Logged-in citizen: no Login/Sign Up to show, so the brand makes way for
+   the hamburger on the left (leaving just notifications + account on the
+   right) — it reappears inside the dropdown instead, see
+   .navbar__links-brand below and navbar--authed in main.js. */
+.navbar--compact.navbar--authed .navbar__brand {
+  display: none;
+}
+
+.navbar--compact.navbar--authed .navbar__hamburger {
+  margin-left: 0;
+}
+
+.navbar--compact.navbar--authed .navbar__bell {
+  margin-left: auto;
+}
+
+/* Inverted chip: navbar itself is navy, so the bell's own background flips
+   to white (with a navy icon) rather than sitting flat against the navbar. */
 .navbar__bell {
   position: relative;
-  font-size: 1.15rem;
   flex-shrink: 0;
   cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  color: var(--navy);
 }
 
 .navbar__badge {
@@ -140,8 +385,8 @@ button {
 }
 
 .navbar__profile {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--cream-dark);
   color: var(--navy);
@@ -151,6 +396,15 @@ button {
   font-weight: 700;
   flex-shrink: 0;
   cursor: pointer;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 /* ---------- Hero ---------- */
@@ -163,9 +417,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(10, 14, 26, 0.5) 0%, rgba(10, 14, 26, 0.12) 45%, rgba(10, 14, 26, 0.5) 100%),
-    url("../assets/background.jpg") center / cover no-repeat;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -176,7 +428,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -202,13 +454,18 @@ button {
 }
 
 .auth-card--outline {
-  border: 1.5px solid #2a2a2a;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(5, 122, 18, 0.25);
+  box-shadow: 0 2px 10px rgba(5, 122, 18, 0.08);
 }
 
 .auth-card--outline .auth-card__title {
   font-family: var(--serif);
   font-size: 1.9rem;
+}
+
+/* Same body font as the rest of the page instead of the serif heading. */
+.auth-card--outline .auth-card__title--plain {
+  font-family: inherit;
 }
 
 .auth-card__title {
@@ -228,13 +485,21 @@ button {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
+}
+
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
 }
 
 .field {
   margin-bottom: 16px;
   text-align: left;
+}
+
+.field--narrow {
+  max-width: 140px;
 }
 
 .field label {
@@ -258,7 +523,162 @@ button {
 .field input:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
+}
+
+.field input.field-invalid,
+.field select.field-invalid,
+.field textarea.field-invalid,
+.field .combobox__trigger.field-invalid,
+.field .author-select__box.field-invalid {
+  border-color: #c0392b;
+}
+
+/* A hidden file input is flagged; its visible drop zone gets the outline. */
+.field:has(input[type="file"].field-invalid) .upload-drop {
+  border-color: #c0392b;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+.combobox {
+  position: relative;
+  min-width: 0;
+}
+
+.combobox__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.combobox__list[hidden] {
+  display: none;
+}
+
+.combobox__list li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.combobox__list li:hover,
+.combobox__list li:focus {
+  background: #f6f4ef;
+}
+
+.combobox__list li.combobox__empty {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.combobox__list li.combobox__empty:hover {
+  background: none;
+}
+
+/* Custom "Ordinance in Violation" dropdown (see file-report.js) — a real
+   button + list instead of a native <select>, so a long ordinance title can
+   wrap onto multiple lines in the open list instead of being clipped or
+   blowing the native popup past the edge of the page. */
+.combobox__trigger {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 13px 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.combobox__trigger:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
+}
+
+.combobox__trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combobox__chevron {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.combobox__list--wrap li {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.password-hint {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: -8px 0 16px;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.password-hint li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #c0392b;
+}
+
+.password-hint li input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: #2e7d32;
+  pointer-events: none;
+}
+
+.password-hint li.is-satisfied {
+  color: #2e7d32;
+}
+
+/* Sign Up: the list only appears when something's missing, and only lists
+   what's missing (display: flex above would otherwise override [hidden]). */
+.password-hint[hidden],
+.password-hint--missing-only li.is-satisfied {
+  display: none;
+}
+
+.password-hint--missing-only {
+  flex-direction: column;
 }
 
 .field--code input {
@@ -311,9 +731,14 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.upload-drop:hover {
+.upload-drop.upload-drop--invalid {
+  border-color: #c0392b;
+}
+
+.upload-drop:hover,
+.upload-drop--dragover {
   border-color: var(--navy);
-  background: rgba(20, 33, 61, 0.03);
+  background: rgba(5, 122, 18, 0.03);
 }
 
 .upload-drop__icon {
@@ -334,6 +759,157 @@ button {
   object-fit: cover;
 }
 
+/* Voter's ID: the chosen photo replaces the camera icon inside the box. */
+.upload-drop .upload-preview {
+  margin: 0 auto 10px;
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+.upload-drop--has-preview {
+  padding: 14px 16px;
+}
+
+.upload-drop--has-preview .upload-drop__icon {
+  display: none;
+}
+
+/* Evidence tray: chosen photos/videos listed below the dropzone, each
+   with a thumbnail, a View link and a Remove button (see main.js). */
+.evidence-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evidence-list[hidden] {
+  display: none;
+}
+
+.evidence-list__caption {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.evidence-list__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.evidence-list__thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f2f1ec;
+  font-size: 1.2rem;
+}
+
+.evidence-list__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.evidence-list__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.evidence-list__name {
+  font-size: 0.82rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.evidence-list__size {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.evidence-list__view {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--navy);
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+
+.evidence-list__remove {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.evidence-list__remove:hover {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+  color: var(--white);
+}
+
+/* File Report: opt-in "pin my current location" under the Street field. */
+/* Qualified with the element (not just ".geo-toggle") so its "display: flex"
+   actually beats ".field label"'s "display: block" — same specificity, but
+   this rule comes later in the file, so source order decides. Without the
+   element qualifier ".field label" was the more specific of the two and
+   silently won, leaving the checkbox laid out inline instead of centered
+   against the text next to it. */
+label.geo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.88rem;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.geo-toggle input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--navy);
+}
+
+.geo-status {
+  margin: 6px 0 0 24px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.geo-status--ok {
+  color: var(--navy);
+}
+
 .field-hint {
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -341,9 +917,33 @@ button {
   margin-bottom: 16px;
 }
 
+.suggestion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestion-list li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.suggestion-list li:hover {
+  background: #f6f4ef;
+}
+
 .form-links {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   margin: -8px 0 18px;
   font-size: 0.8rem;
 }
@@ -354,6 +954,49 @@ button {
 
 .form-links a:hover {
   text-decoration: underline;
+}
+
+.remember-me-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.remember-me-check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Show/hide eye button, added by main.js's setupPasswordVisibilityToggles
+   to every password field — wraps just the input, not its label. */
+.password-toggle-wrap {
+  position: relative;
+}
+
+.password-toggle-wrap input {
+  padding-right: 38px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text);
 }
 
 .btn {
@@ -371,7 +1014,7 @@ button {
 }
 
 .btn:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 .btn:active {
@@ -391,6 +1034,27 @@ button {
 }
 
 .form-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Login's "Don't Have an Account?" / Sign Up's "Login" — a lighter green
+   than --link so it reads apart from the dark-green submit button right
+   above it. #0a881b is about as light as this green can go and still pass
+   WCAG AA (4.6:1) as small text on the white card; the brand --accent
+   (#03ac13) is only ~3:1 there. */
+.auth-card .form-footer a {
+  color: #0a881b;
+  font-weight: 700;
+}
+
+.auth-card .form-footer a:hover {
+  color: var(--accent);
+}
+
+/* Login's "Don't Have an Account?" — underlined (not just on hover, like the
+   rest of .form-footer) so it reads as a second, equally-valid action
+   instead of easy-to-miss fine print under the Login button. */
+.form-footer__cta {
   text-decoration: underline;
 }
 
@@ -447,6 +1111,13 @@ button {
   color: var(--navy);
 }
 
+.info-card {
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(5, 122, 18, 0.08);
+  border-radius: 12px;
+  padding: 22px 18px;
+}
+
 .info-card p {
   margin: 0;
   font-size: 0.88rem;
@@ -457,57 +1128,141 @@ button {
 /* ---------- Ordinances list ---------- */
 
 .page-shell {
+  min-height: calc(100vh - 60px);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 32px 28px 64px;
 }
 
+.ordinances-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px 24px;
+}
+
 .ordinances-toolbar {
   display: flex;
   gap: 14px;
+  align-items: flex-start;
   margin-bottom: 20px;
 }
 
-.ordinances-toolbar select {
-  padding: 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.88rem;
-  background: var(--white);
-  color: var(--text);
+/* Show/Search By/Show (page size) live inside one panel behind a single
+   "Filters" button instead of three separate dropdowns, at every screen
+   width — see ordinances-list.js for the open/close logic. */
+.filters-dropdown {
+  position: relative;
+  flex-shrink: 0;
 }
 
-.sort-select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding: 11px 40px 11px 18px;
+.filters-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
   border: none;
   border-radius: 10px;
-  background-color: #8a7d91;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjYgOSAxMiAxNSAxOCA5Ij48L3BvbHlsaW5lPjwvc3ZnPg==");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 14px;
+  background: var(--navy);
   color: var(--white);
   font-size: 0.92rem;
   font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filters-dropdown__trigger:hover {
+  background: var(--navy-hover);
+}
+
+.filters-dropdown__chevron {
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
+.filters-dropdown__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* My Reports / My Concerns put the Order button at the right end of the
+   heading row, so the panel opens leftward instead of running off-screen. */
+.reports-toolbar .filters-dropdown__panel {
+  left: auto;
+  right: 0;
+}
+
+.filters-dropdown__panel[hidden] {
+  display: none;
+}
+
+.filters-dropdown__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filters-dropdown__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.filters-dropdown__field select {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  background: var(--white);
   cursor: pointer;
 }
 
-.sort-select:focus {
+.filters-dropdown__field select:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(119, 107, 130, 0.35);
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.15);
+}
+
+.filters-dropdown__clear {
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #c0392b;
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.filters-dropdown__clear:hover {
+  background: #a93226;
 }
 
 .ordinances-search {
   flex: 1;
   display: flex;
   gap: 10px;
+  min-width: 0;
 }
 
 .ordinances-search input {
   flex: 1;
+  min-width: 0;
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -515,6 +1270,10 @@ button {
 }
 
 .ordinances-search button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 11px 26px;
   border: none;
   border-radius: 6px;
@@ -522,10 +1281,11 @@ button {
   color: var(--white);
   font-weight: 600;
   font-size: 0.88rem;
+  flex-shrink: 0;
 }
 
 .ordinances-search button:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 .ordinances-table-wrap {
@@ -587,14 +1347,20 @@ button {
   color: var(--text);
 }
 
+/* For a pagination bar with no "Showing X-Y of Z" text alongside it —
+   centers the controls instead of space-between shoving a lone child left. */
+.pagination-bar--center {
+  justify-content: center;
+}
+
 .pagination-controls {
   display: flex;
   gap: 8px;
 }
 
 .pagination-controls button {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--white);
@@ -615,10 +1381,84 @@ button {
   cursor: default;
 }
 
+.pagination-controls button.active {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+/* "Page X of Y" — click to jump to a specific page (see pagination.js) */
+.pagination-jump-btn {
+  width: auto !important;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
 .ordinances-empty {
   text-align: center;
   padding: 40px 18px;
   color: var(--text-muted);
+}
+
+/* ---------- Skeleton loading placeholders ----------
+   A shimmering gray bar standing in for text/content that's still loading,
+   instead of a bare "Loading..." string, so a slow connection shows
+   something that already roughly matches the real layout rather than a
+   layout jump once data arrives. See skeletonTableRows()/skeletonCards()
+   in main.js. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--plain-bg) 50%, var(--border) 75%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  height: 0.85em;
+  width: 100%;
+}
+
+.skeleton-text + .skeleton-text {
+  margin-top: 8px;
+}
+
+.skeleton-text--short {
+  width: 35%;
+}
+
+.skeleton-text--medium {
+  width: 65%;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-card:first-child {
+  border-top: none;
+}
+
+.skeleton-block {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
 }
 
 /* ---------- Ordinance detail ---------- */
@@ -642,6 +1482,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
+  color: var(--text);
   margin-bottom: 18px;
 }
 
@@ -650,9 +1491,10 @@ button {
 }
 
 .detail-title {
-  font-size: 1.4rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  margin: 0 0 18px;
+  margin: 0 0 20px;
+  color: var(--text);
 }
 
 .detail-meta {
@@ -703,8 +1545,7 @@ button {
 .doc-preview__seal {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #fff url("../assets/logo.jpg") center / cover no-repeat;
+  background: url("../assets/logo.png") center / cover no-repeat;
   flex-shrink: 0;
 }
 
@@ -736,8 +1577,53 @@ button {
 .doc-preview__line {
   height: 8px;
   border-radius: 3px;
-  background: #e3e1da;
+  background: var(--cream);
   margin-bottom: 8px;
+}
+
+.pdf-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0 0 26px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.pdf-preview__frame {
+  width: 100%;
+  height: 600px;
+  border: none;
+  display: block;
+  background: #f2f1ec;
+  /* Pages are canvases drawn by js/pdf-preview.js; the frame scrolls them. */
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.pdf-preview__page {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.pdf-preview__page:last-child {
+  margin-bottom: 0;
+}
+
+.pdf-preview__fallback {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.pdf-preview__note {
+  margin: -14px 0 20px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .download-btn {
@@ -754,14 +1640,14 @@ button {
 }
 
 .download-btn:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 /* ---------- Plain page (File Report / Submit Suggestion) ---------- */
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -772,6 +1658,86 @@ button {
 
 .plain-page__inner--wide {
   max-width: var(--max-width);
+}
+
+/* Two-column treatment for single-form pages (File Report, Submit
+   Suggestion, FAQs) — pairs the form with a contextual side panel instead
+   of leaving a plain 720px-wide column stranded in the middle of a much
+   wider viewport. */
+.plain-page__inner--split {
+  max-width: 1060px;
+}
+
+/* minmax(0, 1fr), not plain 1fr: a 1fr column refuses to shrink below its
+   widest unbreakable content, so one long single-line value (the chosen
+   ordinance's name, which is nowrap + ellipsis) stretched the whole form
+   column past the page instead of being cut off with "…". */
+.plain-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+
+.plain-page__layout > * {
+  min-width: 0;
+}
+
+/* Sticks just below the (also sticky) navbar while the page scrolls, so the
+   tips stay in view instead of sliding up underneath it. --navbar-height is
+   the navbar's real height, kept current by main.js (it changes as the
+   navbar wraps); max-height keeps a long panel scrollable on short screens. */
+.info-panel {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px 24px;
+  position: sticky;
+  top: calc(var(--navbar-height, 72px) + 16px);
+  max-height: calc(100vh - var(--navbar-height, 72px) - 32px);
+  overflow-y: auto;
+}
+
+.info-panel__title {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.info-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.info-panel li {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.info-panel__note {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .plain-page__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column: the panel sits below the form, so it just scrolls with it. */
+  .info-panel {
+    position: static;
+    max-height: none;
+  }
 }
 
 .page-heading {
@@ -787,6 +1753,133 @@ button {
   box-shadow: var(--shadow);
   padding: 32px 36px 30px;
 }
+
+/* Reporting As: read-only citizen info shown above the actual report form —
+   given a distinct cream tint + left accent bar so it reads as "about you"
+   rather than as part of the editable report itself. */
+.reporting-as-card {
+  background: var(--cream);
+  border-left: 4px solid var(--navy);
+  padding: 22px 36px 8px;
+  margin-bottom: 22px;
+}
+
+.reporting-as-card .report-card__title {
+  text-align: left;
+  margin-bottom: 4px;
+  font-size: 0.88rem;
+}
+
+.reporting-as-card::after {
+  content: "This information is on file and can't be edited here.";
+  display: block;
+  margin: -6px 0 18px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.reporting-as-card .field input[disabled] {
+  background: var(--white);
+  color: var(--text);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+/* ---------- FAQs ---------- */
+
+/* Floating "Ask a Question" button — fixed to the viewport so it's always
+   reachable, replacing the old inline accordion form on this page. */
+.fab-ask-question {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navy);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 50;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.fab-ask-question:hover {
+  background: var(--navy-hover);
+  transform: scale(1.06);
+}
+
+@media (max-width: 640px) {
+  .fab-ask-question {
+    right: 20px;
+    bottom: 20px;
+    width: 50px;
+    height: 50px;
+  }
+}
+
+.faq-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 18px 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.faq-item__answer {
+  margin: 0;
+  padding: 0 24px 20px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
 
 .report-card__title {
   text-align: center;
@@ -811,12 +1904,12 @@ button {
 .field textarea:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
 }
 
 .field select {
   width: 100%;
-  padding: 11px 13px;
+  padding: 13px 13px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.9rem;
@@ -827,7 +1920,7 @@ button {
 .field select:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
 }
 
 .upload-drop--compact {
@@ -843,26 +1936,61 @@ button {
 
 .upload-drop__icons {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
-  font-size: 1rem;
   margin-top: 2px;
 }
 
 .consent-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   gap: 8px;
   margin: 22px auto 0;
   max-width: 420px;
   font-size: 0.8rem;
   color: var(--text);
-  text-align: center;
+  text-align: left;
+}
+
+.gate-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fdf1ea;
+  border: 1px solid #e8c9a8;
+  color: #8a4a1c;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  font-size: 0.88rem;
+}
+
+.gate-notice p {
+  margin: 0;
 }
 
 .consent-row input {
-  margin-top: 3px;
+  margin: 0;
   flex-shrink: 0;
+}
+
+.consent-row {
+  flex-wrap: wrap;
+}
+
+.consent-row input.field-invalid {
+  outline: 2px solid #c0392b;
+  outline-offset: 1px;
+}
+
+.consent-row .field-error {
+  flex-basis: 100%;
+  text-align: center;
+  margin: 0;
 }
 
 .btn-row {
@@ -877,14 +2005,22 @@ button {
   padding: 12px 32px;
 }
 
-.btn-clear,
-.btn-success {
-  background: #4caf50;
+.btn-clear {
+  background: var(--plain-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
-.btn-clear:hover,
+.btn-clear:hover {
+  background: var(--highlight);
+}
+
+.btn-success {
+  background: var(--navy);
+}
+
 .btn-success:hover {
-  background: #429a46;
+  background: var(--navy-hover);
 }
 
 /* ---------- Modal ---------- */
@@ -892,7 +2028,7 @@ button {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 14, 26, 0.55);
+  background: rgba(4, 40, 8, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -913,6 +2049,11 @@ button {
   text-align: center;
   max-width: 360px;
   width: 100%;
+  /* A modal taller than the viewport (short/laptop screens) would otherwise
+     have .modal-overlay's vertical centering push the excess off both the
+     top and bottom with no way to reach it — scroll inside the card instead. */
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 
 .modal-card h2 {
@@ -925,6 +2066,55 @@ button {
   width: auto;
   padding: 12px 30px;
   margin: 0 auto;
+}
+
+/* Grouped/stacked buttons (profile icon popup, unsaved-changes modal) —
+   auto-width-per-label above would size each button to its own text
+   ("Discard Changes" vs "Cancel"), leaving a ragged set of different
+   widths. These stack full-width instead, so every button in the group
+   matches the others. */
+.profile-card .btn,
+.stacked-buttons .btn {
+  width: 100%;
+  margin: 0;
+}
+
+/* Terms & Conditions gate: the body scrolls, the heading/button stay put so
+   "I Agree" is always visible (just disabled until scrolled to the end). */
+.terms-modal__card {
+  max-width: 560px;
+  text-align: left;
+}
+
+.terms-modal__card h2 {
+  text-align: center;
+}
+
+.terms-modal__body {
+  max-height: 50vh;
+  overflow-y: auto;
+  text-align: left;
+  padding-right: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.terms-modal__body h3 {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+}
+
+.terms-modal__body h3:first-child {
+  margin-top: 0;
+}
+
+.terms-modal__body p {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .modal-close {
@@ -992,11 +2182,12 @@ button {
   font-size: 1.2rem;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .profile-avatar--guest {
-  background: #d9dce3;
-  color: #6b7280;
+  background: var(--cream);
+  color: var(--navy);
   font-size: 1.6rem;
 }
 
@@ -1018,9 +2209,9 @@ button {
   display: block;
   width: 100%;
   padding: 12px 16px;
-  border: 1.5px solid #8fbf7a;
+  border: none;
   border-radius: 8px;
-  background: #776b82;
+  background: var(--sage);
   color: var(--white);
   font-size: 0.92rem;
   font-weight: 600;
@@ -1028,15 +2219,15 @@ button {
 }
 
 .btn-muted:hover {
-  background: #685d73;
+  background: var(--sage-dark);
 }
 
 .btn-danger {
-  background: #f07167;
+  background: #c0392b;
 }
 
 .btn-danger:hover {
-  background: #e35c51;
+  background: #a93226;
 }
 
 /* ---------- Notifications dropdown ---------- */
@@ -1045,7 +2236,10 @@ button {
   position: absolute;
   top: 140%;
   right: -10px;
-  width: 300px;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: min(480px, calc(100vh - 90px));
+  overflow-y: auto;
   background: var(--white);
   border-radius: 14px;
   box-shadow: var(--shadow);
@@ -1053,10 +2247,16 @@ button {
   text-align: left;
   z-index: 60;
   cursor: default;
+  animation: notif-pop-in 0.16s ease-out;
 }
 
 .notif-dropdown[hidden] {
   display: none;
+}
+
+@keyframes notif-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .notif-dropdown__title {
@@ -1066,22 +2266,85 @@ button {
   color: var(--text);
 }
 
+.notif-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notif-dropdown__header .notif-dropdown__title {
+  margin: 0 0 8px;
+}
+
+.notif-dropdown__clear-all {
+  background: none;
+  border: none;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.notif-dropdown__clear-all:hover {
+  text-decoration: underline;
+}
+
 .notif-dropdown__list {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .notif-dropdown__item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 8px;
   padding: 12px 0;
   border-top: 1px solid var(--border);
   font-size: 0.85rem;
   color: var(--text);
-  white-space: nowrap;
+}
+
+.notif-dropdown__content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+}
+
+.notif-dropdown__content:hover {
+  background: #f6f4ef;
+}
+
+.notif-dropdown__message {
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.notif-dropdown__dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notif-dropdown__dismiss:hover {
+  color: var(--text);
 }
 
 .notif-dropdown__item:first-child {
@@ -1092,6 +2355,54 @@ button {
   color: var(--text-muted);
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.notif-dropdown__view-all {
+  display: block;
+  text-align: center;
+  padding: 10px 0;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--link);
+  text-decoration: none;
+}
+
+.notif-dropdown__view-all:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Notifications (view-all page) ---------- */
+
+.notif-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.notif-page__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.notif-page__item:first-child {
+  border-top: none;
+}
+
+.notif-page__empty {
+  padding: 28px 22px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ---------- My Concerns/Suggestions list ---------- */
@@ -1105,7 +2416,7 @@ button {
 
 .concern-row {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr) minmax(0, 1.2fr) auto auto;
   align-items: center;
   gap: 16px;
   padding: 20px 0;
@@ -1119,6 +2430,9 @@ button {
 .concern-row__title {
   font-weight: 700;
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .concern-row__date {
@@ -1144,28 +2458,40 @@ button {
   width: 100%;
 }
 
+/* New Submission — grey */
 .status-badge--submitted {
-  background: #fbf7c4;
-  border: 1px solid #d8cf7a;
-  color: #7a6f1e;
+  background: #e2e2e2;
+  border: 1px solid #b8b8b8;
+  color: #4a4a4a;
 }
 
+/* In Action — yellow-green */
 .status-badge--with-remarks {
-  background: #d3d3d3;
-  border: 1px solid #b3b3b3;
-  color: #3a3a3a;
+  background: #e3edb8;
+  border: 1px solid #b9cf6c;
+  color: #56671c;
 }
 
+/* Resolved — green */
 .status-badge--resolved {
   background: #d3ecd9;
   border: 1px solid #a3d6b1;
   color: #226b3f;
 }
 
+/* Under Review — yellow */
 .status-badge--in-process {
-  background: #fbe3c4;
-  border: 1px solid #eec99a;
-  color: #a15d1c;
+  background: #fbf7c4;
+  border: 1px solid #d8cf7a;
+  color: #7a6f1e;
+}
+
+/* With Remarks — blue (closed, with the Investigator's remarks). Not the
+   same as .status-badge--with-remarks above, which is In Action's color. */
+.status-badge--remarked {
+  background: #dbe7f6;
+  border: 1px solid #9db8de;
+  color: #2b4f80;
 }
 
 /* ---------- My Reports list ---------- */
@@ -1179,7 +2505,7 @@ button {
 }
 
 .reports-toolbar .page-heading {
-  margin: 0;
+  margin: 0 auto 0 0;
 }
 
 .reports-filter {
@@ -1187,47 +2513,126 @@ button {
   -webkit-appearance: none;
   -moz-appearance: none;
   padding: 10px 36px 10px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--navy);
   border-radius: 8px;
-  background-color: var(--white);
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=");
+  background-color: var(--navy);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjYgOSAxMiAxNSAxOCA5Ij48L3BvbHlsaW5lPjwvc3ZnPg==");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px;
-  color: var(--text);
+  color: var(--white);
   font-size: 0.85rem;
   cursor: pointer;
 }
 
 .reports-filter:focus {
   outline: none;
-  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.4);
+}
+
+/* "Show [5/10/25/50/100]" — how many rows a paginated list renders per page. */
+.page-size-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 /* ---------- Report detail: evidence photo + notice + remarks ---------- */
 
 .evidence-photo {
-  width: 180px;
-  height: 140px;
-  border-radius: 8px;
-  background: #e3e1da;
-  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  min-height: 60px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--white);
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
   margin-top: 6px;
+}
+
+/* Holds one or more real uploaded files (Nature of Violation / Suggestion
+   evidence). Falls back to the plain camera-icon .evidence-photo box above
+   when nothing was attached. */
+.evidence-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.evidence-photo-grid__item {
+  display: block;
+  width: 110px;
+  height: 110px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--cream);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.evidence-photo-grid__item img,
+.evidence-photo-grid__item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Lightbox — clicking an evidence thumbnail overlays the full-size media on
+   the current page instead of navigating to it in a new tab. Reuses the
+   .modal-overlay/.modal-close plumbing (click-outside/close-button wiring
+   already generic in main.js), just with a transparent, unpadded card. */
+.media-lightbox-card {
+  position: relative;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  max-width: min(90vw, 900px);
+  width: auto;
+}
+
+.media-lightbox-card .modal-close {
+  top: -36px;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--white);
+  font-size: 1.6rem;
+}
+
+.media-lightbox-card .modal-close:hover {
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--white);
+}
+
+.media-lightbox__body img,
+.media-lightbox__body video {
+  display: block;
+  max-width: 100%;
+  max-height: 85vh;
+  margin: 0 auto;
+  border-radius: 8px;
 }
 
 .status-timeline__notice {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #eef1fb;
+  background: var(--cream);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 0.76rem;
-  color: #4a5a9e;
+  color: var(--navy);
   margin: 6px 0 20px;
 }
 
@@ -1278,10 +2683,31 @@ button {
   padding: 22px 24px;
 }
 
+.concern-detail__sidebar {
+  box-shadow: none;
+}
+
+.concern-detail__sidebar .remarks-card {
+  box-shadow: none;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding: 0;
+}
+
+.concern-detail__sidebar > .btn {
+  margin-top: 0;
+  text-align: center;
+}
+
+/* Download Report sits above Back to Reports — keep the two apart. */
+.concern-detail__sidebar > #downloadReportBtn {
+  margin-bottom: 10px;
+}
+
 .field input[disabled],
 .field textarea[disabled] {
-  background: #dcdcdc;
-  color: #555;
+  background: var(--white);
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -1304,6 +2730,11 @@ button {
   gap: 8px;
 }
 
+.status-timeline__item > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .status-timeline__item::before {
   content: "";
   position: absolute;
@@ -1314,7 +2745,8 @@ button {
   background: var(--border);
 }
 
-.status-timeline__item:last-child::before {
+.status-timeline__item:last-child::before,
+.status-timeline__item:last-of-type::before {
   display: none;
 }
 
@@ -1322,7 +2754,7 @@ button {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #7c6a99;
+  background: var(--accent);
   margin-top: 5px;
   flex-shrink: 0;
   position: relative;
@@ -1339,6 +2771,7 @@ button {
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .status-timeline__label {
@@ -1358,7 +2791,10 @@ button {
 .status-timeline__desc {
   font-size: 0.82rem;
   color: var(--text-muted);
-  margin: 4px 0 22px 18px;
+  margin: 4px 0 22px;
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Citizen profile ---------- */
@@ -1371,7 +2807,7 @@ button {
 }
 
 .profile-sidebar {
-  background: #bdbdbd;
+  background: var(--white);
   border-radius: var(--radius);
   padding: 24px 22px;
   min-height: 320px;
@@ -1392,7 +2828,7 @@ button {
   margin-bottom: 10px;
   border: 2px solid transparent;
   border-radius: 4px;
-  background: #d4d4d4;
+  background: var(--white);
   color: var(--text);
   font-weight: 700;
   font-size: 0.95rem;
@@ -1400,17 +2836,16 @@ button {
 }
 
 .profile-tab:hover {
-  background: #dcdcdc;
+  background: var(--highlight);
 }
 
 .profile-tab.active {
-  background: #ededed;
-  border-color: #1f2430;
+  background: var(--white);
+  border-color: var(--navy);
+  color: var(--navy);
 }
 
-.profile-sidebar__cancel {
-  display: block;
-  text-align: center;
+.profile-sidebar__delete {
   margin-top: 24px;
 }
 
@@ -1479,15 +2914,94 @@ button {
 @media (max-width: 860px) {
   .navbar {
     flex-wrap: wrap;
-    row-gap: 10px;
+    row-gap: 0;
   }
 
+  .navbar__hamburger {
+    display: block;
+  }
+
+  /* Overlays the page content below instead of pushing it down — position:
+     absolute (anchored to .navbar, which is position: sticky) takes it out
+     of the flex flow, so the navbar itself stays single-row height while
+     this floats over whatever's underneath it. Always display: flex
+     (rather than none/flex) so max-height/opacity can actually transition
+     — display itself can't be animated. */
   .navbar__links {
-    order: 3;
-    width: 100%;
-    justify-content: flex-start;
-    gap: 16px;
-    overflow-x: auto;
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    background: var(--navy);
+    box-shadow: var(--shadow);
+    border-top: 0 solid rgba(255, 255, 255, 0.15);
+    transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+  }
+
+  .navbar__links.is-open {
+    max-height: 600px;
+    opacity: 1;
+    padding: 10px 0;
+    border-top-width: 1px;
+  }
+
+  .navbar__links a {
+    display: block;
+    /* The dropdown now spans edge-to-edge (position: absolute, no longer
+       inset by .navbar's own 28px side padding) — matched here so link
+       text still lines up under the brand/hamburger above it. */
+    padding: 10px 28px;
+  }
+
+  .navbar__links-signup {
+    display: block;
+  }
+
+  .navbar__links-login {
+    display: block;
+  }
+
+  .navbar__links-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 28px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    margin-bottom: 4px;
+  }
+
+  .navbar__links-logout {
+    display: block;
+  }
+
+  /* Login (and, for a guest, the inline Sign Up next to it) move into the
+     dropdown below instead — see .navbar__links-login/.navbar__links-signup. */
+  .navbar__profile--login {
+    display: none;
+  }
+
+  /* Logged-in citizen: no Login/Sign Up to show, so the brand makes way
+     for the hamburger on the left (leaving just notifications + account
+     on the right) — it reappears inside the dropdown instead, see
+     .navbar__links-brand below and navbar--authed in main.js. */
+  .navbar--authed .navbar__brand {
+    display: none;
+  }
+
+  .navbar--authed .navbar__hamburger {
+    margin-left: 0;
+  }
+
+  .navbar--authed .navbar__bell {
+    margin-left: auto;
   }
 
   .info-grid {
@@ -1495,15 +3009,51 @@ button {
   }
 
   .form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    /* Each stacked .field already carries its own margin-bottom; without
+       this, the grid's row-gap (meant for the desktop 2-column layout)
+       stacks on top of it too, doubling the space between fields that
+       shared a row versus fields between separate rows. */
+    gap: 0;
   }
 
   .auth-card {
     padding: 26px 22px 22px;
   }
 
-  .ordinances-toolbar {
-    flex-direction: column;
+  /* Icon-only on narrow screens — "Filters"/"Search" text and the chevron
+     take up room the search input needs more. 16px on the select keeps
+     mobile Safari from auto-zooming when it's tapped. */
+  .filters-dropdown__trigger {
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  .filters-dropdown__trigger-text,
+  .filters-dropdown__chevron {
+    display: none;
+  }
+
+  .filters-dropdown__field select {
+    font-size: 16px;
+  }
+
+  .ordinances-search input,
+  .ordinances-search button {
+    font-size: 16px;
+    border-radius: 8px;
+  }
+
+  .ordinances-search input {
+    padding: 12px 16px;
+  }
+
+  .ordinances-search button {
+    padding: 12px;
+  }
+
+  .ordinances-search__text {
+    display: none;
   }
 
   .detail-meta {
@@ -1530,17 +3080,1754 @@ button {
     grid-template-columns: 1fr;
   }
 
+  /* Status filter and "Show N" stay side by side — only the heading drops
+     to its own line above them. */
   .reports-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .reports-toolbar .page-heading {
+    flex-basis: 100%;
   }
 
   .notif-dropdown {
     width: 260px;
-    right: -60px;
+    /* Flush with the bell instead of shifted further right (the previous
+       -60px pushed it past the viewport edge, clipping "Clear All" and the
+       right side of the panel — see max-width below, which only caps the
+       panel's own size, not how far right this offset shoves it). */
+    right: 0;
   }
 
   .profile-layout {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 560px) {
+  .plain-page,
+  .plain-hero {
+    padding: 20px 14px 36px;
+  }
+
+  .report-card {
+    padding: 22px 18px 20px;
+  }
+
+  .page-heading {
+    font-size: 1.35rem;
+    margin-bottom: 14px;
+  }
+
+  /* Ordinance repository: the 3-column table can't fit a phone, so each row
+     collapses into a stacked card with the column header shown as a label
+     (via each td's data-label attribute set in ordinances-list.js). */
+  .ordinances-table-wrap {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  .ordinances-table {
+    font-size: 0.88rem;
+  }
+
+  .ordinances-table thead {
+    /* visually hidden but kept for screen readers / semantics */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ordinances-table tbody tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    padding: 4px 14px;
+    margin-bottom: 12px;
+  }
+
+  .ordinances-table tbody tr:hover {
+    background: var(--white);
+  }
+
+  .ordinances-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 9px 0;
+    border-top: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ordinances-table td:last-child {
+    border-bottom: none;
+  }
+
+  .ordinances-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .ordinances-table td[data-label="Title"] {
+    display: block;
+  }
+
+  .ordinances-table td[data-label="Title"]::before {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .ordinances-table td .ordinance-name {
+    font-size: 0.95rem;
+  }
+
+  .ordinances-table .ordinances-empty {
+    display: block;
+    text-align: center;
+    padding: 32px 14px;
+  }
+
+  .ordinances-table .ordinances-empty::before {
+    display: none;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    justify-content: center;
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .btn-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn-row .btn {
+    width: 100%;
+    padding: 12px 18px;
+  }
+
+  /* File Report / Submit Suggestion: Submit stacks above Clear on mobile —
+     DOM order (Clear, then Submit) stays put for tab order, just the visual
+     stacking is flipped, so this is scoped to these two forms rather than
+     every .btn-row (e.g. the Yes/No logout modal keeps its own order). */
+  #reportForm .btn-row,
+  #suggestionForm .btn-row {
+    flex-direction: column-reverse;
+  }
+
+  .upload-drop--compact {
+    max-width: none;
+    width: 100%;
+    padding: 18px 12px;
+  }
+
+  .consent-row {
+    max-width: none;
+    font-size: 0.76rem;
+    text-align: left;
+  }
+
+  .navbar {
+    padding: 10px 14px;
+  }
+
+  .navbar__controls {
+    gap: 8px;
+  }
+
+  .navbar__avatar,
+  .notif-button,
+  .navbar__hamburger {
+    width: 44px;
+    height: 44px;
+  }
+
+  .page-shell,
+  .container,
+  .panel,
+  .content-shell {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .auth-card,
+  .profile-panel,
+  .form-card,
+  .detail-card,
+  .card-panel {
+    padding: 20px 16px 18px;
+  }
+
+  .auth-card {
+    max-width: 100%;
+  }
+
+  .profile-layout,
+  .profile-sidebar,
+  .concern-detail {
+    gap: 16px;
+  }
+
+  .profile-sidebar {
+    padding: 18px 16px;
+  }
+
+  .detail-card,
+  .concern-detail__main,
+  .concern-detail__sidebar,
+  .remarks-card {
+    padding: 20px 16px;
+  }
+
+  .detail-title {
+    font-size: 1.2rem;
+  }
+
+  .status-timeline__notice {
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+
+  .concern-detail__sidebar .btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  .modal-card {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@media (max-width: 480px) {
+  .plain-page,
+  .plain-hero {
+    padding: 16px 12px 32px;
+  }
+
+  .report-card {
+    padding: 18px 14px 16px;
+  }
+
+  .page-heading {
+    font-size: 1.25rem;
+  }
+
+  .navbar {
+    padding: 10px 14px;
+  }
+
+  .auth-card {
+    padding: 20px 16px 18px;
+  }
+
+  .modal-card {
+    max-width: calc(100vw - 32px);
+  }
+
+  .btn,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  .ordinances-table {
+    font-size: 0.82rem;
+  }
+}
+
+/* ---------- Small phones: tighten spacing, keep touch targets usable ---------- */
+@media (max-width: 480px) {
+  .plain-page {
+    padding: 16px 12px 32px;
+  }
+
+  .report-card {
+    padding: 18px 14px 16px;
+  }
+
+  .page-heading {
+    font-size: 1.25rem;
+  }
+
+  .navbar {
+    padding: 10px 14px;
+  }
+
+  .auth-card {
+    padding: 20px 16px 18px;
+  }
+
+  .modal-card {
+    max-width: calc(100vw - 32px);
+  }
+
+  .btn,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  .ordinances-table {
+    font-size: 0.82rem;
+  }
+}
+
+/* Ordinances table already scrolls horizontally via .ordinances-table-wrap
+   on narrow screens; this just guarantees that wrapper exists/behaves the
+   same way tables do on the Admin/Staff portals. */
+.ordinances-table-wrap {
+  overflow-x: auto;
+}
+
+/* ---------- About Us (about.html) ---------- */
+
+.about-page {
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
+}
+
+.about-intro__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 28px 52px;
+}
+
+.about-title,
+.council__heading {
+  margin: 0 0 28px;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+}
+
+/* Same white panel + green rule as the other pages' headings (see
+   .plain-page__inner > .page-heading) — these two also sit on the photo. */
+.about-title,
+.council__heading {
+  padding: 14px 22px;
+  background: var(--white);
+  border-radius: 14px;
+  border-bottom: 3px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(20, 60, 30, 0.18);
+}
+
+.about-title {
+  font-size: 2.4rem;
+}
+
+.about-card {
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 14px;
+  padding: 24px 28px;
+  box-shadow: var(--shadow);
+}
+
+.about-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.about-cards-row {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.about-cards-row > .about-card {
+  flex: 1 1 0;
+  margin-bottom: 0;
+}
+
+.about-card--barangay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px 44px;
+}
+
+.about-card--description {
+  display: flex;
+  align-items: center;
+}
+
+.about-card__name {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.about-card__contact {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.about-card__contact li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.about-card__contact .nav-icon {
+  flex-shrink: 0;
+}
+
+.about-card__contact a {
+  color: var(--white);
+  text-decoration: none;
+}
+
+.about-card__contact a:hover,
+.about-card__contact a:focus-visible {
+  text-decoration: underline;
+}
+
+.about-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+
+.about-card__title {
+  margin: 0 0 10px;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.about-logos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px clamp(24px, 7vw, 96px);
+  padding: 36px 20px;
+  background: var(--navy);
+}
+
+.about-logos img {
+  width: clamp(110px, 16vw, 180px);
+  height: auto;
+}
+
+.council {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 52px 20px 64px;
+  text-align: center;
+}
+
+.council__heading {
+  font-size: 2rem;
+  margin-bottom: 36px;
+}
+
+.council__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 36px;
+}
+
+.council__row:last-child {
+  margin-bottom: 0;
+}
+
+.council-member {
+  width: 180px;
+  margin: 0;
+}
+
+.council-member img {
+  display: block;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+}
+
+.council__row--lead .council-member {
+  width: 260px;
+}
+
+.council__row--lead .council-member img {
+  width: 170px;
+  height: 170px;
+}
+
+/* Member without a photo yet: a ringed silhouette-free circle. */
+.council-member__placeholder {
+  display: block;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 12px;
+  border: 5px solid var(--navy);
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+.council__row--lead .council-member__placeholder {
+  width: 170px;
+  height: 170px;
+}
+
+.council-member img {
+  object-fit: cover;
+}
+
+/* Uploaded portraits get the green ring the seeded ones have drawn in
+   (same colour, ~2.6% of the width — 8px on the 306px originals). */
+.council-member img.council-member__photo--framed {
+  box-sizing: border-box;
+  border: 4px solid var(--navy);
+  background: var(--white);
+}
+
+.council__loading,
+.about-error {
+  margin: 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.about-error {
+  margin-bottom: 20px;
+  color: #c0392b;
+}
+
+.about-card__contact li[hidden] {
+  display: none;
+}
+
+.council-member__name {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.council-member__role {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ---------- Legal pages (privacy-policy.html, terms.html) ---------- */
+
+.legal-page {
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
+  padding: 40px 20px 64px;
+}
+
+.legal-page__inner {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 48px;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.legal-page__title {
+  margin: 0 0 4px;
+  font-family: "Poppins", sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.legal-page__meta {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.legal-page__inner h2 {
+  margin: 28px 0 8px;
+  font-size: 1.15rem;
+  color: var(--navy);
+  scroll-margin-top: 20px;
+}
+
+.legal-page__inner p {
+  margin: 0 0 12px;
+}
+
+.legal-page__inner ul,
+.legal-page__inner ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.legal-page__inner li {
+  margin-bottom: 6px;
+}
+
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 14px;
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.legal-table th,
+.legal-table td {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-table th {
+  background: var(--cream);
+  font-weight: 700;
+}
+
+/* ---------- Site footer (js/site-footer.js) ---------- */
+
+.site-footer {
+  background: var(--navy-dark);
+  border-top: 4px solid var(--accent);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.88rem;
+}
+
+.site-footer__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 44px 28px 32px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.3fr;
+  gap: 32px;
+}
+
+.site-footer__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.site-footer__brand img {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+}
+
+.site-footer__name {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.site-footer__sub,
+.site-footer__tagline {
+  margin: 2px 0 0;
+}
+
+.site-footer__tagline {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.site-footer__heading {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--highlight);
+}
+
+.site-footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-footer li {
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+.site-footer a {
+  color: var(--white);
+  text-decoration: none;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  text-decoration: underline;
+}
+
+.site-footer__emergency {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.site-footer__emergency a {
+  color: var(--highlight);
+  font-weight: 700;
+}
+
+.site-footer__bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 16px 28px;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.site-footer__bottom p {
+  margin: 2px 0;
+}
+
+@media (max-width: 860px) {
+  .about-cards-row {
+    flex-direction: column;
+  }
+
+  .about-card--barangay {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 26px 28px;
+  }
+
+  .about-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .site-footer__inner {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .about-intro {
+    padding: 28px 16px 36px;
+  }
+
+  .about-title {
+    font-size: 1.9rem;
+  }
+
+  .about-card__name {
+    font-size: 1.6rem;
+  }
+
+  .council {
+    padding: 40px 16px 48px;
+  }
+
+  .council__row {
+    gap: 24px 12px;
+  }
+
+  .council-member {
+    width: calc(50% - 6px);
+  }
+
+  .council-member img,
+  .council__row--lead .council-member img {
+    width: 120px;
+    height: 120px;
+  }
+
+  .legal-page {
+    padding: 20px 12px 40px;
+  }
+
+  .legal-page__inner {
+    padding: 24px 18px;
+  }
+
+  .site-footer__inner {
+    grid-template-columns: 1fr;
+    padding: 36px 20px 24px;
+    gap: 24px;
+  }
+}
+
+/* ---------- Ordinance / Resolution type badge (ordinances list) ---------- */
+
+.doc-kind {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doc-kind--ordinance {
+  background: var(--cream);
+  color: var(--navy-dark);
+}
+
+.doc-kind--resolution {
+  background: #e7eef8;
+  color: #1f4e8c;
+}
+
+/* ---------- Citizen home page ---------- */
+.home-section {
+  margin-bottom: 36px;
+}
+
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.news-grid > .news-card {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 900px) {
+  .news-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Compact on purpose: thumbnail beside the text rather than a tall image on
+   top, so Latest Ordinances / Ordinances by Category below are already in
+   view when the home page opens. The full text and image are in the popup. */
+.news-card {
+  position: relative;
+  display: flex;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.news-card--unread {
+  box-shadow: inset 0 3px 0 #e8c53d;
+}
+
+/* The thumbnail's own box clips the image, so the hover zoom below grows
+   inside it instead of spilling over the text. */
+.news-card__thumb {
+  position: relative;
+  width: 120px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #e9e6dc;
+}
+
+.news-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.news-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.news-card:hover,
+.news-card:focus-within {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 22px rgba(20, 60, 30, 0.16);
+}
+
+/* Keeps the unread card's yellow top edge while it's lifted. */
+.news-card--unread:hover,
+.news-card--unread:focus-within {
+  box-shadow: inset 0 3px 0 #e8c53d, 0 10px 22px rgba(20, 60, 30, 0.16);
+}
+
+.news-card:hover .news-card__image,
+.news-card:focus-within .news-card__image {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-card,
+  .news-card__image {
+    transition: none;
+  }
+
+  .news-card:hover,
+  .news-card:focus-within,
+  .news-card:hover .news-card__image,
+  .news-card:focus-within .news-card__image {
+    transform: none;
+  }
+}
+
+.news-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px 10px;
+}
+
+.news-card__banner {
+  align-self: flex-start;
+  margin-bottom: 6px;
+  background: #e8c53d;
+  color: #3d3510;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.news-card__title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-card__excerpt {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-card__footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.news-card__date {
+  color: var(--text-muted);
+}
+
+.news-card__more {
+  border: none;
+  background: none;
+  color: var(--accent, #c8553d);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.news-card__more:hover {
+  text-decoration: underline;
+}
+
+.news-modal {
+  max-width: 620px;
+  text-align: left;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.news-modal__image {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.news-modal__title {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  line-height: 1.3;
+}
+
+.news-modal__meta {
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.news-modal__description {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.home-latest {
+  display: block;
+}
+
+.latest-ord-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.latest-ord-list > .latest-ord-card {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 900px) {
+  .latest-ord-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .latest-ord-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.latest-ord-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--accent, #2f7d4a);
+  border-radius: 12px;
+  padding: 26px 28px;
+  min-height: 150px;
+  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.latest-ord-card:hover,
+.latest-ord-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(20, 60, 30, 0.16);
+  text-decoration: none;
+}
+
+.latest-ord-card__title {
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
+.latest-ord-card__desc {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.latest-ord-card__new {
+  align-self: flex-start;
+  background: #e8c53d;
+  color: #3d3510;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.latest-ord-card__new--updated {
+  background: #cfe3f7;
+  color: #1d3f63;
+}
+
+#profileGuestView {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.navbar__profile--login {
+  width: auto;
+  height: auto;
+  padding: 0 0 4px;
+  background: none;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--white);
+  font-family: "Poppins", var(--serif);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  opacity: 0.9;
+  cursor: pointer;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.navbar__profile--login:hover {
+  opacity: 1;
+}
+
+.navbar__profile--login[href] {
+  text-decoration: none;
+}
+
+.navbar__profile--login.active {
+  opacity: 1;
+  border-bottom-color: var(--accent);
+}
+
+/* Investigator card: two short lines, so the boxes size to their content (the shared Remarks box has a 90px minimum). */
+#investigatorCard .remarks-card__text {
+  min-height: 0;
+  margin-top: 6px;
+  padding: 9px 12px;
+}
+
+#investigatorCard .remarks-card__text + .remarks-card__text {
+  margin-top: 8px;
+}
+
+.concern-row__handler {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.category-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.category-summary > .category-card {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 900px) {
+  .category-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .category-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--accent, #2f7d4a);
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 0 8px 22px rgba(20, 60, 30, 0.1);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.category-card:hover,
+.category-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(20, 60, 30, 0.16);
+  text-decoration: none;
+}
+
+.category-card__count {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent, #2f7d4a);
+}
+
+.category-card__label {
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.category-banner {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #e8f4ea;
+  font-size: 0.9rem;
+}
+
+/* Disabled buttons (e.g. Submit Report while a report is already filed) must look
+   unavailable, not like an active button. */
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.latest-ord-card__more,
+.category-card__more {
+  margin-top: auto;
+  padding-top: 8px;
+  color: var(--accent, #2f7d4a);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.latest-ord-card:hover .latest-ord-card__more,
+.category-card:hover .category-card__more {
+  text-decoration: underline;
+}
+
+.home-see-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.home-see-more__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 10px 28px;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.home-see-more__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(20, 60, 30, 0.2);
+  text-decoration: none;
+}
+
+.home-see-more__btn:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: none;
+}
+
+.home-see-more__icon,
+.home-see-more__arrow {
+  transition: transform 0.25s ease;
+}
+
+.home-see-more__btn:hover .home-see-more__icon {
+  transform: translateY(3px);
+}
+
+.home-see-more__btn.is-open .home-see-more__icon {
+  transform: rotate(180deg);
+}
+
+.home-see-more__btn.is-open:hover .home-see-more__icon {
+  transform: rotate(180deg) translateY(3px);
+}
+
+.home-see-more__btn:hover .home-see-more__arrow {
+  transform: translateX(5px);
+}
+
+/* ---------- Home: cards/rows animate in as they scroll into view ---------- */
+/* See revealItems() in home.js. `backwards` (not `both`) so the animation
+   lets go of transform once it ends and the cards' own hover lift still works. */
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes category-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.home-reveal:not(.is-visible) {
+  opacity: 0;
+}
+
+.home-reveal.is-visible {
+  animation: home-rise 0.45s ease backwards;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+.home-reveal .category-bar__fill {
+  transform-origin: left center;
+}
+
+.home-reveal.is-visible .category-bar__fill {
+  animation: category-bar-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--reveal-delay, 0ms) + 200ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-reveal:not(.is-visible) {
+    opacity: 1;
+  }
+
+  .home-reveal.is-visible,
+  .home-reveal.is-visible .category-bar__fill {
+    animation: none;
+  }
+
+  .home-see-more__btn,
+  .home-see-more__icon,
+  .home-see-more__arrow,
+  .latest-ord-row__chevron {
+    transition: none;
+  }
+}
+
+/* ---------- Home: each section is one whole card ---------- */
+/* The page sits on a photo background, which bare headings and loose cards
+   were hard to read against — heading, content and button share one panel. */
+.home-section {
+  margin-bottom: 24px;
+  padding: 18px 22px 20px;
+  background: var(--white);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(20, 60, 30, 0.18);
+}
+
+.home-section > .page-heading {
+  color: var(--text);
+  font-size: 1.4rem;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid var(--accent);
+}
+
+/* Every other page's heading (Ordinances, File Report, FAQs, My Reports…)
+   sat bare on the same photo background — it gets the same white panel and
+   green rule as the home sections above. On the list pages the heading
+   shares its row with the Order/Clear All control, so the whole toolbar
+   is the panel there. */
+.plain-page__inner > .page-heading,
+.plain-page .reports-toolbar {
+  padding: 14px 22px;
+  background: var(--white);
+  border-radius: 14px;
+  border-bottom: 3px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(20, 60, 30, 0.18);
+}
+
+.plain-page__inner > .page-heading,
+.plain-page .reports-toolbar .page-heading {
+  font-size: 1.4rem;
+}
+
+/* Where one card follows the heading (Ordinances, My Reports, My Concerns,
+   Notifications) the two join into a single panel — the heading keeps only
+   its top corners and the card only its bottom ones, with the green rule as
+   the divider. z-index keeps the card's shadow from tinting the heading.
+   The two-column pages (--split: File Report, FAQs…) are handled further
+   down, as one panel around the heading and both columns. */
+.plain-page__inner--wide > .page-heading,
+.plain-page .reports-toolbar {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  box-shadow: none;
+}
+
+.plain-page__inner--wide > .page-heading + .ordinances-card,
+.plain-page .reports-toolbar + .concerns-card,
+.plain-page .reports-toolbar + .notif-page__list {
+  border-radius: 0 0 14px 14px;
+}
+
+@media (max-width: 560px) {
+  .plain-page__inner > .page-heading,
+  .plain-page .reports-toolbar {
+    padding: 12px 14px;
+  }
+
+  .plain-page__inner > .page-heading,
+  .plain-page .reports-toolbar .page-heading {
+    font-size: 1.2rem;
+  }
+}
+
+/* The joined panels' green rule is inset like the home sections' (and the
+   two-column pages' below) rather than running edge to edge: it's drawn as
+   an ::after bar inside the heading's padding instead of the heading's own
+   bottom border. The side padding matches the card underneath so the rule
+   lines up with that card's content. */
+.plain-page__inner--wide > .page-heading,
+.plain-page .reports-toolbar {
+  padding: 18px 28px 0;
+  border-bottom: none;
+}
+
+.plain-page__inner--wide > .page-heading {
+  padding-inline: 32px;
+}
+
+.plain-page .reports-toolbar:has(+ .notif-page__list) {
+  padding-inline: 22px;
+}
+
+.plain-page__inner--wide > .page-heading::after,
+.plain-page .reports-toolbar::after {
+  content: "";
+  display: block;
+  height: 3px;
+  margin-top: 10px;
+  background: var(--accent);
+}
+
+/* The toolbar is a flex row (heading + Order/Clear All), so its rule has
+   to wrap onto a line of its own under them. */
+.plain-page .reports-toolbar {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+.plain-page .reports-toolbar::after {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
+.plain-page__inner--wide > .page-heading + .ordinances-card {
+  padding-top: 18px;
+}
+
+/* The two-column pages (File Report, Submit a Concern/Suggestion, FAQs) get
+   the home sections' treatment whole: one white panel holding the heading
+   (with the green rule under it) and both columns. The cards inside trade
+   their own shadow for a border, same as the home panels' inner lists. */
+.plain-page__inner--split {
+  padding: 18px 22px 22px;
+  background: var(--white);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(20, 60, 30, 0.18);
+}
+
+.plain-page__inner--split > .page-heading {
+  margin-bottom: 18px;
+  padding: 0 0 10px;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.plain-page__inner--split .report-card,
+.plain-page__inner--split .faq-card,
+.plain-page__inner--split .info-panel {
+  box-shadow: none;
+}
+
+.plain-page__inner--split .report-card:not(.reporting-as-card),
+.plain-page__inner--split .faq-card,
+.plain-page__inner--split .info-panel {
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 560px) {
+  .plain-page__inner--split {
+    padding: 14px 14px 16px;
+  }
+
+  .plain-page__inner--split > .page-heading {
+    padding: 0 0 10px;
+  }
+}
+
+/* Already inside a panel, so the inner list/bars don't need their own lift. */
+.home-section .latest-ord-rows,
+.home-section .category-bar {
+  box-shadow: none;
+}
+
+@media (max-width: 560px) {
+  .home-section {
+    padding: 14px 14px 16px;
+  }
+}
+
+.home-section .home-see-more {
+  margin-top: 12px;
+}
+
+/* ---------- Home: Latest Ordinances + Ordinances by Category, side by side ---------- */
+.home-split {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .home-split {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.latest-ord-rows {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(20, 60, 30, 0.06);
+  overflow: hidden;
+}
+
+.latest-ord-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.latest-ord-row:last-child {
+  border-bottom: none;
+}
+
+.latest-ord-row:hover,
+.latest-ord-row:focus-visible {
+  background: var(--plain-bg);
+  text-decoration: none;
+}
+
+.latest-ord-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.latest-ord-row__title {
+  font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.latest-ord-row__meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.latest-ord-row .latest-ord-card__new {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.latest-ord-row__chevron {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--accent, #2f7d4a);
+  transition: transform 0.2s ease;
+}
+
+.latest-ord-row__title {
+  transition: color 0.15s ease;
+}
+
+.latest-ord-row:hover .latest-ord-row__chevron,
+.latest-ord-row:focus-visible .latest-ord-row__chevron {
+  transform: translateX(5px);
+}
+
+.latest-ord-row:hover .latest-ord-row__title,
+.latest-ord-row:focus-visible .latest-ord-row__title {
+  color: var(--link);
+}
+
+/* The bars' label | track | count row is too cramped at column width, so
+   the track drops to its own line under the label and count. */
+.home-split .category-bar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label pct"
+    "track track";
+  gap: 8px 12px;
+}
+
+.home-split .category-bar__label {
+  grid-area: label;
+}
+
+.home-split .category-bar__track {
+  grid-area: track;
+}
+
+.home-split .category-bar__pct {
+  grid-area: pct;
+}
+
+/* ---------- Home: Ordinances by Category bar list ---------- */
+.category-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.category-bar {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) 1fr auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(20, 60, 30, 0.06);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.category-bar:hover,
+.category-bar:focus-visible {
+  box-shadow: 0 8px 18px rgba(20, 60, 30, 0.12);
+  transform: translateY(-1px);
+}
+
+.category-bar__label {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-bar__track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--green-mist, #eef5ef);
+  overflow: hidden;
+}
+
+.category-bar__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent, #2f7d4a);
+  border-radius: 999px;
+}
+
+.category-bar__pct {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .category-bar {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+/* ---------- Home: ordinances-in-category popup ---------- */
+.category-ord-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.category-ord-list li {
+  border-bottom: 1px solid var(--border);
+}
+
+.category-ord-list li:last-child {
+  border-bottom: none;
+}
+
+.category-ord-list a {
+  display: block;
+  padding: 10px 2px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.category-ord-list a:hover {
+  color: var(--accent, #2f7d4a);
 }

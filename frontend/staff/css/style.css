@@ -1,5 +1,5 @@
 /* ==========================================================================
-   O.R.M.S. — Ordinance Reporting and Monitoring System
+   Barangay Platero — Ordinance Violation Reporting and Monitoring System
    Shared stylesheet for all pages
    ========================================================================== */
 
@@ -11,22 +11,61 @@
   font-display: swap;
 }
 
+/* Brand/nav font — self-hosted (like Mate SC above) rather than linked from
+   Google Fonts, so the navbar/sidebar don't depend on an external request. */
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/Poppins-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --navy: #14213d;
-  --navy-dark: #0d1626;
-  --cream: #f6e7c4;
-  --cream-dark: #efd9a3;
+  --navy: #057a12;
+  --navy-dark: #045c0e;
+  --navy-darker: #034e0c;
+  --green-soft: #e3f7e5;
+  --green-mist: #f7fdf8;
+  --cream: #e3f7e5;
+  --cream-dark: #c2ecc7;
   --white: #ffffff;
-  --text: #1f2430;
-  --text-muted: #6b7280;
-  --link: #2f6fed;
-  --border: #d9dce3;
-  --heart: #e63946;
+  --text: #2b2a27;
+  --text-muted: #5e665c;
+  --link: #04700f;
+  --border: #cde8d0;
+  --heart: #d66b52;
   --radius: 10px;
-  --shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+  --shadow: 0 10px 35px rgba(5, 122, 18, 0.15);
   --max-width: 1180px;
   --serif: Georgia, "Times New Roman", Times, serif;
-  --plain-bg: #e9e5dc;
+  --plain-bg: #f2fbf3;
+  --navy-hover: #068f15;
+  --sage: #4a6b52;
+  --sage-dark: #3a5641;
+  --highlight: #d9f7dc;
+  --accent: #03ac13;
 }
 
 * {
@@ -45,12 +84,15 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Matches body's background so a browser repaint (e.g. switching back to
+     this tab) never shows a flash of white at the root before body paints. */
+  background: var(--green-mist);
 }
 
 body {
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
-  background: var(--white);
+  background: var(--green-mist);
 }
 
 a {
@@ -77,37 +119,60 @@ button {
   background: var(--navy);
   color: var(--white);
   padding: 12px 28px;
+  border-bottom: 4px solid var(--accent);
 }
 
 .navbar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-family: "Mate SC", var(--serif);
+  gap: 6px;
+  font-family: "Poppins", var(--serif);
   font-weight: 400;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
   white-space: nowrap;
 }
 
 .navbar__portal-label {
   margin: 0 0 0 auto;
-  font-family: "Mate SC", var(--serif);
+  font-family: "Poppins", var(--serif);
   font-weight: 400;
   font-size: 1.1rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
+/* Brand name with the kind of system on a smaller line under it. The
+   underline moves from .navbar__brand onto the name alone (see below). */
+.navbar__brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.navbar__brand-text strong {
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.navbar__brand-text small {
+  font-size: 0.68rem;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+}
+
+@media (max-width: 1100px) {
+  .navbar__brand-text small {
+    display: none;
+  }
+}
+
 .navbar__logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  background: #fff url("../assets/logo.jpg") center / cover no-repeat;
-  border: 2px solid var(--cream);
+  background: url("../assets/logo.png") center / cover no-repeat;
 }
 
 .navbar__links {
@@ -117,7 +182,7 @@ button {
   margin: 0 0 0 auto;
   padding: 0;
   flex-wrap: wrap;
-  font-family: "Mate SC", var(--serif);
+  font-family: "Poppins", var(--serif);
   font-size: 0.85rem;
 }
 
@@ -134,15 +199,27 @@ button {
 
 .navbar__links a.active {
   opacity: 1;
-  color: #f2994a;
+  color: var(--highlight);
   text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 6px;
 }
 
+/* Inverted chip: the topbar itself is white, so the bell's own background
+   flips to navy (with a white icon) rather than sitting flat against it. */
 .navbar__bell {
   position: relative;
-  font-size: 1.15rem;
   flex-shrink: 0;
   cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy);
+  color: var(--white);
 }
 
 .navbar__badge {
@@ -154,6 +231,20 @@ button {
   border-radius: 50%;
   background: #e63946;
   border: 1.5px solid var(--navy);
+}
+
+/* Plays once when a report/concern notification pops the dropdown open on
+   its own (see admin.js's flashNotifBell) — catches the eye even if the
+   topbar isn't where a staffer is currently looking. Kept to one gentle
+   pulse (previously an oscillating double-bounce that read as glitchy). */
+@keyframes navbar-bell-flash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.navbar__bell--flash {
+  animation: navbar-bell-flash 0.35s ease-out 1;
 }
 
 .navbar__profile {
@@ -180,9 +271,7 @@ button {
   justify-content: center;
   padding: 60px 20px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(10, 14, 26, 0.5) 0%, rgba(10, 14, 26, 0.12) 45%, rgba(10, 14, 26, 0.5) 100%),
-    url("../assets/background.jpg") center / cover no-repeat;
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center / cover no-repeat;
 }
 
 /* ---------- Plain section (Forgot Password flow) ---------- */
@@ -193,7 +282,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 /* ---------- Auth card ---------- */
@@ -219,8 +308,8 @@ button {
 }
 
 .auth-card--outline {
-  border: 1.5px solid #2a2a2a;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(5, 122, 18, 0.25);
+  box-shadow: 0 2px 10px rgba(5, 122, 18, 0.08);
 }
 
 .auth-card--outline .auth-card__title {
@@ -249,9 +338,64 @@ button {
   gap: 16px;
 }
 
+.form-row--with-mi {
+  grid-template-columns: 1fr 80px 1fr;
+}
+
 .field {
   margin-bottom: 16px;
   text-align: left;
+}
+
+.field--narrow {
+  max-width: 140px;
+}
+
+.combobox {
+  position: relative;
+}
+
+.combobox__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.combobox__list[hidden] {
+  display: none;
+}
+
+.combobox__list li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.combobox__list li:hover,
+.combobox__list li:focus {
+  background: #f6f4ef;
+}
+
+.combobox__list li.combobox__empty {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.combobox__list li.combobox__empty:hover {
+  background: none;
 }
 
 .field label {
@@ -275,7 +419,75 @@ button {
 .field input:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
+}
+
+.field input.field-invalid,
+.field select.field-invalid,
+.field textarea.field-invalid,
+.field .combobox__trigger.field-invalid,
+.field .author-select__box.field-invalid {
+  border-color: #c0392b;
+}
+
+/* A hidden file input is flagged; its visible drop zone gets the outline. */
+.field:has(input[type="file"].field-invalid) .upload-drop {
+  border-color: #c0392b;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+.form-error {
+  color: #c0392b;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Password requirement checklist (account-setup.html) — was missing here
+   entirely (only citizen/admin had it), so it rendered as a bare unstyled
+   list with no red/green feedback. */
+.password-hint {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: -8px 0 16px;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.password-hint li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #c0392b;
+}
+
+.password-hint li input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: #2e7d32;
+  pointer-events: none;
+}
+
+.password-hint li.is-satisfied {
+  color: #2e7d32;
+}
+
+/* Only appears when something's missing, and only lists what's missing
+   (display: flex above would otherwise override [hidden]). */
+.password-hint[hidden],
+.password-hint--missing-only li.is-satisfied {
+  display: none;
+}
+
+.password-hint--missing-only {
+  flex-direction: column;
 }
 
 .field--code input {
@@ -328,9 +540,10 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.upload-drop:hover {
+.upload-drop:hover,
+.upload-drop--dragover {
   border-color: var(--navy);
-  background: rgba(20, 33, 61, 0.03);
+  background: rgba(5, 122, 18, 0.03);
 }
 
 .upload-drop__icon {
@@ -358,11 +571,231 @@ button {
   margin-bottom: 16px;
 }
 
+/* ---------- Multi-author select (Upload Ordinance) ---------- */
+
+.author-select {
+  position: relative;
+}
+
+/* Sits right under a taller, custom field like this one (not a native
+   single-line input), so the hint needs its own positive gap instead of
+   the default field-hint's negative margin-top made for a plain input. */
+.author-select + .field-hint {
+  margin-top: 8px;
+}
+
+.author-select__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 40px 8px 10px;
+  background: var(--white);
+  cursor: pointer;
+  position: relative;
+}
+
+.author-select__box:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.15);
+}
+
+.author-select__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.author-select__placeholder {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.author-select__tags:not(:empty) + .author-select__placeholder {
+  display: none;
+}
+
+.author-select__chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.author-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 12px;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.author-tag__remove {
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--white);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.author-tag__remove:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.author-select__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 20;
+  padding: 10px;
+}
+
+.author-select__panel[hidden] {
+  display: none;
+}
+
+.author-select__custom-row input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--text);
+}
+
+.author-select__custom-row input:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.15);
+}
+
+.author-select__roster {
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.author-select__roster li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  border-radius: 6px;
+}
+
+.author-select__roster li:hover {
+  background: #f2f1ec;
+}
+
+.author-select__roster li small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.author-select__check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--white);
+}
+
+.author-select__roster li.is-selected .author-select__check {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.author-select__panel__empty {
+  padding: 8px 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: default;
+}
+
 .form-links {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   margin: -8px 0 18px;
   font-size: 0.8rem;
+}
+
+.remember-me-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.remember-me-check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Show/hide eye button, added by main.js's setupPasswordVisibilityToggles
+   to every password field — wraps just the input, not its label. */
+.password-toggle-wrap {
+  position: relative;
+}
+
+.password-toggle-wrap input {
+  padding-right: 38px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text);
 }
 
 .form-links a {
@@ -394,7 +827,7 @@ button {
 }
 
 .btn:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 .btn:active {
@@ -432,7 +865,7 @@ button {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--heart);
+  background: var(--navy);
   color: var(--white);
   display: flex;
   align-items: center;
@@ -492,49 +925,174 @@ button {
 .ordinances-toolbar {
   display: flex;
   gap: 14px;
+  align-items: flex-start;
   margin-bottom: 20px;
 }
 
-.ordinances-toolbar select {
-  padding: 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.88rem;
-  background: var(--white);
-  color: var(--text);
+/* Show/Search By/Show (page size) live inside one panel behind a single
+   "Filters" button instead of three separate dropdowns, at every screen
+   width — see ordinances-list.js for the open/close logic. */
+.filters-dropdown {
+  position: relative;
+  flex-shrink: 0;
 }
 
-.sort-select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding: 11px 40px 11px 18px;
+.filters-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
   border: none;
   border-radius: 10px;
-  background-color: #8a7d91;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjYgOSAxMiAxNSAxOCA5Ij48L3BvbHlsaW5lPjwvc3ZnPg==");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 14px;
+  background: var(--navy);
   color: var(--white);
   font-size: 0.92rem;
   font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filters-dropdown__trigger:hover {
+  background: var(--navy-hover);
+}
+
+/* Smaller variant for a "Show" trigger sitting inside a dashboard card
+   header (next to its <h2>) instead of at page level. */
+.filters-dropdown__trigger--small {
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.filters-dropdown__chevron {
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
+.filters-dropdown__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.filters-dropdown__panel[hidden] {
+  display: none;
+}
+
+/* For a trigger sitting at the far right edge of the page (e.g. a dashboard
+   card's "Show" button) — opens leftward from the trigger instead of
+   rightward, so the panel doesn't push past the viewport edge and force a
+   horizontal scrollbar. */
+.filters-dropdown__panel--right {
+  left: auto;
+  right: 0;
+}
+
+.filters-dropdown__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filters-dropdown__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.filters-dropdown__field select {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  background: var(--white);
   cursor: pointer;
 }
 
-.sort-select:focus {
+.filters-dropdown__field select:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(119, 107, 130, 0.35);
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.15);
+}
+
+.filters-dropdown__clear {
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #c0392b;
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.filters-dropdown__clear:hover {
+  background: #a93226;
+}
+
+/* Floating "+ Upload Ordinance" button (Secretary only — see
+   ordinances-list.js) — fixed to the viewport so it's always reachable
+   without hunting for it in the toolbar. */
+.fab-upload-ordinance {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navy);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 50;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.fab-upload-ordinance:hover {
+  background: var(--navy-hover);
+  transform: scale(1.06);
+}
+
+.fab-upload-ordinance[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .fab-upload-ordinance {
+    right: 20px;
+    bottom: 20px;
+    width: 50px;
+    height: 50px;
+  }
 }
 
 .ordinances-search {
   flex: 1;
   display: flex;
   gap: 10px;
+  min-width: 0;
 }
 
 .ordinances-search input {
   flex: 1;
+  min-width: 0;
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -542,6 +1100,10 @@ button {
 }
 
 .ordinances-search button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 11px 26px;
   border: none;
   border-radius: 6px;
@@ -549,10 +1111,11 @@ button {
   color: var(--white);
   font-weight: 600;
   font-size: 0.88rem;
+  flex-shrink: 0;
 }
 
 .ordinances-search button:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 .ordinances-table-wrap {
@@ -595,6 +1158,12 @@ button {
   background: #f6f4ef;
 }
 
+.ordinances-table .status-badge {
+  display: inline-block;
+  width: auto;
+  padding: 5px 14px;
+}
+
 .ordinance-name {
   color: var(--text);
   font-weight: 600;
@@ -614,14 +1183,20 @@ button {
   color: var(--text);
 }
 
+/* For a pagination bar with no "Showing X-Y of Z" text alongside it —
+   centers the controls instead of space-between shoving a lone child left. */
+.pagination-bar--center {
+  justify-content: center;
+}
+
 .pagination-controls {
   display: flex;
   gap: 8px;
 }
 
 .pagination-controls button {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--white);
@@ -642,10 +1217,84 @@ button {
   cursor: default;
 }
 
+.pagination-controls button.active {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+/* "Page X of Y" — click to jump to a specific page (see pagination.js) */
+.pagination-jump-btn {
+  width: auto !important;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
 .ordinances-empty {
   text-align: center;
   padding: 40px 18px;
   color: var(--text-muted);
+}
+
+/* ---------- Skeleton loading placeholders ----------
+   A shimmering gray bar standing in for text/content that's still loading,
+   instead of a bare "Loading..." string, so a slow connection shows
+   something that already roughly matches the real layout rather than a
+   layout jump once data arrives. See skeletonTableRows()/skeletonCards()
+   in admin.js. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--plain-bg) 50%, var(--border) 75%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  height: 0.85em;
+  width: 100%;
+}
+
+.skeleton-text + .skeleton-text {
+  margin-top: 8px;
+}
+
+.skeleton-text--short {
+  width: 35%;
+}
+
+.skeleton-text--medium {
+  width: 65%;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-card:first-child {
+  border-top: none;
+}
+
+.skeleton-block {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
 }
 
 /* ---------- Ordinance detail ---------- */
@@ -677,9 +1326,10 @@ button {
 }
 
 .detail-title {
-  font-size: 1.4rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  margin: 0 0 18px;
+  margin: 0 0 20px;
+  color: var(--text);
 }
 
 .detail-meta {
@@ -730,8 +1380,7 @@ button {
 .doc-preview__seal {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #fff url("../assets/logo.jpg") center / cover no-repeat;
+  background: url("../assets/logo.png") center / cover no-repeat;
   flex-shrink: 0;
 }
 
@@ -763,8 +1412,53 @@ button {
 .doc-preview__line {
   height: 8px;
   border-radius: 3px;
-  background: #e3e1da;
+  background: var(--cream);
   margin-bottom: 8px;
+}
+
+.pdf-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0 0 26px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.pdf-preview__frame {
+  width: 100%;
+  height: 600px;
+  border: none;
+  display: block;
+  background: #f2f1ec;
+  /* Pages are canvases drawn by js/pdf-preview.js; the frame scrolls them. */
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.pdf-preview__page {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.pdf-preview__page:last-child {
+  margin-bottom: 0;
+}
+
+.pdf-preview__fallback {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.pdf-preview__note {
+  margin: -14px 0 20px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .download-btn {
@@ -781,14 +1475,14 @@ button {
 }
 
 .download-btn:hover {
-  background: var(--navy-dark);
+  background: var(--navy-hover);
 }
 
 /* ---------- Plain page (File Report / Submit Suggestion) ---------- */
 
 .plain-page {
   min-height: calc(100vh - 60px);
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   padding: 32px 28px 64px;
 }
 
@@ -838,7 +1532,13 @@ button {
 .field textarea:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
+}
+
+/* Ordinance title — wraps onto a couple of lines instead of a single-line
+   input that scrolls/truncates a long title out of view. */
+.field-textarea--title {
+  min-height: 56px;
 }
 
 .field select {
@@ -854,12 +1554,14 @@ button {
 .field select:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
 }
 
 .upload-drop--compact {
   max-width: 260px;
   padding: 20px 14px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .upload-drop__formats {
@@ -906,12 +1608,12 @@ button {
 
 .btn-clear,
 .btn-success {
-  background: #4caf50;
+  background: var(--navy);
 }
 
 .btn-clear:hover,
 .btn-success:hover {
-  background: #429a46;
+  background: var(--navy-hover);
 }
 
 /* ---------- Modal ---------- */
@@ -919,12 +1621,15 @@ button {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 14, 26, 0.55);
+  background: rgba(4, 40, 8, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 50;
+  /* Above the mobile sidebar drawer (60) and its backdrop (55) — a modal
+     (e.g. the Logout confirm) opened while the drawer is open must sit on
+     top of it, not get hidden behind it. */
+  z-index: 70;
 }
 
 .modal-overlay[hidden] {
@@ -940,6 +1645,13 @@ button {
   text-align: center;
   max-width: 360px;
   width: 100%;
+  /* Longer forms (Upload/Edit Ordinance: 6 fields + file picker) can be
+     taller than the viewport, especially on laptop-height screens — without
+     this, .modal-overlay's vertical centering just pushes the excess off
+     the top AND bottom of the screen with no way to reach it. Scroll inside
+     the card instead of the whole page so the overlay backdrop stays fixed. */
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 
 .modal-card--wide {
@@ -963,6 +1675,17 @@ button {
   width: auto;
   padding: 12px 30px;
   margin: 0 auto;
+}
+
+/* Grouped/stacked buttons (profile icon popup, unsaved-changes modal) —
+   auto-width-per-label above would size each button to its own text
+   ("Discard Changes" vs "Cancel"), leaving a ragged set of different
+   widths. These stack full-width instead, so every button in the group
+   matches the others. */
+.profile-card .btn,
+.stacked-buttons .btn {
+  width: 100%;
+  margin: 0;
 }
 
 .modal-close {
@@ -1030,11 +1753,12 @@ button {
   font-size: 1.2rem;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .profile-avatar--guest {
-  background: #d9dce3;
-  color: #6b7280;
+  background: var(--cream);
+  color: var(--navy);
   font-size: 1.6rem;
 }
 
@@ -1062,9 +1786,9 @@ button {
   display: block;
   width: 100%;
   padding: 12px 16px;
-  border: 1.5px solid #8fbf7a;
+  border: none;
   border-radius: 8px;
-  background: #776b82;
+  background: var(--sage);
   color: var(--white);
   font-size: 0.92rem;
   font-weight: 600;
@@ -1072,15 +1796,15 @@ button {
 }
 
 .btn-muted:hover {
-  background: #685d73;
+  background: var(--sage-dark);
 }
 
 .btn-danger {
-  background: #f07167;
+  background: #c0392b;
 }
 
 .btn-danger:hover {
-  background: #e35c51;
+  background: #a93226;
 }
 
 /* ---------- Notifications dropdown ---------- */
@@ -1089,7 +1813,10 @@ button {
   position: absolute;
   top: 140%;
   right: -10px;
-  width: 300px;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: min(480px, calc(100vh - 90px));
+  overflow-y: auto;
   background: var(--white);
   border-radius: 14px;
   box-shadow: var(--shadow);
@@ -1097,10 +1824,20 @@ button {
   text-align: left;
   z-index: 60;
   cursor: default;
+  animation: notif-pop-in 0.16s ease-out;
 }
 
 .notif-dropdown[hidden] {
   display: none;
+}
+
+/* Replays automatically each time the dropdown goes from display:none to
+   visible (manual click or the auto-pop-open on a fresh notification) — a
+   quick fade/settle instead of an instant snap, which is what made the
+   auto-pop read as glitchy alongside the bell flash. */
+@keyframes notif-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .notif-dropdown__title {
@@ -1110,26 +1847,89 @@ button {
   color: var(--text);
 }
 
+.notif-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notif-dropdown__header .notif-dropdown__title {
+  margin: 0 0 8px;
+}
+
+.notif-dropdown__clear-all {
+  background: none;
+  border: none;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.notif-dropdown__clear-all:hover {
+  text-decoration: underline;
+}
+
 .notif-dropdown__list {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .notif-dropdown__item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 8px;
   padding: 12px 0;
   border-top: 1px solid var(--border);
   font-size: 0.85rem;
   color: var(--text);
-  white-space: nowrap;
 }
 
 .notif-dropdown__item:first-child {
   border-top: none;
+}
+
+.notif-dropdown__content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+}
+
+.notif-dropdown__content:hover {
+  background: #f6f4ef;
+}
+
+.notif-dropdown__message {
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.notif-dropdown__dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notif-dropdown__dismiss:hover {
+  color: var(--text);
 }
 
 .notif-dropdown__time {
@@ -1138,6 +1938,59 @@ button {
   white-space: nowrap;
 }
 
+.notif-dropdown__view-all {
+  display: block;
+  text-align: center;
+  padding: 10px 0;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--link, var(--navy));
+  text-decoration: none;
+}
+
+.notif-dropdown__view-all:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Notifications (view-all page) ---------- */
+
+.notif-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.notif-page__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.notif-page__item:first-child {
+  border-top: none;
+}
+
+.notif-page__empty {
+  padding: 28px 22px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ---------- Create Citizen: header + card centered both ways on the page,
+   not just horizontally — approximates the viewport height minus the
+   topbar and .admin-content's own padding, scoped to this page only so it
+   doesn't touch the shared .admin-content layout every other page uses. ---------- */
+
 /* ---------- My Concerns/Suggestions list ---------- */
 
 .concerns-card {
@@ -1145,6 +1998,33 @@ button {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 6px 28px;
+}
+
+.reports-section {
+  margin-bottom: 24px;
+}
+
+/* Reports page: the three claim lists share one card, split by a divider. */
+.reports-group {
+  padding: 18px 0 4px;
+}
+
+.reports-group + .reports-group {
+  border-top: 2px solid var(--border);
+}
+
+.reports-group__title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.reports-section__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
 }
 
 .concern-row {
@@ -1158,6 +2038,20 @@ button {
 
 .concern-row:last-child {
   border-bottom: none;
+}
+
+.concern-row--with-category {
+  grid-template-columns: 1.6fr 1fr 1fr 0.8fr 0.9fr;
+}
+
+.concern-row__category {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.concern-row__category--none {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .concern-row__title {
@@ -1177,6 +2071,180 @@ button {
   justify-self: start;
 }
 
+/* ---------- Announcements list row: image, then title, then stacked
+   Edit/Delete — a dedicated layout, not .concern-row (shared with the
+   Concerns list), since this one puts the picture first and the actions
+   on top of each other instead of side by side. ---------- */
+
+.announcement-row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.announcement-row:last-child {
+  border-bottom: none;
+}
+
+.announcement-row__image {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.announcement-row__image--empty {
+  display: block;
+  background: var(--plain-bg);
+  border: 1px dashed var(--border);
+}
+
+.announcement-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.announcement-row__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.announcement-row__date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.announcement-row__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.announcement-row__actions .btn {
+  width: auto;
+  padding: 8px 22px;
+}
+
+/* ---------- Reports (Investigator's claimable queue) ---------- */
+
+.report-row {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-row:last-child {
+  border-bottom: none;
+}
+
+.report-row__top {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.report-row__claim {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.report-row__claim-btn {
+  width: auto;
+  padding: 6px 16px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 860px) {
+  .report-row__top {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* ---------- Questions (FAQs page's "Ask a Question", Staff/Admin side) ---------- */
+
+.question-row {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.question-row:last-child {
+  border-bottom: none;
+}
+
+.question-row__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.question-row__text {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.question-row__meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.question-row .status-badge {
+  width: auto;
+  flex-shrink: 0;
+  padding: 5px 14px;
+}
+
+.question-row__answer {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--plain-bg);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.question-row__answer-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.question-row__respond {
+  margin-top: 12px;
+}
+
+.question-row__respond textarea {
+  width: 100%;
+  min-height: 70px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.question-row__respond .btn {
+  width: auto;
+  margin-top: 8px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+}
+
 .status-badge {
   display: block;
   padding: 8px 18px;
@@ -1188,28 +2256,40 @@ button {
   width: 100%;
 }
 
+/* New Submission — grey */
 .status-badge--submitted {
-  background: #fbf7c4;
-  border: 1px solid #d8cf7a;
-  color: #7a6f1e;
+  background: #e2e2e2;
+  border: 1px solid #b8b8b8;
+  color: #4a4a4a;
 }
 
+/* In Action — yellow-green */
 .status-badge--with-remarks {
-  background: #d3d3d3;
-  border: 1px solid #b3b3b3;
-  color: #3a3a3a;
+  background: #e3edb8;
+  border: 1px solid #b9cf6c;
+  color: #56671c;
 }
 
+/* Resolved — green */
 .status-badge--resolved {
   background: #d3ecd9;
   border: 1px solid #a3d6b1;
   color: #226b3f;
 }
 
+/* Under Review — yellow */
 .status-badge--in-process {
-  background: #fbe3c4;
-  border: 1px solid #eec99a;
-  color: #a15d1c;
+  background: #fbf7c4;
+  border: 1px solid #d8cf7a;
+  color: #7a6f1e;
+}
+
+/* With Remarks — blue (closed, with the Investigator's remarks). Not the
+   same as .status-badge--with-remarks above, which is In Action's color. */
+.status-badge--remarked {
+  background: #dbe7f6;
+  border: 1px solid #9db8de;
+  color: #2b4f80;
 }
 
 /* ---------- My Reports list ---------- */
@@ -1231,47 +2311,123 @@ button {
   -webkit-appearance: none;
   -moz-appearance: none;
   padding: 10px 36px 10px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--navy);
   border-radius: 8px;
-  background-color: var(--white);
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=");
+  background-color: var(--navy);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjYgOSAxMiAxNSAxOCA5Ij48L3BvbHlsaW5lPjwvc3ZnPg==");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px;
-  color: var(--text);
+  color: var(--white);
   font-size: 0.85rem;
   cursor: pointer;
 }
 
 .reports-filter:focus {
   outline: none;
-  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(3, 172, 19, 0.4);
+}
+
+/* "Show [5/10/25/50/100]" — how many rows a paginated list renders per page. */
+.page-size-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 /* ---------- Report detail: evidence photo + notice + remarks ---------- */
 
 .evidence-photo {
-  width: 180px;
-  height: 140px;
-  border-radius: 8px;
-  background: #e3e1da;
-  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  min-height: 60px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--white);
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
   margin-top: 6px;
+}
+
+.evidence-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.evidence-photo-grid__item {
+  display: block;
+  width: 110px;
+  height: 110px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--cream);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Lightbox — clicking an evidence thumbnail overlays the full-size media on
+   the current page instead of navigating to it in a new tab. Reuses the
+   .modal-overlay/.modal-close plumbing (click-outside/close-button wiring
+   already generic in admin.js), just with a transparent, unpadded card. */
+.media-lightbox-card {
+  position: relative;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  max-width: min(90vw, 900px);
+  width: auto;
+}
+
+.media-lightbox-card .modal-close {
+  top: -36px;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--white);
+  font-size: 1.6rem;
+}
+
+.media-lightbox-card .modal-close:hover {
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--white);
+}
+
+.media-lightbox__body img,
+.media-lightbox__body video {
+  display: block;
+  max-width: 100%;
+  max-height: 85vh;
+  margin: 0 auto;
+  border-radius: 8px;
+}
+
+.evidence-photo-grid__item img,
+.evidence-photo-grid__item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .status-timeline__notice {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #eef1fb;
+  background: var(--cream);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 0.76rem;
-  color: #4a5a9e;
+  color: var(--navy);
   margin: 6px 0 20px;
 }
 
@@ -1324,8 +2480,8 @@ button {
 
 .field input[disabled],
 .field textarea[disabled] {
-  background: #dcdcdc;
-  color: #555;
+  background: var(--white);
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -1366,7 +2522,7 @@ button {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #7c6a99;
+  background: var(--accent);
   margin-top: 5px;
   flex-shrink: 0;
   position: relative;
@@ -1415,7 +2571,7 @@ button {
 }
 
 .profile-sidebar {
-  background: #bdbdbd;
+  background: var(--white);
   border-radius: var(--radius);
   padding: 24px 22px;
   min-height: 320px;
@@ -1436,7 +2592,7 @@ button {
   margin-bottom: 10px;
   border: 2px solid transparent;
   border-radius: 4px;
-  background: #d4d4d4;
+  background: var(--white);
   color: var(--text);
   font-weight: 700;
   font-size: 0.95rem;
@@ -1444,12 +2600,13 @@ button {
 }
 
 .profile-tab:hover {
-  background: #dcdcdc;
+  background: var(--highlight);
 }
 
 .profile-tab.active {
-  background: #ededed;
-  border-color: #1f2430;
+  background: var(--white);
+  border-color: var(--navy);
+  color: var(--navy);
 }
 
 .profile-sidebar__cancel {
@@ -1526,6 +2683,32 @@ button {
     row-gap: 10px;
   }
 
+  /* The auth pages' navbar (login, forgot/reset password, verify code) has
+     no .navbar__links to wrap onto its own row — just the brand and this
+     label — so it stays on one row on mobile too instead of wrapping,
+     shrunk just enough to fit both side by side. :has() scopes this to
+     those pages only, leaving every other page's .navbar (with real nav
+     links that do need to wrap) untouched. */
+  .navbar:has(.navbar__portal-label) {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .navbar:has(.navbar__portal-label) .navbar__brand {
+    gap: 8px;
+    font-size: 1rem;
+  }
+
+  .navbar:has(.navbar__portal-label) .navbar__logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .navbar__portal-label {
+    font-size: 0.78rem;
+  }
+
   .navbar__links {
     order: 3;
     width: 100%;
@@ -1540,14 +2723,82 @@ button {
 
   .form-row {
     grid-template-columns: 1fr;
+    /* Each stacked .field already carries its own margin-bottom; without
+       this, the grid's row-gap (meant for the desktop 2-column layout)
+       stacks on top of it too, doubling the space between fields that
+       shared a row versus fields between separate rows. */
+    gap: 0;
   }
 
   .auth-card {
     padding: 26px 22px 22px;
   }
 
-  .ordinances-toolbar {
-    flex-direction: column;
+  /* Belt-and-suspenders against any single element (an unshrinkable
+     toolbar, a long pagination bar) pushing the whole page wider than the
+     viewport and creating a page-level horizontal scrollbar — elements
+     with their own overflow-x: auto still scroll internally. */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  /* First/Prev/page-numbers/Next/Last/"Page X of Y" can't all fit on one
+     line on a phone — wrap instead of overflowing. */
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Investigator Dashboard's "Report Timeline (Mine)" collapses to just
+     Days Open + Status (columns 2 and 3) — tap a row to go to that report
+     (see investigator-dashboard.js), same place the arrow link goes. */
+  .recent-reports-table--aging thead th:nth-child(1),
+  .recent-reports-table--aging thead th:nth-child(4),
+  .recent-reports-table--aging tbody td:nth-child(1),
+  .recent-reports-table--aging tbody td:nth-child(4) {
+    display: none;
+  }
+
+  .recent-reports-table--aging tbody tr {
+    cursor: pointer;
+  }
+
+  /* Icon-only on narrow screens — "Filters"/"Search" text and the chevron
+     take up room the search input needs more. 16px on the select keeps
+     mobile Safari from auto-zooming when it's tapped. */
+  .filters-dropdown__trigger {
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  .filters-dropdown__trigger-text,
+  .filters-dropdown__chevron {
+    display: none;
+  }
+
+  .filters-dropdown__field select {
+    font-size: 16px;
+  }
+
+  .ordinances-search input,
+  .ordinances-search button {
+    font-size: 16px;
+    border-radius: 8px;
+  }
+
+  .ordinances-search input {
+    min-width: 0;
+    flex: 1;
+    padding: 12px 16px;
+  }
+
+  .ordinances-search button {
+    padding: 12px;
+  }
+
+  .ordinances-search__text {
+    display: none;
   }
 
   .detail-meta {
@@ -1559,7 +2810,8 @@ button {
     margin-top: 8px;
   }
 
-  .concern-row {
+  .concern-row,
+  .concern-row--with-category {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -1568,6 +2820,25 @@ button {
   .status-badge {
     justify-self: start;
     width: auto;
+  }
+
+  .announcement-row {
+    grid-template-columns: 56px 1fr;
+    gap: 10px 14px;
+  }
+
+  .announcement-row__image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .announcement-row__actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+
+  .announcement-row__actions .btn {
+    flex: 1;
   }
 
   .concern-detail {
@@ -1603,6 +2874,11 @@ button {
   color: var(--white);
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 50;
 }
 
 .admin-sidebar.is-collapsed {
@@ -1617,18 +2893,16 @@ button {
 }
 
 .admin-sidebar__logo {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  width: 54px;
+  height: 54px;
   flex-shrink: 0;
-  background: #fff url("../assets/logo.jpg") center / cover no-repeat;
-  border: 2px solid var(--cream);
+  background: url("../assets/logo.png") center / cover no-repeat;
 }
 
 .admin-sidebar__brand-text {
   display: flex;
   flex-direction: column;
-  font-family: "Mate SC", var(--serif);
+  font-family: "Poppins", var(--serif);
   line-height: 1.5;
 }
 
@@ -1660,6 +2934,12 @@ button {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
+/* Sidebar nav icons — single-color SVGs using currentColor, so they follow
+   the link's own color (dim/hover/active) with no extra rules needed. */
+.nav-icon {
+  flex-shrink: 0;
+}
+
 .admin-sidebar__nav a:hover {
   color: var(--white);
   background: rgba(255, 255, 255, 0.05);
@@ -1668,7 +2948,59 @@ button {
 .admin-sidebar__nav a.active {
   color: var(--white);
   background: rgba(255, 255, 255, 0.07);
-  border-left-color: #f2994a;
+  border-left-color: var(--accent);
+}
+
+/* ---------- Sidebar groups (Reports) — collapsible dropdowns, same as the
+   Admin Portal's. The group containing the current page starts expanded
+   (see the server-rendered aria-expanded/hidden state on each page);
+   toggling after that is handled in admin.js. ---------- */
+
+.admin-sidebar__group-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 13px 20px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-sidebar__group-toggle:hover {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-sidebar__group:has(a.active) > .admin-sidebar__group-toggle {
+  color: var(--white);
+}
+
+.admin-sidebar__chevron {
+  margin-left: auto;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.admin-sidebar__group-toggle[aria-expanded="true"] .admin-sidebar__chevron {
+  transform: rotate(180deg);
+}
+
+.admin-sidebar__subnav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-sidebar__subnav a {
+  padding-left: 46px;
 }
 
 .admin-sidebar__logout {
@@ -1692,7 +3024,7 @@ button {
 .admin-main {
   flex: 1;
   min-width: 0;
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
 }
 
 .admin-topbar {
@@ -1701,16 +3033,24 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 28px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  background: var(--navy-darker);
+  color: var(--white);
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
 .admin-topbar__menu-btn {
   border: none;
   background: none;
   font-size: 1.25rem;
-  color: var(--text);
+  color: var(--white);
   line-height: 1;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-topbar__profile {
@@ -1721,11 +3061,26 @@ button {
 }
 
 .admin-topbar__avatar {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--cream-dark);
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .admin-topbar__profile-btn {
@@ -1753,7 +3108,8 @@ button {
 }
 
 .admin-topbar__name small {
-  color: var(--text-muted);
+  color: inherit;
+  opacity: 0.75;
   font-size: 0.78rem;
 }
 
@@ -1889,7 +3245,7 @@ button {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #e4e6ea;
+  background: var(--cream);
   margin: 0 auto 14px;
   display: flex;
   align-items: center;
@@ -1923,7 +3279,7 @@ button {
 }
 
 .edit-account-card__row:nth-child(odd) {
-  background: #e9e9ec;
+  background: var(--plain-bg);
 }
 
 .edit-account-card__row dt {
@@ -1956,7 +3312,7 @@ button {
 }
 
 .edit-account-btn--disable {
-  background: #e2726b;
+  background: #c0392b;
 }
 
 .edit-account-btn--type {
@@ -1964,7 +3320,7 @@ button {
 }
 
 .edit-account-btn--reset {
-  background: #4caf6b;
+  background: var(--sage);
 }
 
 /* ---------- Reports Dashboard ---------- */
@@ -1980,13 +3336,19 @@ button {
 
 .dash-header__title {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--text);
 }
 
 .dash-dropdown {
   position: relative;
+  /* Direct flex item of .dash-header — needs its own min-width: 0 or its
+     default min-width: auto blocks the shrink-to-fit chain from ever
+     reaching .dash-dropdown__btn's label, even though that's already
+     set up to truncate. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dash-dropdown__btn {
@@ -1997,10 +3359,21 @@ button {
   border-radius: 8px;
   background: var(--white);
   color: var(--text);
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
+  max-width: 100%;
+}
+
+/* The label (e.g. a custom date range like "September 7, 2026 - September
+   13, 2026") can be longer than the smallest supported screen can fit —
+   truncate it with an ellipsis instead of forcing the button (and the
+   page) wider than the viewport. */
+.dash-dropdown__btn > span:not(.dash-dropdown__chevron) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .dash-dropdown__btn:hover {
@@ -2050,6 +3423,74 @@ button {
   color: var(--white);
 }
 
+/* Top-level date filter + Clear Filters button, grouped so they wrap as a
+   unit on narrow screens instead of the button ending up on its own row. */
+.dash-header__filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dash-header__clear-btn {
+  width: auto;
+  padding: 11px 16px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* Per-graph filter dropdowns (Heatmap/Category/Status/Investigator) — same
+   widget, smaller, so it fits inline next to a card's <h2>. */
+.dash-dropdown--small .dash-dropdown__btn--small {
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  gap: 5px;
+}
+
+/* The custom "Date From - Date To" range — lives as the last item in the
+   top filter's dropdown, below the preset list. Clicks inside it must not
+   bubble to the document-level listener that closes every open dropdown
+   (see reports-dashboard.js), or picking a date would close the menu. */
+.dash-dropdown-menu__custom {
+  cursor: default;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 10px !important;
+}
+
+.dash-dropdown-menu__custom:hover {
+  background: none;
+}
+
+.dash-dropdown-menu__custom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dash-dropdown-menu__custom-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dash-dropdown-menu__custom-row input[type="date"] {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.dash-dropdown-menu__custom .btn {
+  width: 100%;
+  padding: 8px;
+  font-size: 0.82rem;
+}
+
 .dash-row-top {
   display: grid;
   grid-template-columns: 2.1fr 1fr;
@@ -2057,12 +3498,69 @@ button {
   align-items: start;
 }
 
+/* Reports Dashboard (Barangay Captain) only — Recent Reports was removed so
+   the freed space now goes to the stat cards + the charts below, which
+   shift straight up into it instead of being pushed down by a table. */
+.dash-row-top--full {
+  display: block;
+}
+
+/* Qualified as .dash-stats.dash-stats--row (two classes) rather than just
+   .dash-stats--row — the base .dash-stats rule below is also a single
+   class, so at equal specificity its later position in the stylesheet was
+   winning the cascade and silently overriding this grid with its own
+   flex-column, which is what kept these 5 cards stacked instead of in a row. */
+.dash-stats.dash-stats--row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+/* Compact, horizontal layout (icon beside the label/value instead of above
+   it) so all 5 cards read at a glance without pushing the charts below the
+   fold — the stacked, full-padding layout .stat-card uses elsewhere is too
+   tall once there are this many cards in a row. */
+.dash-stats--row .stat-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.dash-stats--row .stat-card__icon {
+  width: 30px;
+  height: 30px;
+  font-size: 0.9rem;
+}
+
+.dash-stats--row .stat-card__label {
+  font-size: 0.68rem;
+}
+
+.dash-stats--row .stat-card__value {
+  font-size: 1.15rem;
+  margin: 1px 0;
+}
+
+.dash-stats--row .stat-card__delta {
+  font-size: 0.66rem;
+}
+
 .dash-row-bottom {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 20px;
   margin-top: 20px;
-  align-items: start;
+  /* stretch (grid's default) rather than start — keeps the heatmap and
+     category cards the same height and bottom-aligned even when one has
+     more content (e.g. a long category legend) than the other. */
+  align-items: stretch;
+}
+
+/* A single full-width card row (e.g. Concerns/Suggestions by Category,
+   once its dashboard's heatmap card is removed) — no grid needed. */
+.dash-row-single {
+  margin-top: 20px;
 }
 
 .dash-card {
@@ -2070,6 +3568,11 @@ button {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px 22px;
+  /* Grid items default to min-width: auto, which refuses to shrink below
+     the recent-reports table's intrinsic width and blows out the whole
+     row (and the page) instead of letting .ordinances-table-wrap's own
+     overflow-x: auto handle it. */
+  min-width: 0;
 }
 
 .dash-card__header {
@@ -2088,43 +3591,94 @@ button {
   color: var(--text);
 }
 
+.dash-card__subtitle {
+  margin: -8px 0 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .recent-reports-table th,
 .recent-reports-table td {
   font-size: 0.82rem;
 }
 
-.recent-reports-table .status-pill {
+/* Was scoped to `.recent-reports-table .status-pill`, so anywhere else this
+   class was used (report-detail's Status pill, concern-detail's) got only
+   the background/text color below with no padding or border-radius — it
+   just looked like highlighted text rather than an actual pill. */
+.status-pill {
   display: inline-block;
   padding: 5px 12px;
   border-radius: 5px;
+  border: 1px solid transparent;
   font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
+/* New Submission — grey */
 .status-pill--new {
+  background: #e2e2e2;
+  border-color: #b8b8b8;
+  color: #4a4a4a;
+}
+
+/* Under Review — yellow */
+.status-pill--in-process {
   background: #fbf7c4;
+  border-color: #d8cf7a;
   color: #7a6f1e;
 }
 
-.status-pill--in-process {
-  background: #fbe3c4;
-  color: #a15d1c;
-}
-
+/* Resolved — green */
 .status-pill--resolved {
   background: #d3ecd9;
+  border-color: #a3d6b1;
   color: #226b3f;
 }
 
+/* In Action — yellow-green */
 .status-pill--remarks {
-  background: #d3d3d3;
-  color: #3a3a3a;
+  background: #e3edb8;
+  border-color: #b9cf6c;
+  color: #56671c;
+}
+
+/* With Remarks — blue */
+.status-pill--remarked {
+  background: #dbe7f6;
+  border-color: #9db8de;
+  color: #2b4f80;
+}
+
+/* Report Timeline "Days Open" age pills — 0-5/6-10/11-15/16+ days */
+.aging-pill--green {
+  background: #d3ecd9;
+  border-color: #a3d6b1;
+  color: #226b3f;
+}
+
+.aging-pill--yellow {
+  background: #fbf7c4;
+  border-color: #d8cf7a;
+  color: #7a6f1e;
+}
+
+.aging-pill--orange {
+  background: #fbe3c4;
+  border-color: #e0ad6e;
+  color: #8a4e12;
+}
+
+.aging-pill--red {
+  background: #f8d4d4;
+  border-color: #e39b9b;
+  color: #8a2222;
 }
 
 .recent-reports-table__action {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--white);
@@ -2136,6 +3690,23 @@ button {
 
 .recent-reports-table__action:hover {
   background: #f2f1ec;
+}
+
+.recent-reports-table__view-btn {
+  display: inline-block;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--navy);
+  color: var(--white);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.recent-reports-table__view-btn:hover {
+  background: var(--navy-hover);
 }
 
 .dash-pagination {
@@ -2169,6 +3740,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
 }
 
 .stat-card {
@@ -2193,7 +3765,7 @@ button {
 }
 
 .stat-card__icon--total {
-  background: #dde3fb;
+  background: var(--cream-dark);
 }
 
 .stat-card__icon--new {
@@ -2210,6 +3782,10 @@ button {
 
 .stat-card__icon--remarks {
   background: #e2e2e2;
+}
+
+.stat-card__icon--remarked {
+  background: #dbe7f6;
 }
 
 .stat-card__body {
@@ -2263,15 +3839,50 @@ button {
   color: #d64545;
 }
 
-/* Incident heatmap (stylized placeholder, not a live map) */
+/* Incident heatmap — real Leaflet + OpenStreetMap map (see js/heatmap.js) */
 
+/* Column layout so the map (flex: 1 below) is what absorbs the extra height
+   .dash-row-bottom's align-items: stretch gives this card when the sibling
+   category card's legend is taller — the map grows instead of leaving dead
+   space under it, and the two cards still end up the same overall height. */
+.heatmap-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* z-index: 0 traps Leaflet's internal panes/controls (which climb to ~1000)
+   in a local stacking context, so the map can't paint over the page's
+   modal overlay (z-index 70) or the sidebar. */
 .heatmap-canvas {
   position: relative;
+  z-index: 0;
   border-radius: 8px;
   overflow: hidden;
-  height: 260px;
+  flex: 1;
+  min-height: 260px;
   background: linear-gradient(135deg, #eef1e6 0%, #e3ead9 45%, #e9e4d3 100%);
   cursor: pointer;
+}
+
+.heatmap-canvas .leaflet-container {
+  height: 100%;
+  background: #e8eae6;
+  font: inherit;
+}
+
+.heatmap-canvas .leaflet-control-attribution {
+  font-size: 0.62rem;
+}
+
+/* Keep the period dropdown (in the card/modal header, a sibling above the
+   map) and its open menu clickable over the trapped map. */
+.heatmap-card .dash-card__header {
+  position: relative;
+  z-index: 1;
+}
+
+.heatmap-card .dash-dropdown-menu {
+  z-index: 30;
 }
 
 .heatmap-canvas:hover .heatmap-canvas__expand {
@@ -2290,14 +3901,16 @@ button {
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.85rem;
   color: var(--text);
-  z-index: 2;
-  opacity: 0.75;
+  z-index: 1100;
+  opacity: 0.85;
+  pointer-events: none;
   transition: opacity 0.15s ease;
 }
 
@@ -2312,17 +3925,89 @@ button {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   padding: 4px 9px;
   border-radius: 5px;
-  z-index: 2;
+  z-index: 1100;
+  pointer-events: none;
 }
 
-.heatmap-canvas svg {
+.heatmap-canvas__empty {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: rgba(247, 246, 241, 0.82);
+  z-index: 1050;
+  pointer-events: none;
+}
+
+/* Hover tooltip on a heat spot (see heatmap.js's heatmapTooltipHtml) —
+   the spot's location, total, and each ordinance violated there with its
+   count. */
+.leaflet-tooltip.heatmap-tip {
+  width: max-content;
+  max-width: 300px;
+  white-space: normal;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.heatmap-tip__title {
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.heatmap-tip__total {
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.heatmap-tip__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.heatmap-tip__hint {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.heatmap-tip__list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.heatmap-tip__list b {
+  flex-shrink: 0;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--highlight);
+  color: var(--navy);
+  text-align: center;
+  font-size: 0.74rem;
+}
+
+.heatmap-tip__more {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .heatmap-legend {
@@ -2387,6 +4072,18 @@ button {
   pointer-events: none;
 }
 
+.pie-chart__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .pie-legend {
   list-style: none;
   margin: 0;
@@ -2394,6 +4091,11 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Lets the legend give way to the pie rather than forcing
+     .category-card__body to wrap the whole legend below it — the label
+     itself truncates (see .pie-legend__label) instead. */
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
 .pie-legend li {
@@ -2403,7 +4105,14 @@ button {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text);
+  min-width: 0;
+}
+
+.pie-legend__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .pie-legend__dot {
@@ -2413,6 +4122,307 @@ button {
   flex-shrink: 0;
 }
 
+/* ---------- Reports by Category: SVG pie, hover/focus tooltip, expand
+   modal (dedicated classes — not shared with .pie-chart/.pie-legend above,
+   which Concerns by Category on secretary-dashboard.html still uses as a
+   plain conic-gradient div) ---------- */
+
+.dash-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pie-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+}
+
+.pie-expand-btn:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.category-pie {
+  display: block;
+  width: 210px;
+  height: 210px;
+  overflow: visible;
+}
+
+.category-pie__wedge {
+  stroke: var(--white);
+  stroke-width: 1;
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.category-pie__wedge:hover,
+.category-pie__wedge:focus-visible {
+  transform: scale(1.035);
+  filter: brightness(1.08);
+}
+
+.category-pie__label {
+  font-size: 7px;
+  font-weight: 700;
+  fill: var(--white);
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 0.6px;
+  paint-order: stroke fill;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.category-pie__empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Floating hover/focus tooltip — positioned via JS next to the cursor
+   (hover) or the wedge's centroid (keyboard focus). */
+.chart-tooltip {
+  position: fixed;
+  z-index: 300;
+  pointer-events: none;
+  background: var(--text);
+  color: var(--white);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  max-width: 220px;
+}
+
+.chart-tooltip strong {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-bottom: 2px;
+}
+
+.chart-tooltip span {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* Expand modal — the big pie plus every category's percent and count,
+   always visible (no hover needed here). */
+.category-pie-modal__card {
+  max-width: 640px;
+  text-align: left;
+}
+
+.category-pie-modal__body {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.category-pie--large {
+  width: 280px;
+  height: 280px;
+}
+
+.category-pie-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.category-pie-modal__item {
+  display: flex;
+  flex-direction: column;
+}
+
+.category-pie-modal__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-pie-modal__chevron {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.category-pie-modal__item--open .category-pie-modal__chevron {
+  transform: rotate(180deg);
+}
+
+/* Ordinances belonging to this category, revealed when its row is clicked —
+   one dropdown per category rather than a single shared panel, so several
+   can be open at once. */
+.category-pie-modal__sublist {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 21px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.category-pie-modal__sublist li {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.category-pie-modal__sublist-empty {
+  font-style: italic;
+}
+
+.category-pie-modal__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-pie-modal__list-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-pie-modal__list-value {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* Reports by Status + Investigator Performance — side by side, same
+   2-column pattern as .dash-row-bottom above. */
+
+.dash-row-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .dash-row-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 48px;
+  height: 220px;
+  padding: 16px 16px 0;
+  /* Wrapping would squash the bars into half the fixed height per row,
+     breaking the height-encodes-value chart, so scroll horizontally
+     within the card instead of wrapping or blowing out the page —
+     same pattern as .ordinances-table-wrap. */
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.status-bar-chart__col {
+  flex: 1 0 54px;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.status-bar-chart__count {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.status-bar-chart__bar {
+  width: 100%;
+  max-width: 68px;
+  border-radius: 8px 8px 0 0;
+  min-height: 4px;
+  transition: height 0.25s ease;
+}
+
+.status-bar-chart__bar--new {
+  background: #9aa0a6;
+}
+
+.status-bar-chart__bar--process {
+  background: #e8c547;
+}
+
+.status-bar-chart__bar--remarks {
+  background: #a8c957;
+}
+
+.status-bar-chart__bar--resolved {
+  background: #4caf7d;
+}
+
+.status-bar-chart__bar--remarked {
+  background: #5b8fd1;
+}
+
+.status-bar-chart__label {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.status-bar-chart__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 980px) {
   .dash-row-top,
   .dash-row-bottom {
@@ -2420,20 +4430,473 @@ button {
   }
 }
 
-.heatmap-modal-card {
-  max-width: 1400px;
-  width: 94vw;
-  text-align: left;
-  padding: 26px 30px 30px;
+/* ---------- Geospatial Analysis page (geo-analysis.html) + the dashboard's summary ---------- */
+/* Figures come from js/geo-analysis.js. */
+
+.geo-back {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--link);
 }
 
-.heatmap-modal-card .dash-card__header h2 {
-  font-size: 1.15rem;
+.geo-filters__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
-.heatmap-modal-back {
+.geo-filters__field input[type="date"] {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.geo-filters__custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.geo-filters__apply {
+  width: auto;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+}
+
+.geo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* The map stays in view (under the sticky top bar) while the longer
+   analysis panel beside it scrolls with the page. */
+.geo-layout__map {
+  position: sticky;
+  top: 84px;
+}
+
+.geo-layout .heatmap-canvas--large {
+  height: clamp(380px, calc(100vh - 250px), 820px);
+}
+
+.geo-map-hint {
+  margin-left: auto;
+  font-style: italic;
+}
+
+.geo-panel {
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.geo-panel > .geo-section:first-child,
+.geo-panel > .geo-tiles:first-child {
+  margin-top: 0;
+}
+
+/* On the page there's room for all four summary tiles in one row. */
+.geo-panel > .geo-tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1500px) {
+  .geo-panel > .geo-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .geo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-layout__map {
+    position: static;
+  }
+
+  .geo-layout .heatmap-canvas--large {
+    height: clamp(320px, 55vh, 600px);
+  }
+
+  .geo-map-hint {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}
+
+/* Reports Dashboard: the heatmap card spans the row — map on the left, the
+   period's headline figures on the right. */
+.heatmap-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  gap: 22px;
+  flex: 1;
+}
+
+.heatmap-card__map {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.heatmap-card__map .heatmap-canvas {
+  min-height: 300px;
+}
+
+.geo-summary {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.86rem;
+}
+
+.geo-summary h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.geo-summary h3 small {
+  margin-left: 6px;
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.geo-summary__facts {
+  margin: 12px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.geo-summary__facts > div {
+  padding: 8px 12px;
+  background: var(--green-mist);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.geo-summary__facts dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.geo-summary__facts dd {
+  margin: 2px 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.geo-summary__facts dd b {
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.geo-summary__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.geo-summary__facts dd > span:last-child {
+  white-space: nowrap;
+}
+
+.geo-summary__empty {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+}
+
+.geo-summary__link {
+  margin-top: auto;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .heatmap-card__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Reports by Category / by Status / Investigator Performance share one row
+   on a wide screen instead of two rows of half-width cards. */
+.dash-row-charts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
   margin-top: 20px;
+  align-items: stretch;
 }
+
+@media (max-width: 1300px) {
+  .dash-row-charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-row-charts > .category-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .dash-row-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.geo-filter-chip {
+  margin: 0 0 10px;
+  padding: 7px 12px;
+  background: var(--highlight);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.geo-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.geo-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--green-mist);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.geo-tile__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.geo-tile__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.geo-tile__note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.geo-tile__note b {
+  color: var(--navy);
+}
+
+.geo-section {
+  margin-top: 18px;
+}
+
+.geo-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.geo-section h4 {
+  margin: 14px 0 6px;
+  font-size: 0.82rem;
+}
+
+.geo-section h3 small,
+.geo-section h4 small {
+  margin-left: 6px;
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.geo-section__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.geo-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--link);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.geo-link:hover {
+  text-decoration: underline;
+}
+
+.geo-profile {
+  padding: 12px 14px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+
+.geo-findings {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.55;
+}
+
+.geo-findings li + li {
+  margin-top: 4px;
+}
+
+.geo-findings__label {
+  color: var(--text-muted);
+}
+
+.geo-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.geo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(50px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 6px;
+}
+
+.geo-row--clickable {
+  cursor: pointer;
+}
+
+.geo-row--clickable:hover,
+.geo-row--clickable:focus-visible,
+.geo-row.is-active {
+  background: var(--highlight);
+}
+
+.geo-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geo-row__track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  overflow: hidden;
+}
+
+.geo-row__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.geo-row__value {
+  min-width: 78px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.geo-row__value b,
+.geo-table td b {
+  color: var(--text);
+}
+
+.geo-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.geo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.geo-table th,
+.geo-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.geo-table th {
+  background: var(--green-mist);
+  font-size: 0.76rem;
+}
+
+.geo-table tbody tr {
+  cursor: pointer;
+}
+
+.geo-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.geo-table tbody tr:hover,
+.geo-table tbody tr:focus-visible,
+.geo-table tbody tr.is-active {
+  background: var(--highlight);
+}
+
+.geo-table td {
+  color: var(--text-muted);
+}
+
+.geo-table td:first-child {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.geo-table__ordinance {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.geo-sort {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.geo-sort.is-active {
+  color: var(--navy);
+}
+
 
 /* ---------- Reports Management (search + filters + list) ---------- */
 
@@ -2456,7 +4919,7 @@ button {
 .reports-search-input:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 122, 18, 0.12);
 }
 
 .reports-search-btn {
@@ -2467,6 +4930,7 @@ button {
 
 .reports-filters-row {
   display: flex;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 20px;
   flex-wrap: wrap;
@@ -2476,13 +4940,63 @@ button {
   min-width: 170px;
 }
 
+.reports-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.reports-controls > .reports-filters-row {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.reports-controls > .reports-search-row {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.reports-controls > #downloadResolvedBtn {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .reports-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .reports-controls > .reports-search-row {
+    order: -1;
+    margin-bottom: 18px;
+  }
+
+  .reports-controls > .reports-filters-row {
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+}
+
 @media (max-width: 860px) {
   .reports-search-row {
-    flex-direction: column;
+    gap: 10px;
+  }
+
+  .reports-search-input {
+    min-width: 0;
+    font-size: 16px;
   }
 
   .reports-search-btn {
-    width: 100%;
+    width: auto;
+    padding: 13px 22px;
+    font-size: 16px;
   }
 }
 
@@ -2495,7 +5009,7 @@ button {
 /* ---------- Report detail (view/edit) ---------- */
 
 .report-detail-page {
-  background: var(--plain-bg);
+  background: var(--site-bg, url("../assets/barangay hall 5 pix.png")) center center / cover no-repeat fixed;
   min-height: calc(100vh - 65px);
   padding: 32px 28px 64px;
 }
@@ -2510,12 +5024,10 @@ button {
 }
 
 .report-detail-title {
-  text-align: center;
-  font-size: 1.15rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  margin: 0 0 24px;
+  margin: 0 0 20px;
+  color: var(--text);
 }
 
 .report-detail-side {
@@ -2537,8 +5049,15 @@ button {
   color: var(--text);
 }
 
+.status-edit-hint {
+  margin: -10px 0 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .status-edit-row .status-pill,
-.status-edit-row .reports-filter {
+.status-edit-row .reports-filter,
+.status-edit-row .detail-title {
   margin-right: auto;
 }
 
@@ -2553,6 +5072,19 @@ button {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.status-edit-row .btn-muted {
+  width: auto;
+  padding: 6px 16px;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.status-edit-row .status-badge {
+  width: auto;
+  flex-shrink: 0;
+  padding: 5px 14px;
 }
 
 .status-edit-btn:hover {
@@ -2582,13 +5114,18 @@ button {
 }
 
 .status-edit-remarks:disabled {
-  background: #f0efe9;
+  background: var(--plain-bg);
   color: var(--text-muted);
   cursor: not-allowed;
 }
 
 .back-to-reports-btn {
   display: block;
+}
+
+/* Download Report (Investigator only) sits above Back to Reports. */
+#downloadReportBtn {
+  margin-bottom: 10px;
 }
 
 @media (max-width: 860px) {
@@ -2650,7 +5187,7 @@ button {
 
 .folder-icon-btn--delete:hover {
   background: #fbe3e1;
-  border-color: #e2726b;
+  border-color: #c0392b;
 }
 
 .folder-chip {
@@ -2721,4 +5258,642 @@ button {
   .concerns-page-layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- Mobile navigation (sidebar becomes an off-canvas drawer) ----------
+   Same approach as the Admin portal — see admin/css/style.css for the full
+   explanation. Staff shares the same .admin-shell/.admin-sidebar markup. */
+@media (max-width: 900px) {
+  .admin-shell {
+    position: relative;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(230px, 80vw);
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    display: flex !important;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
+  }
+
+  .admin-sidebar.is-collapsed {
+    transform: translateX(0);
+    display: flex !important;
+  }
+
+  .admin-content {
+    padding: 18px 16px 40px;
+  }
+
+  .admin-toolbar {
+    gap: 10px;
+  }
+
+  .admin-select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .concerns-page-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 40, 8, 0.45);
+    z-index: 55;
+  }
+
+  .admin-sidebar-backdrop.is-visible {
+    display: block;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-topbar {
+    padding: 12px 14px;
+  }
+
+  .admin-topbar__menu-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.1rem;
+  }
+
+  .admin-topbar__profile-btn {
+    gap: 6px;
+  }
+
+  .admin-topbar__avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-content {
+    padding: 14px 12px 26px;
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-select {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .admin-sidebar__brand {
+    padding: 18px 16px 20px;
+  }
+
+  .admin-sidebar__nav a,
+  .admin-sidebar__group-toggle,
+  .admin-sidebar__logout {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-sidebar__subnav a {
+    padding-left: 38px;
+  }
+
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 12px 14px;
+  }
+}
+
+/* ---------- Small phones: tighten spacing, keep touch targets usable ---------- */
+@media (max-width: 480px) {
+  .admin-topbar {
+    padding: 12px 14px;
+  }
+
+  .admin-content {
+    padding: 14px 12px 32px;
+  }
+
+  .auth-card {
+    padding: 20px 16px 18px;
+  }
+
+  .modal-card,
+  .edit-account-card {
+    max-width: calc(100vw - 32px);
+  }
+
+  .btn,
+  .admin-select,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  .admin-table {
+    font-size: 0.82rem;
+  }
+}
+
+/* ---------- Ordinance / Resolution type badge (ordinances list) ---------- */
+
+.doc-kind {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doc-kind--ordinance {
+  background: var(--cream);
+  color: var(--navy-dark);
+}
+
+.doc-kind--resolution {
+  background: #e7eef8;
+  color: #1f4e8c;
+}
+
+/* ---------- Concerns/Suggestions Dashboard (Barangay Captain) ----------
+   See js/concerns-dashboard.js. Chart colours: one green for magnitude
+   bars; green (solid) vs blue (dashed) for the two trend lines — the pair
+   passes the colour-blind separation check, and the dash + labels mean
+   identity never rests on colour alone. */
+
+.cd-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.cd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.cd-kpi {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  min-width: 0;
+}
+
+.cd-kpi__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cd-kpi__value {
+  margin: 6px 0 4px;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.cd-kpi__note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cd-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.cd-card-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.cd-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cd-empty {
+  margin: 0;
+  padding: 26px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.cd-muted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Horizontal bar lists */
+.cd-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cd-bars__row {
+  display: grid;
+  grid-template-columns: minmax(90px, 34%) minmax(0, 1fr) 30px 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 0.86rem;
+}
+
+.cd-bars__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-bars__track {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--plain-bg);
+}
+
+.cd-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--navy);
+}
+
+.cd-bars__row--muted .cd-bars__name {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.cd-bars__row--muted .cd-bars__fill {
+  background: #a9b5ab;
+}
+
+.cd-bars__count {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-bars__delta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Needs attention */
+.cd-flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cd-flags__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: var(--plain-bg);
+  font-size: 0.87rem;
+  line-height: 1.45;
+}
+
+.cd-flags__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--white);
+  background: var(--sage);
+}
+
+.cd-flags__item--warn {
+  background: #fdf3dc;
+}
+
+.cd-flags__item--warn .cd-flags__icon {
+  background: #b7791f;
+}
+
+.cd-flags__item--ok .cd-flags__icon {
+  background: var(--navy);
+}
+
+.cd-flags__item a {
+  color: var(--link);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cd-flags__item a:hover {
+  text-decoration: underline;
+}
+
+/* Trend chart */
+.cd-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cd-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cd-legend__swatch {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid #057a12;
+  flex-shrink: 0;
+}
+
+.cd-legend__swatch--reviewed {
+  border-top: 2px dashed #2b6cb0;
+}
+
+.cd-trend {
+  position: relative;
+}
+
+.cd-trend svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cd-trend__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.cd-trend__tick,
+.cd-trend__end {
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+.cd-trend__end {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.cd-trend__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cd-trend__line--received {
+  stroke: #057a12;
+}
+
+.cd-trend__line--reviewed {
+  stroke: #2b6cb0;
+  stroke-dasharray: 6 4;
+}
+
+.cd-trend__cursor {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.cd-trend__dot {
+  stroke: var(--white);
+  stroke-width: 2;
+}
+
+.cd-trend__dot--received {
+  fill: #057a12;
+}
+
+.cd-trend__dot--reviewed {
+  fill: #2b6cb0;
+}
+
+.cd-trend__tip {
+  position: absolute;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  font-size: 0.78rem;
+  color: var(--text);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.cd-trend__tip span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cd-trend__tip b {
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.cd-summary {
+  max-width: 360px;
+  white-space: normal;
+}
+
+@media (max-width: 1100px) {
+  .cd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .cd-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .cd-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .cd-bars__row {
+    grid-template-columns: minmax(80px, 38%) minmax(0, 1fr) 26px 40px;
+    gap: 8px;
+  }
+}
+
+/* ---------- New/Edit Announcement popup ---------- */
+/* Wider than the default 360px .modal-card, so the title, a roomy
+   description box and the picture row all fit comfortably. */
+.announcement-form-modal {
+  max-width: 640px;
+  padding: 36px 44px 32px;
+}
+
+.announcement-form-modal textarea {
+  min-height: 180px;
+}
+
+/* "Picture (optional)" matches the Title/Description labels above it. */
+.announcement-form-modal .field__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+/* The "Choose picture" button is a <label>, so `.field label` (block,
+   dark text) would otherwise win over its button look. */
+.announcement-form-modal .field label.announcement-picture__pick {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  color: var(--white);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 560px) {
+  .announcement-form-modal {
+    padding: 30px 22px 24px;
+  }
+}
+
+/* ---------- Announcement picture picker (New Announcement) ---------- */
+.announcement-picture {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.announcement-picture .announcement-picture__file {
+  text-align: left;
+}
+
+.announcement-picture .field-hint {
+  margin: 6px 0 0;
+}
+
+.announcement-picture__pick {
+  display: inline-block;
+  width: auto;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+
+.announcement-picture__file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.announcement-picture__file img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.announcement-picture__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.announcement-picture__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.announcement-picture__size {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.announcement-picture__file > a {
+  font-weight: 700;
+  color: var(--accent, #2f7d4a);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.announcement-picture__remove {
+  border: none;
+  background: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.announcement-date-note {
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.announcement-form__actions {
+  justify-content: center;
+  gap: 14px;
+}
+
+.announcement-form__actions .btn {
+  width: auto;
+  min-width: 150px;
+  padding: 12px 22px;
+  white-space: nowrap;
 }

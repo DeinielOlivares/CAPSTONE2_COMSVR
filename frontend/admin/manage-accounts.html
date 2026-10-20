@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — Manage Accounts</title>
+  <title>Barangay Platero OVRMS — Manage Accounts</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -13,16 +13,38 @@
       <div class="admin-sidebar__brand">
         <span class="admin-sidebar__logo" aria-hidden="true"></span>
         <div class="admin-sidebar__brand-text">
-          <strong>O.R.M.S.</strong>
-          <small>Barangay Platero</small>
-          <small>Admin Portal</small>
+          <strong>Barangay Platero</strong>
+          <small>Ordinance Violation Reporting and Monitoring System</small>
         </div>
       </div>
       <ul class="admin-sidebar__nav">
-        <li><a href="manage-accounts.html" class="active">&#128101; Manage Accounts</a></li>
-        <li><a href="create-accounts.html">&#128100; Create Accounts</a></li>
-        <li><a href="approve-accounts.html">&#9989; Approve Accounts</a></li>
-        <li><a href="audit-logs.html">&#128220; View Audit Logs</a></li>
+        <li class="admin-sidebar__group">
+          <button type="button" class="admin-sidebar__group-toggle" aria-expanded="true"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 00-3.5-3.5h-5A3.5 3.5 0 005 18.5V20"/><circle cx="9.5" cy="8" r="3.25"/><path d="M16 8.2a2.7 2.7 0 010 5.3M19 20v-1.3a3 3 0 00-2.2-2.9"/></svg> Account Management <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
+          <ul class="admin-sidebar__subnav">
+            <li><a href="approve-accounts.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.3 9"/></svg> Approve Accounts</a></li>
+            <li><a href="create-accounts.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="8" r="3.25"/><path d="M3 20v-1.5A3.5 3.5 0 016.5 15h6A3.5 3.5 0 0116 18.5V20"/><path d="M18.5 8v5.5M21.2 10.75h-5.4"/></svg> Create Accounts</a></li>
+            <li><a href="manage-accounts.html" class="active"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 00-3.5-3.5h-5A3.5 3.5 0 005 18.5V20"/><circle cx="9.5" cy="8" r="3.25"/><path d="M16 8.2a2.7 2.7 0 010 5.3M19 20v-1.3a3 3 0 00-2.2-2.9"/></svg> Manage Accounts</a></li>
+          </ul>
+        </li>
+        <li class="admin-sidebar__group">
+          <button type="button" class="admin-sidebar__group-toggle" aria-expanded="false"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20V12M10 20V5M15.5 20v-8.5M21 20H3"/></svg> Activity <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
+          <ul class="admin-sidebar__subnav" hidden>
+            <li><a href="activity.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20V12M10 20V5M15.5 20v-8.5M21 20H3"/></svg> Citizen Activity</a></li>
+            <li><a href="reports.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h6.5L18 7.5V20a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13.5 3v4.5H18"/><path d="M8.5 12.5h7M8.5 16h7M8.5 9h3"/></svg> Investigator Activity</a></li>
+            <li><a href="audit-logs.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="4" width="13" height="17" rx="1.8"/><path d="M9.3 4a1.2 1.2 0 011.2-1.2h3a1.2 1.2 0 011.2 1.2v.6H9.3z"/><path d="M8.7 11h6.6M8.7 14.3h6.6M8.7 17.6h4.4"/></svg> View Audit Logs</a></li>
+          </ul>
+        </li>
+        <li class="admin-sidebar__group">
+          <button type="button" class="admin-sidebar__group-toggle" aria-expanded="false"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="1.1" fill="currentColor" stroke="none"/></svg> Setup <span class="admin-sidebar__chevron" aria-hidden="true">&#9662;</span></button>
+          <ul class="admin-sidebar__subnav" hidden>
+            <li><a href="ordinance-authors.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c0-1.7 1.3-3 3-3s3 1.3 3 3"/><path d="M14 10h4M14 13h4"/></svg> Ordinance Setup</a></li>
+            <li><a href="website-setup.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="1.1" fill="currentColor" stroke="none"/></svg> Website Setup</a></li>
+            <li><a href="about-setup.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.7" r="1.1" fill="currentColor" stroke="none"/></svg> About Us Setup</a></li>
+            <li><a href="map-boundary.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3.5 6v14L9 18l6 2 5.5-2V4L15 6z"/><path d="M9 4v14M15 6v14"/></svg> Map Boundary</a></li>
+            <li><a href="manage-faqs.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10a4 4 0 117.4 2.1C14.4 13.3 13 13.6 13 15"/><circle cx="13" cy="18" r="0.2" fill="currentColor"/><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/></svg> Manage FAQs</a></li>
+          </ul>
+        </li>
+        <li><a href="questions.html"><svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.7-1.2c.5.9.3 1.7-.5 2.4l-.7.6c-.6.5-1 .9-1 1.7v.3"/><circle cx="12" cy="17" r="0.2" fill="currentColor"/></svg> Answer Questions</a></li>
       </ul>
       <button type="button" class="admin-sidebar__logout" id="logoutBtn">&#8618; Logout</button>
     </aside>
@@ -32,10 +54,14 @@
         <button type="button" class="admin-topbar__menu-btn" id="sidebarToggle" aria-label="Toggle menu">&#9776;</button>
         <div class="admin-topbar__profile">
           <span class="navbar__bell" role="button" tabindex="0" id="notifBell">
-            &#128276;<span class="navbar__badge" id="notifBadge" hidden></span>
+            <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
             <div class="notif-dropdown" id="notifDropdown" hidden>
-              <h3 class="notif-dropdown__title">Notifications</h3>
+              <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
               <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
             </div>
           </span>
           <button type="button" class="admin-topbar__profile-btn" id="profileBtn">
@@ -49,39 +75,81 @@
       </header>
 
       <div class="admin-content">
-        <div class="admin-toolbar">
-          <select id="sortSelect" class="admin-select">
-            <option value="id">Account ID</option>
-            <option value="owner">Owner Name</option>
-            <option value="recent">Most Recently Active</option>
-          </select>
-          <select id="typeFilter" class="admin-select">
-            <option value="all">All</option>
-            <option value="citizen">Barangay Citizens</option>
-            <option value="admin">Administrators</option>
-            <option value="staff">Barangay Staff</option>
-          </select>
+        <h1 style="margin: 0 0 20px; font-size: 1.4rem;">Manage Accounts</h1>
+        <div class="admin-toolbar admin-toolbar--accounts">
+          <div class="filters-dropdown">
+            <button type="button" class="filters-dropdown__trigger" id="filtersToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Order">
+              <svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+              <span class="filters-dropdown__trigger-text">Order</span>
+              <span class="filters-dropdown__chevron">&#9662;</span>
+            </button>
+            <div class="filters-dropdown__panel" id="filtersPanel" hidden>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Sort</span>
+                <select id="sortSelect">
+                  <option value="id">Newest to Oldest</option>
+                  <option value="id_asc">Oldest to Newest</option>
+                  <option value="owner">Name (Ascending)</option>
+                  <option value="owner_desc">Name (Descending)</option>
+                  <option value="recent">Most Recently Active</option>
+                  <option value="recent_desc">Least Recently Active</option>
+                </select>
+              </label>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Filter</span>
+                <select id="typeFilter">
+                  <option value="all">All</option>
+                  <option value="citizen">Barangay Citizens</option>
+                  <option value="staff">Barangay Staff</option>
+                </select>
+              </label>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Status</span>
+                <select id="statusFilter">
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+              <label class="filters-dropdown__field">
+                <span class="filters-dropdown__label">Show</span>
+                <select id="accountsPageSize">
+                  <option value="5" selected>5</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              <button type="button" class="filters-dropdown__clear">Clear</button>
+            </div>
+          </div>
         </div>
 
         <div class="admin-table-card">
-          <table class="admin-table">
+          <table class="admin-table admin-table--accounts">
             <thead>
               <tr>
-                <th>Account ID:</th>
                 <th>Account Owner:</th>
                 <th>Email:</th>
                 <th>Account Type:</th>
-                <th>Active:</th>
+                <th>Status:</th>
               </tr>
             </thead>
             <tbody id="accountsTableBody"></tbody>
           </table>
+        </div>
+
+        <div class="pagination-bar pagination-bar--center">
+          <div class="pagination-controls" id="accountsPagination"></div>
         </div>
       </div>
     </div>
   </div>
 
   <script src="js/accounts-data.js"></script>
+  <script src="js/pagination.js"></script>
   <script src="js/manage-accounts.js"></script>
   <script src="js/admin.js"></script>
 
@@ -113,10 +181,6 @@
 
         <dl class="edit-account-card__details">
           <div class="edit-account-card__row">
-            <dt>Account ID</dt>
-            <dd id="editAccountId"></dd>
-          </div>
-          <div class="edit-account-card__row">
             <dt>Active Status</dt>
             <dd id="editAccountStatus"></dd>
           </div>
@@ -132,31 +196,64 @@
             <dt>Updated</dt>
             <dd id="editAccountUpdated"></dd>
           </div>
+          <div class="edit-account-card__row" id="editAccountReportsRow" hidden>
+            <dt>Reports Filed</dt>
+            <dd id="editAccountReports"></dd>
+          </div>
+          <div class="edit-account-card__row" id="editAccountSuggestionsRow" hidden>
+            <dt>Suggestions Filed</dt>
+            <dd id="editAccountSuggestions"></dd>
+          </div>
         </dl>
 
         <div class="edit-account-card__actions">
-          <button type="button" class="edit-account-btn edit-account-btn--disable" id="editDisableBtn">&#128683; Disable User</button>
-          <button type="button" class="edit-account-btn edit-account-btn--type" id="editTypeBtn">&#9881; Update User Type</button>
-          <button type="button" class="edit-account-btn edit-account-btn--reset" id="editResetBtn">&#128274; Reset Password</button>
+          <button type="button" class="edit-account-btn edit-account-btn--disable" id="editDisableBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg> Disable User</button>
+          <button type="button" class="edit-account-btn edit-account-btn--type" id="editTypeBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M18 6l-1.6 1.6M7.6 16.4L6 18M18 18l-1.6-1.6M7.6 7.6L6 6"/></svg> Update Role</button>
+          <button type="button" class="edit-account-btn edit-account-btn--reset" id="editResetBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.8"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg> Reset Password</button>
+          <button type="button" class="edit-account-btn edit-account-btn--delete" id="editDeleteBtn"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg> Delete Account</button>
         </div>
+
+        <!-- Claimed reports: only an Administrator can release an Investigator's
+             claim (e.g. they've left or gone inactive) — see manage-accounts.js. -->
+        <section class="claimed-reports" id="claimedReports" hidden>
+          <h3 class="claimed-reports__title">Active Claimed Reports</h3>
+          <p class="claimed-reports__hint">Reports not yet Resolved or With Remarks. Releasing a claim frees the report for another Investigator to claim. All of them must be released before this account's role is changed, or it's disabled or deleted.</p>
+          <ul class="claimed-reports__list" id="claimedReportsList"></ul>
+          <button type="button" class="edit-account-btn edit-account-btn--release" id="releaseAllClaimsBtn" hidden>Release All Claims</button>
+        </section>
       </div>
     </div>
   </div>
 
-  <!-- Update User Type popup: opened from the Edit Account popup -->
+  <!-- Claimed-reports warning: shown before re-roling/disabling/deleting an
+       account that still holds active claimed reports — see
+       manage-accounts.js's askToReleaseClaims. -->
+  <div class="modal-overlay" id="claimsWarningModal" hidden>
+    <div class="modal-card claims-warning">
+      <h2 id="claimsWarningTitle"></h2>
+      <p class="claims-warning__text" id="claimsWarningText"></p>
+      <div class="stacked-buttons">
+        <button type="button" class="btn" id="claimsWarningPrimary"></button>
+        <button type="button" class="btn btn-muted" id="claimsWarningSecondary" hidden></button>
+        <button type="button" class="btn btn-danger" id="claimsWarningCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Role popup: opened from the Edit Account popup (Barangay Staff/Administrator accounts only) -->
   <div class="modal-overlay" id="updateTypeModal" hidden>
     <div class="modal-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
-      <h2>Update User Type</h2>
+      <h2>Update Role</h2>
       <div class="field">
-        <label for="updateTypeSelect">Account Type</label>
+        <label for="updateTypeSelect">Role</label>
         <select id="updateTypeSelect">
-          <option>Administrator</option>
           <option>Barangay Captain</option>
           <option>Secretary</option>
           <option>Investigator</option>
-          <option>Barangay Citizen</option>
+          <option>Administrator</option>
         </select>
+        <p class="field__hint">Barangay Captain and Secretary can only be held by one active account at a time.</p>
       </div>
       <div class="btn-row">
         <button type="button" class="btn" id="updateTypeSave">Save</button>
@@ -184,7 +281,7 @@
           <p class="profile-card__role">Administrator</p>
         </div>
       </div>
-      <a class="btn btn-muted" href="profile.html">Edit Information</a>
+      <a class="btn btn-muted" href="profile.html">View Details</a>
       <button type="button" class="btn btn-muted" id="profileLogoutBtn">Log Out</button>
     </div>
   </div>

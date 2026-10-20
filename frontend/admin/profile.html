@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — My Profile</title>
+  <title>Barangay Platero OVRMS — My Profile</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -11,10 +11,14 @@
   <header class="admin-topbar">
     <div class="admin-topbar__profile">
       <span class="navbar__bell" role="button" tabindex="0" id="notifBell">
-        &#128276;<span class="navbar__badge" id="notifBadge" hidden></span>
+        <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
         <div class="notif-dropdown" id="notifDropdown" hidden>
-          <h3 class="notif-dropdown__title">Notifications</h3>
+          <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
           <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
         </div>
       </span>
       <button type="button" class="admin-topbar__profile-btn" id="profileBtn">
@@ -32,9 +36,9 @@
       <div class="profile-layout">
         <aside class="profile-sidebar">
           <h1 class="profile-sidebar__title">My Profile</h1>
-          <button type="button" class="profile-tab active" data-tab="edit">Edit Information</button>
+          <button type="button" class="profile-tab active" data-tab="edit">Edit Account Information</button>
           <button type="button" class="profile-tab" data-tab="password">Change Password</button>
-          <a class="btn btn-danger profile-sidebar__cancel" href="manage-accounts.html">Cancel</a>
+          <a class="btn btn-danger profile-sidebar__cancel" href="approve-accounts.html" id="profileCancelBtn">Cancel</a>
         </aside>
 
         <div class="profile-panel">
@@ -42,14 +46,18 @@
             <label class="profile-page__avatar profile-page__avatar--editable" for="avatarUpload">
               <span id="editAvatarInitials"></span>
               <img class="profile-page__avatar-img" id="editAvatarImg" alt="Profile photo" hidden />
-              <span class="profile-page__avatar-badge" aria-hidden="true">&#128247;</span>
+              <span class="profile-page__avatar-badge" aria-hidden="true"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 015.5 7H8l1-2h6l1 2h2.5A1.5 1.5 0 0120 8.5V18a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18z"/><circle cx="12" cy="12.5" r="3.3"/></svg></span>
             </label>
             <input type="file" id="avatarUpload" accept="image/*" hidden />
             <form id="editProfileForm">
-              <div class="form-row">
+              <div class="form-row form-row--with-mi">
                 <div class="field">
-                  <label for="profileFirstName">First Name</label>
+                  <label for="profileFirstName">Given Name</label>
                   <input type="text" id="profileFirstName" required />
+                </div>
+                <div class="field">
+                  <label for="profileMiddleInitial">M.I.</label>
+                  <input type="text" id="profileMiddleInitial" maxlength="10" />
                 </div>
                 <div class="field">
                   <label for="profileLastName">Last Name</label>
@@ -75,6 +83,12 @@
           <div class="profile-panel__view" id="passwordView" hidden>
             <div class="profile-page__avatar" id="passwordAvatar"></div>
             <form id="changePasswordForm">
+              <!-- Feeds the password-hint "not too similar to your name or
+                   email" check (see setupPasswordHints in admin.js) — this
+                   form has no visible name/email fields of its own. -->
+              <input type="hidden" name="first_name" id="passwordHintFirstName" />
+              <input type="hidden" name="last_name" id="passwordHintLastName" />
+              <input type="hidden" name="email" id="passwordHintEmail" />
               <div class="field">
                 <label for="currentPassword">Current Password</label>
                 <input type="password" id="currentPassword" required />
@@ -83,6 +97,15 @@
                 <label for="newPassword">New Password</label>
                 <input type="password" id="newPassword" required />
               </div>
+              <ul class="password-hint password-hint--missing-only" aria-live="polite" hidden data-password-field="newPassword">
+                <li data-rule="length">At least 8 characters</li>
+                <li data-rule="lowercase">At least 1 lowercase character</li>
+                <li data-rule="uppercase">At least 1 uppercase character</li>
+                <li data-rule="special">At least 1 special character</li>
+                <li data-rule="numeric">Not entirely numbers</li>
+                <li data-rule="common">Not a commonly used password</li>
+                <li data-rule="similar">Not too similar to your name or email</li>
+              </ul>
               <div class="field">
                 <label for="confirmNewPassword">Confirm Password</label>
                 <input type="password" id="confirmNewPassword" required />
@@ -95,10 +118,41 @@
     </div>
   </div>
 
+  <!-- Confirms the real account owner before changing email/mobile/address -->
+  <div class="modal-overlay" id="verifyEditModal" hidden>
+    <div class="modal-card">
+      <h2>Confirm It's You</h2>
+      <p class="auth-card__subtitle">We've emailed a 6-digit code to your account's email address. Enter it below to save these changes.</p>
+      <form id="verifyEditForm" novalidate>
+        <div class="field field--boxed field--code">
+          <label for="verifyEditCode">Code</label>
+          <input type="text" id="verifyEditCode" name="code" inputmode="numeric" placeholder="XXXXXX" maxlength="6" required />
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn">Confirm</button>
+          <button type="button" class="btn btn-muted" id="verifyEditCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="profileUpdatedModal" hidden>
     <div class="modal-card">
       <h2 id="profileUpdatedTitle">Information Changed!</h2>
       <button type="button" class="btn" id="profileUpdatedConfirm">Confirm</button>
+    </div>
+  </div>
+
+  <!-- Leaving with unsaved edits (Cancel, or closing/navigating away) -->
+  <div class="modal-overlay" id="unsavedChangesModal" hidden>
+    <div class="modal-card">
+      <h2>Save Changes?</h2>
+      <p class="auth-card__subtitle">You have unsaved changes to your account information.</p>
+      <div class="stacked-buttons">
+        <button type="button" class="btn" id="unsavedSaveBtn">Save Changes</button>
+        <button type="button" class="btn btn-muted" id="unsavedDiscardBtn">Discard Changes</button>
+        <button type="button" class="btn btn-danger" id="unsavedCancelBtn">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -113,7 +167,7 @@
           <p class="profile-card__role">Administrator</p>
         </div>
       </div>
-      <a class="btn btn-muted" href="profile.html">Edit Information</a>
+      <a class="btn btn-muted" href="profile.html">View Details</a>
       <button type="button" class="btn btn-muted" id="profileLogoutBtn">Log Out</button>
     </div>
   </div>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O.R.M.S. — My Concerns/Suggestions</title>
+  <title>Barangay Platero OVRMS — My Concerns/Suggestions</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -11,9 +11,10 @@
   <nav class="navbar">
     <div class="navbar__brand">
       <span class="navbar__logo" aria-hidden="true"></span>
-      O.R.M.S
+      <div class="navbar__brand-text"><strong>Barangay Platero</strong><small>Ordinance Violation Reporting and Monitoring System</small></div>
     </div>
     <ul class="navbar__links">
+      <li><a href="home.html">Home</a></li>
       <li><a href="ordinances.html">Ordinances</a></li>
       <li><a href="file-report.html" data-auth-gate="report">File Report</a></li>
       <li><a href="submit-suggestion.html" data-auth-gate="suggestion">Submit Suggestion</a></li>
@@ -21,31 +22,112 @@
       <li data-auth-only><a href="my-concerns.html" class="active">My Concerns/Suggestions</a></li>
     </ul>
     <span class="navbar__bell" data-auth-only role="button" tabindex="0" id="notifBell">
-      &#128276;<span class="navbar__badge"></span>
+      <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a5 5 0 00-5 5v3.5c0 .8-.3 1.6-.9 2.2L5 16h14l-1.1-1.3a3.2 3.2 0 01-.9-2.2V9a5 5 0 00-5-5z"/><path d="M10 19a2.2 2.2 0 004 0"/></svg><span class="navbar__badge" id="notifBadge" hidden></span>
       <div class="notif-dropdown" id="notifDropdown" hidden>
-        <h3 class="notif-dropdown__title">Notifications</h3>
-        <ul class="notif-dropdown__list">
-          <li class="notif-dropdown__item"><span>Your report has new updates</span><span class="notif-dropdown__time">5 minutes ago</span></li>
-          <li class="notif-dropdown__item"><span>Your report has new updates</span><span class="notif-dropdown__time">15 minutes ago</span></li>
-          <li class="notif-dropdown__item"><span>Your report has new updates</span><span class="notif-dropdown__time">20 minutes ago</span></li>
-          <li class="notif-dropdown__item"><span>Your report has new updates</span><span class="notif-dropdown__time">25 minutes ago</span></li>
-        </ul>
+        <div class="notif-dropdown__header">
+                <h3 class="notif-dropdown__title">Notifications</h3>
+                <button type="button" class="notif-dropdown__clear-all" id="notifClearAll">Clear All</button>
+              </div>
+        <ul class="notif-dropdown__list" id="notifList"></ul>
+        <a class="notif-dropdown__view-all" href="notifications.html">View All Notifications</a>
       </div>
     </span>
-    <div class="navbar__profile" role="button" tabindex="0">&#128100;</div>
+    <div class="navbar__profile" role="button" tabindex="0"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c0-4.2 3.6-6.2 8-6.2s8 2 8 6.2"/></svg></div>
   </nav>
+
+  <script>
+    // Adds .navbar--authed before first paint if a session is cached, so
+    // the mobile navbar's logo/brand doesn't flash into view and then
+    // disappear once main.js's own (later) check runs — see
+    // .navbar--authed in style.css and the guest-nav wiring in main.js.
+    (function () {
+      var store = localStorage.getItem("orms_remember_me") === "1" ? localStorage : sessionStorage;
+      var hasToken = !!store.getItem("orms_access_token");
+      var user;
+      try { user = JSON.parse(store.getItem("orms_auth_user")); } catch (e) { user = null; }
+      if (!hasToken || !user) return;
+      var navbar = document.querySelector(".navbar");
+      if (navbar) navbar.classList.add("navbar--authed");
+    })();
+  </script>
 
   <div class="plain-page">
     <div class="plain-page__inner plain-page__inner--wide">
-      <h1 class="page-heading">My Recent Concerns/Suggestions</h1>
+      <div class="reports-toolbar">
+        <h1 class="page-heading">My Recent Concerns/Suggestions</h1>
+        <div class="filters-dropdown">
+          <button type="button" class="filters-dropdown__trigger" id="filtersToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Order">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+            <span class="filters-dropdown__trigger-text">Order</span>
+            <span class="filters-dropdown__chevron">&#9662;</span>
+          </button>
+          <div class="filters-dropdown__panel" id="filtersPanel" hidden>
+            <label class="filters-dropdown__field">
+              <span class="filters-dropdown__label">Filter</span>
+              <select id="statusFilter">
+                <option value="All">All</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Reviewed">Reviewed</option>
+              </select>
+            </label>
+            <label class="filters-dropdown__field">
+              <span class="filters-dropdown__label">Show</span>
+              <select id="concernsPageSize">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <button type="button" class="filters-dropdown__clear">Clear</button>
+          </div>
+        </div>
+      </div>
 
       <div class="concerns-card" id="concernsList"></div>
+
+      <div class="pagination-bar pagination-bar--center">
+        <div class="pagination-controls" id="concernsPagination"></div>
+      </div>
     </div>
   </div>
 
   <script src="js/my-concerns-data.js"></script>
+  <script src="js/pagination.js"></script>
   <script src="js/my-concerns-list.js"></script>
+  <footer id="siteFooter"></footer>
+  <script src="js/site-footer.js"></script>
   <script src="js/main.js"></script>
+
+  <!-- Floating "Ask a Question" button — opens askQuestionModal below -->
+  <button type="button" class="fab-ask-question" id="askQuestionFab" title="Ask a Question" aria-label="Ask a Question">?</button>
+
+  <!-- Ask a Question popup -->
+  <div class="modal-overlay" id="askQuestionModal" hidden>
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      <h2>Ask a Question</h2>
+      <p class="auth-card__subtitle">Don't see your answer in the FAQs? Ask directly — a Barangay Official will get back to you, and we'll email you the answer.</p>
+      <form id="askQuestionForm">
+        <div class="field">
+          <label for="questionInput">Your Question</label>
+          <textarea id="questionInput" placeholder="Type your question here..." required></textarea>
+        </div>
+        <button type="submit" class="btn">Submit Question</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirms the question was sent, before the answer email arrives -->
+  <div class="modal-overlay" id="askQuestionSentModal" hidden>
+    <div class="modal-card">
+      <h2>Question Sent!</h2>
+      <p class="auth-card__subtitle">A Barangay Official will review it soon. We'll email you the answer once it's ready.</p>
+      <button type="button" class="btn" data-modal-confirm>Confirm</button>
+    </div>
+  </div>
 
   <!-- Guests are prompted to sign up / log in before filing a report or suggestion -->
   <div class="modal-overlay" id="authGateModal" hidden>
@@ -68,18 +150,15 @@
     <div class="modal-card profile-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
       <div id="profileGuestView">
-        <div class="profile-card__row">
-          <span class="profile-avatar profile-avatar--guest">&#128100;</span>
-          <p class="profile-card__name">Guest Account</p>
-        </div>
-        <a class="btn btn-muted" href="index.html">Login</a>
+        <a class="btn" href="index.html">Login</a>
+        <a class="btn btn-muted" href="signup.html">Sign Up</a>
       </div>
       <div id="profileUserView" hidden>
         <div class="profile-card__row">
           <span class="profile-avatar" id="profileUserInitials"></span>
           <p class="profile-card__name" id="profileUserName"></p>
         </div>
-        <a class="btn btn-muted" href="profile.html">Edit Information</a>
+        <a class="btn btn-muted" href="profile.html">View Details</a>
         <button type="button" class="btn btn-muted" id="logoutBtn">Log Out</button>
       </div>
     </div>
