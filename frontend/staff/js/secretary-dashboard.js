@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
-  // ---- Oldest Open Concerns ----
+  // ---- New/Uncategorized Concerns/Suggestions (oldest first) ----
 
   function renderAgingList() {
     const body = document.getElementById("agingConcernsBody");
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const days = daysBetween(c.dateSubmitted, now);
             return `
         <tr>
-          <td>${c.folderName || "Uncategorized"}</td>
+          <td>${escapeConcernHtml(c.reporter)}</td>
           <td>${days} ${days === 1 ? "day" : "days"}</td>
           <td><a class="recent-reports-table__view-btn" href="concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a></td>
         </tr>`;

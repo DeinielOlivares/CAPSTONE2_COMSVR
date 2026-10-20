@@ -437,6 +437,50 @@ function clearFormError(form) {
   if (errEl) errEl.remove();
 }
 
+// Highlights one control red with an inline message underneath it. Same
+// pattern as main.js's markFieldInvalid.
+function markFieldInvalid(input, message) {
+  if (!input) return;
+  input.classList.add("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  let errEl = field.querySelector(".field-error");
+  if (!errEl) {
+    errEl = document.createElement("p");
+    errEl.className = "field-error";
+    field.appendChild(errEl);
+  }
+  errEl.textContent = message;
+  const clear = () => clearFieldInvalid(input);
+  input.addEventListener("input", clear, { once: true });
+  input.addEventListener("change", clear, { once: true });
+}
+
+function clearFieldInvalid(input) {
+  if (!input) return;
+  input.classList.remove("field-invalid");
+  const field = input.closest(".field") || input.parentElement;
+  const errEl = field.querySelector(".field-error");
+  if (errEl) errEl.remove();
+}
+
+// Submit-time check for a form that has "novalidate" (so the browser's own
+// "Please fill out this field" popup never shows): every required, visible
+// control that is still empty gets a red outline and a message under it.
+// Returns true when nothing is missing. Controls hidden with the `hidden`
+// attribute (such as a custom dropdown's backing <select>) are skipped; the
+// page checks those itself.
+function flagMissingRequired(form) {
+  let missing = 0;
+  form.querySelectorAll("[required]").forEach((el) => {
+    if (el.disabled || el.hidden || el.closest("[hidden]")) return;
+    const empty = el.type === "checkbox" ? !el.checked : !String(el.value).trim();
+    if (!empty) return;
+    markFieldInvalid(el, "Please fill out this field.");
+    missing += 1;
+  });
+  return missing === 0;
+}
+
 // Renders a real uploaded profile picture into an avatar container (the
 // topbar avatar, the profile popup avatar, etc.) when one exists, falling
 // back to initials — used everywhere a placeholder profile picture
