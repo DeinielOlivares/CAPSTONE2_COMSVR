@@ -99,6 +99,16 @@ def send_password_reset_email(user, code, expires_minutes):
     )
 
 
+def send_signup_email_code(email, code, expires_minutes):
+    # No account exists yet, so this goes to the address typed on Sign Up.
+    send_templated_email(
+        to=email,
+        subject="Barangay Platero OVRMS — Verify your email address",
+        template_name="signup_email_code",
+        context={"code": code, "expires_minutes": expires_minutes},
+    )
+
+
 def send_account_approved_email(user):
     send_templated_email(
         to=user.email,

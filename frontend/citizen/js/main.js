@@ -292,6 +292,23 @@ function isLoggedIn() {
   return !!getAccessToken();
 }
 
+// After a dropdown panel becomes visible, nudge its inline position so it
+// stays within the viewport on both sides. Resets any previous inline
+// adjustment first so the CSS default is the measurement baseline.
+function positionDropdown(el) {
+  el.style.left = "";
+  el.style.right = "";
+  const rect = el.getBoundingClientRect();
+  const vw = window.innerWidth || document.documentElement.clientWidth;
+  if (rect.right > vw - 4) {
+    el.style.left = "auto";
+    el.style.right = "0";
+  } else if (rect.left < 4) {
+    el.style.left = "0";
+    el.style.right = "auto";
+  }
+}
+
 // Wires a ".filters-dropdown" trigger+panel pair (sort/filter/page-size
 // controls behind a single "Order" button — see style.css's .filters-dropdown
 // rules). Each page with one calls this once with its own #filtersToggleBtn/
@@ -310,6 +327,7 @@ function wireFiltersDropdown(toggleBtn, panel) {
     const willOpen = panel.hidden;
     panel.hidden = !willOpen;
     toggleBtn.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) positionDropdown(panel);
   });
   document.addEventListener("click", (e) => {
     if (!panel.hidden && !panel.contains(e.target) && e.target !== toggleBtn) closePanel();
@@ -667,9 +685,56 @@ async function apiRegister(formData) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const firstError = Object.values(data)[0];
-    throw new Error(Array.isArray(firstError) ? firstError[0] : "Could not create your account.");
+    const error = new Error(Array.isArray(firstError) ? firstError[0] : "Could not create your account.");
+    error.fields = data;
+    throw error;
   }
 
+  return response.json();
+}
+
+// Sign Up email check — emails a 6-digit code to the address typed on
+// step 1, before the voter's ID step. A taken email comes back as
+// `error.fields.email`.
+async function apiRequestSignupCode(email) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/signup/request-code/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    const error = new Error(Array.isArray(firstError) ? firstError[0] : (data.detail || "Could not send a verification code."));
+    error.fields = data;
+    throw error;
+  }
+  return response.json();
+}
+
+// Sign Up email check — returns { email_verification_token } once the code
+// is right; /register/ refuses to create the account without it.
+async function apiVerifySignupCode(email, code) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/signup/verify-code/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    });
+  } catch {
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const firstError = Object.values(data)[0];
+    throw new Error(Array.isArray(firstError) ? firstError[0] : (data.detail || "Invalid or expired code."));
+  }
   return response.json();
 }
 
@@ -1221,6 +1286,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (availability.contact_number) markFieldInvalid(phoneField, availability.contact_number[0]);
         if (availability.email || availability.contact_number) return;
 
+        // Coming back from a later step with the same email keeps its
+        // verification; a changed email has to be verified again.
+        let previous = null;
+        try {
+          previous = JSON.parse(sessionStorage.getItem(SIGNUP_DRAFT_KEY));
+        } catch {
+          previous = null;
+        }
+        const alreadyVerified = !!(previous && previous.email_verification_token && previous.email === email);
+        if (!alreadyVerified) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Sending code...";
+          try {
+            await apiRequestSignupCode(email);
+          } catch (err) {
+            if (err.fields && err.fields.email) markFieldInvalid(emailField, err.fields.email[0]);
+            else showFormError(form, err.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Next";
+            return;
+          }
+        }
+
         sessionStorage.setItem(
           SIGNUP_DRAFT_KEY,
           JSON.stringify({
@@ -1231,9 +1319,47 @@ document.addEventListener("DOMContentLoaded", () => {
             last_name: lastName,
             contact_number: contactNumber,
             address: streetField ? `${blockLot}, ${street}` : form.querySelector('[name="address"]').value.trim(),
+            ...(alreadyVerified ? { email_verification_token: previous.email_verification_token } : {}),
           })
         );
-        window.location.href = form.dataset.goto;
+        window.location.href = alreadyVerified ? "verify-signup.html" : form.dataset.goto;
+        return;
+      }
+
+      // Sign Up email check (verify-email.html): the 6-digit code emailed in
+      // step 1. A correct code adds `email_verification_token` to the draft,
+      // which the ID step sends along with the account.
+      if (form.dataset.signupVerifyEmail !== undefined) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const code = form.querySelector('[name="code"]').value.trim();
+        clearFormError(form);
+
+        let draft = null;
+        try {
+          draft = JSON.parse(sessionStorage.getItem(SIGNUP_DRAFT_KEY));
+        } catch {
+          draft = null;
+        }
+        if (!draft || !draft.email) {
+          window.location.href = "signup.html";
+          return;
+        }
+        if (!/^\d{6}$/.test(code)) {
+          showFormError(form, "Enter the 6-digit code from the email.");
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Verifying...";
+        try {
+          const { email_verification_token } = await apiVerifySignupCode(draft.email, code);
+          sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify({ ...draft, email_verification_token }));
+          window.location.href = form.dataset.goto;
+        } catch (err) {
+          showFormError(form, err.message);
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Verify";
+        }
         return;
       }
 
@@ -1252,6 +1378,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (!draft) {
           window.location.href = "signup.html";
+          return;
+        }
+        if (!draft.email_verification_token) {
+          window.location.href = "verify-email.html";
           return;
         }
         if (!fileInput.files.length) {
@@ -1276,6 +1406,13 @@ document.addEventListener("DOMContentLoaded", () => {
           sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
           window.location.href = form.dataset.goto;
         } catch (err) {
+          if (err.fields && err.fields.email_verification_token) {
+            // Took too long (or the token was already used): verify the email again.
+            delete draft.email_verification_token;
+            sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify(draft));
+            window.location.href = "verify-email.html?expired=1";
+            return;
+          }
           showFormError(form, err.message);
           submitBtn.disabled = false;
           submitBtn.textContent = "Submit";
@@ -1425,13 +1562,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- Account setup / first-login screen (account-setup.html) ----
   // Opened from the emailed link (#uid=...&token=...): checks the link, then
   // shows the details form — pre-filled for a citizen an Administrator
-  // created with their details — plus the new password. Opened without a
-  // link (the login page's "First time here?"), or with an expired one, it
-  // offers to email a new link instead. Guarded on the forms existing since
-  // this only ever runs on account-setup.html.
-  const setupRequestForm = document.getElementById("setupRequestForm");
+  // created with their details — plus the new password. With an expired
+  // link it offers to email a new one; opened without a link it just points
+  // to the email (accounts are only set up from the link an Administrator's
+  // account creation sends). Guarded on the form existing since this only
+  // ever runs on account-setup.html.
   const setupDetailsForm = document.getElementById("setupDetailsForm");
-  if (setupRequestForm && setupDetailsForm) {
+  if (setupDetailsForm) {
     const setupLoading = document.getElementById("setupLoading");
     const setupSent = document.getElementById("setupSent");
     const setupInvalid = document.getElementById("setupInvalid");
@@ -1445,7 +1582,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (uid || token) history.replaceState(null, "", window.location.pathname + window.location.search);
 
     function showSetupStep(step) {
-      [setupLoading, setupRequestForm, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
+      [setupLoading, setupSent, setupInvalid, setupDetailsForm].forEach((el) => {
         el.hidden = el !== step;
       });
     }
@@ -1491,39 +1628,18 @@ document.addEventListener("DOMContentLoaded", () => {
           showSetupStep(setupInvalid);
         });
     } else {
-      const emailFromQuery = new URLSearchParams(window.location.search).get("email");
-      if (emailFromQuery) document.getElementById("setupEmail").value = emailFromQuery;
-      showSetupStep(setupRequestForm);
+      document.getElementById("setupInvalidMessage").textContent =
+        "This page only works from the setup link emailed to you when your account was created. Please open that link from your email.";
+      document.getElementById("setupNewLinkOffer").hidden = true;
+      showSetupStep(setupInvalid);
     }
-
-    setupRequestForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("setupEmail").value.trim();
-      const submitBtn = setupRequestForm.querySelector('button[type="submit"]');
-      clearFormError(setupRequestForm);
-      if (!email) {
-        showFormError(setupRequestForm, "Enter the email your account was created with.");
-        return;
-      }
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Sending...";
-      try {
-        await apiRequestSetupLink({ email });
-        showSetupStep(setupSent);
-      } catch (err) {
-        showFormError(setupRequestForm, err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Email Me a Setup Link";
-      }
-    });
 
     document.getElementById("setupNewLinkBtn").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
         // The expired link still says whose it was, so no need to retype the email.
-        await apiRequestSetupLink(uid ? { uid } : { email: setupEmail });
+        await apiRequestSetupLink({ uid });
         showSetupStep(setupSent);
       } catch (err) {
         document.getElementById("setupInvalidMessage").textContent = err.message;
@@ -1632,10 +1748,61 @@ document.addEventListener("DOMContentLoaded", () => {
     revealOnScroll.observe(infoSection);
   }
 
+  // Sign Up email check page (verify-email.html): shows where the code went
+  // and wires "send a new code". Without a draft there's nothing to verify;
+  // with an already-verified one, skip ahead to the ID step.
+  const signupVerifyEmailForm = document.querySelector("form[data-signup-verify-email]");
+  if (signupVerifyEmailForm) {
+    let draft = null;
+    try {
+      draft = JSON.parse(sessionStorage.getItem(SIGNUP_DRAFT_KEY));
+    } catch {
+      draft = null;
+    }
+    if (!draft || !draft.email) {
+      window.location.href = "signup.html";
+    } else if (draft.email_verification_token) {
+      window.location.href = signupVerifyEmailForm.dataset.goto;
+    } else {
+      const emailShown = document.getElementById("signupVerifyEmailAddress");
+      const resendLink = document.getElementById("signupResendCode");
+      const status = document.getElementById("signupResendStatus");
+      if (emailShown) emailShown.textContent = draft.email;
+
+      const sendNewCode = async (message) => {
+        clearFormError(signupVerifyEmailForm);
+        resendLink.hidden = true;
+        status.textContent = "Sending a new code...";
+        try {
+          await apiRequestSignupCode(draft.email);
+          status.textContent = message || "We've sent a new code. Use the newest email — earlier codes no longer work.";
+        } catch (err) {
+          status.textContent = "";
+          showFormError(signupVerifyEmailForm, err.message);
+        }
+        resendLink.hidden = false;
+      };
+
+      if (resendLink && status) {
+        resendLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          sendNewCode();
+        });
+        // Sent back from the ID step because the verification ran out.
+        if (new URLSearchParams(window.location.search).has("expired")) {
+          sendNewCode("Your email verification expired, so we've sent you a new code.");
+        }
+      }
+    }
+  }
+
   // Voter's ID upload preview (Sign Up verification step)
   const idInput = document.getElementById("idPhoto");
   if (idInput) {
+    // The preview sits inside the dropzone label, replacing the camera icon;
+    // clicking the photo reopens the picker to swap it.
     const preview = document.getElementById("idPreview");
+    const drop = preview.closest(".upload-drop");
     idInput.addEventListener("change", () => {
       const file = idInput.files[0];
       if (!file) return;
@@ -1643,12 +1810,15 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.onload = (e) => {
         preview.src = e.target.result;
         preview.hidden = false;
+        if (drop) drop.classList.add("upload-drop--has-preview");
       };
       reader.readAsDataURL(file);
     });
     if (idInput.form) {
       idInput.form.addEventListener("reset", () => {
         preview.hidden = true;
+        preview.removeAttribute("src");
+        if (drop) drop.classList.remove("upload-drop--has-preview");
       });
     }
   }

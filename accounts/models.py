@@ -131,6 +131,44 @@ class PasswordResetCode(models.Model):
         return f"Reset code for {self.user}"
 
 
+class SignupEmailCode(models.Model):
+    """
+    A 6-digit code emailed during Sign Up, proving the person owns the email
+    before they upload their voter's ID. There's no account yet, so the code
+    is keyed by the email itself. A correct code is given a random `token`
+    that RegisterSerializer requires; `used_at` is set once the account is
+    created (or when a newer code replaces this one).
+    """
+
+    CODE_TTL_MINUTES = 15
+    # Once the code is entered, how long they have to finish the ID step.
+    VERIFIED_TTL_MINUTES = 60
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(db_index=True)
+    code = models.CharField(max_length=6)
+    token = models.CharField(max_length=64, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    # Wrong guesses so far; see orms_backend/codes.py for the cap.
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def is_valid(self):
+        return self.used_at is None and timezone.now() < self.expires_at
+
+    def expire(self):
+        self.used_at = timezone.now()
+        self.save(update_fields=["used_at"])
+
+    def __str__(self):
+        return f"Sign up code for {self.email}"
+
+
 class ProfileEditVerificationCode(models.Model):
     """
     A short-lived 6-digit code emailed to confirm the real account owner is

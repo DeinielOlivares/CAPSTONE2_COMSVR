@@ -1,0 +1,4 @@
+# Stress-test tooling only; not needed by the app and not installed on Render.
+locust==2.46.7
+psutil==7.2.2
+waitress==3.0.2
