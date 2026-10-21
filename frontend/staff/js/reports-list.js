@@ -194,6 +194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <div class="report-row">
           <div class="report-row__top">
             <span class="concern-row__title">${r.incidentType}</span>
+            <span class="report-row__reporter" title="Filed by">${escapeReportHtml(r.reporter || "")}</span>
             <span class="concern-row__date">${formatReportDate(r.dateSubmitted)}</span>
             <a class="concern-row__link" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>
             <span class="status-badge ${badgeClass[r.status] || ""}">${r.status}</span>
@@ -203,6 +204,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             ${claimAction}
           </div>
         </div>`;
+  }
+
+  function searchResultRow(r) {
+    if (!r.assignedInvestigatorId && !r.assignedInvestigator) {
+      return reportRow(r, {
+        claimLabel: "Unclaimed",
+        claimAction: isInvestigator
+          ? `<button type="button" class="btn report-row__claim-btn" data-claim="${r.id}">Claim</button>`
+          : "",
+      });
+    }
+    if (currentUser && r.assignedInvestigatorId === currentUser.id) {
+      return reportRow(r, { claimLabel: "Claimed by you", claimAction: "" });
+    }
+    return reportRow(r, { claimLabel: `Claimed by ${escapeReportHtml(r.assignedInvestigator)}`, claimAction: "" });
   }
 
   function renderGroup(container, rows, emptyMessage, rowFn) {
@@ -248,6 +264,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       else if (currentUser && r.assignedInvestigatorId === currentUser.id) groups.mine.push(r);
       else groups.others.push(r);
     });
+
+    // A search looks through every list, not just this subpage's — so
+    // searching a citizen's name finds all of their reports, claimed or not.
+    // Each result keeps the claim label (and Claim button) of the list it
+    // really belongs to.
+    if (appliedQuery) {
+      const container = listsByGroup[view.group];
+      const { totalPages, pageRows } = paginate(sortReportsByStatusThenDate(rows));
+      const note = `<div class="reports-search-note">Showing ${rows.length} ${rows.length === 1 ? "match" : "matches"} from all reports, unclaimed and claimed.</div>`;
+      container.innerHTML = rows.length
+        ? note + pageRows.map(searchResultRow).join("")
+        : `<div class="ordinances-empty">No reports match your search or filters.</div>`;
+      wireClaimButtons(container);
+      renderPaginationControls(pagination, page, totalPages, (n) => {
+        page = n;
+        render();
+      });
+      saveFilters();
+      return;
+    }
 
     const { totalPages, pageRows } = paginate(groups[view.group]);
 
