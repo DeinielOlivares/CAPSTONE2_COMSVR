@@ -327,7 +327,7 @@ const STAFF_NAV_ACCESS = {
   "concerns.html": ["Secretary", "Barangay Captain"],
   "ordinances.html": ["Barangay Captain", "Secretary", "Investigator"],
   "questions.html": ["Barangay Captain", "Secretary", "Investigator"],
-  "announcements.html": ["Barangay Captain", "Secretary"],
+  "announcements.html": ["Secretary"],
 };
 
 (function enforceStaffSectionAccess() {

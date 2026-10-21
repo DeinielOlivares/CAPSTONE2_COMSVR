@@ -273,34 +273,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { now, before };
   }
 
-  // Location is optional free text on a concern; when it follows the
-  // "Block X, Lot Y, <Street>" pattern the street is the last part.
-  function streetOf(location) {
-    const text = (location || "").trim();
-    if (!text) return null;
-    const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[parts.length - 1] || null;
-  }
-
-  function renderStreets(ctx) {
-    const { received, meta } = ctx;
-    const counts = countBy(received, (c) => streetOf(c.location));
-    const rows = Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, TOP_ROWS - 1)
-      .map(([name, count]) => ({ name, count }));
-    const located = received.filter((c) => streetOf(c.location)).length;
-
-    document.getElementById("streetsHint").textContent = received.length
-      ? `${located} of ${received.length} gave a location`
-      : "";
-    renderBars(
-      document.getElementById("streetBars"),
-      rows,
-      received.length ? `None of the concerns received ${meta.noun} included a location.` : `Nothing received ${meta.noun}.`
-    );
-  }
-
   // ---- Needs attention ----
 
   function renderAttention(ctx, topics) {
@@ -541,7 +513,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const topics = renderTopics(ctx);
     renderTrend(ctx);
     renderAttention(ctx, topics);
-    renderStreets(ctx);
     renderLatest();
   }
 

@@ -56,7 +56,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("concernName").value = concern.reporter;
   document.getElementById("concernContact").value = concern.contactNumber || "";
-  document.getElementById("concernLocation").value = concern.location || "";
   document.getElementById("concernText").value = concern.concernText;
 
   const evidenceEl = document.getElementById("concernEvidence");

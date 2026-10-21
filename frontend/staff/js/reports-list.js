@@ -242,7 +242,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // just its own one.
     const groups = { mine: [], unclaimed: [], others: [] };
     rows.forEach((r) => {
-      if (!r.assignedInvestigatorId) groups.unclaimed.push(r);
+      // No id but a name means the Investigator's account was deleted after
+      // handling it — still handled, not unclaimed.
+      if (!r.assignedInvestigatorId && !r.assignedInvestigator) groups.unclaimed.push(r);
       else if (currentUser && r.assignedInvestigatorId === currentUser.id) groups.mine.push(r);
       else groups.others.push(r);
     });

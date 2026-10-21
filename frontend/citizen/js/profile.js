@@ -412,10 +412,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ---- Delete Account ----
-  // Permanent and self-service — Report/Concern/Question all CASCADE off
-  // User (see accounts.views.MeView.delete), so this wipes everything the
-  // citizen ever submitted along with the account itself. Requires the
-  // current password, same reasoning as Change Password above.
+  // Permanent and self-service — removes the account itself, but the
+  // citizen's reports/concerns/questions stay on record (see
+  // accounts/signals.py). Requires the current password, same reasoning as
+  // Change Password above.
   const deleteAccountBtn = document.getElementById("deleteAccountBtn");
   const deleteAccountModal = document.getElementById("deleteAccountModal");
   const deleteAccountForm = document.getElementById("deleteAccountForm");

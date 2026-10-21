@@ -54,6 +54,25 @@ class AnnouncementTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Announcement.objects.count(), 0)
 
+    def test_barangay_captain_cannot_post_edit_or_delete(self):
+        # Announcements belong to the Secretary alone now.
+        captain = User.objects.create_user(
+            username="cap", email="cap@test.com", password="x", role=User.Role.STAFF,
+            position="Barangay Captain", is_verified=True,
+        )
+        existing = Announcement.objects.create(title="Hi", description="There", posted_by=self.secretary)
+        _auth(self.client, captain)
+        response = self.client.post(
+            "/api/announcements/staff/", {"title": "x", "description": "y"}, format="multipart"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            self.client.patch(f"/api/announcements/staff/{existing.id}/", {"title": "z"}, format="multipart").status_code,
+            403,
+        )
+        self.assertEqual(self.client.delete(f"/api/announcements/staff/{existing.id}/").status_code, 403)
+        self.assertEqual(Announcement.objects.count(), 1)
+
     def test_unread_banner_clears_after_marking_viewed(self):
         announcement = Announcement.objects.create(title="Hi", description="There")
         _auth(self.client, self.citizen)

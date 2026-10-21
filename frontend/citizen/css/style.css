@@ -2441,6 +2441,30 @@ label.geo-toggle {
   justify-self: start;
 }
 
+/* Table-style lists (My Reports, My Concerns/Suggestions): fixed column
+   tracks so every row lines up under the header row, regardless of how
+   long a status label or investigator name is. */
+.concern-row--reports {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr) minmax(0, 1.2fr) 96px 170px;
+}
+
+.concern-row--concerns {
+  grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr) 96px 170px;
+}
+
+.concern-row--head {
+  padding: 14px 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.concern-row--head > .concern-row__status-head {
+  text-align: center;
+}
+
 .status-badge {
   display: block;
   padding: 8px 18px;
@@ -2652,6 +2676,11 @@ label.geo-toggle {
   line-height: 1.5;
   color: var(--text);
   min-height: 90px;
+}
+
+.remarks-card__text--empty {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ---------- My Concern/Suggestion detail ---------- */
@@ -3059,9 +3088,23 @@ label.geo-toggle {
     margin-top: 8px;
   }
 
-  .concern-row {
+  .concern-row,
+  .concern-row--reports,
+  .concern-row--concerns {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  /* Stacked rows have no visible header, so each cell carries its own
+     column name instead. */
+  .concern-row--head {
+    display: none;
+  }
+
+  .concern-row [data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--text-muted);
   }
 
   .concern-row__link,

@@ -3,10 +3,12 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from orms_backend.encrypted_fields import EncryptedTextField
+
 
 class Announcement(models.Model):
     """
-    A barangay-wide announcement posted by the Secretary or Barangay Captain
+    A barangay-wide announcement posted by the Secretary
     (Admin too) — shown at the top of the citizen home page, newest first,
     and emailed to every citizen when posted (see
     orms_backend.emails.send_announcement_posted_email).
@@ -19,6 +21,9 @@ class Announcement(models.Model):
     posted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements"
     )
+    # The poster's name, copied here if their account is deleted (see
+    # accounts/signals.py) so the announcement keeps its byline.
+    posted_by_name_snapshot = EncryptedTextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     # Set by AnnouncementSerializer.update() — lets the frontend show "(edited)".
     is_edited = models.BooleanField(default=False)

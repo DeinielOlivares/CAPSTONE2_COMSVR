@@ -5483,6 +5483,10 @@ button {
   margin-bottom: 20px;
 }
 
+.cd-row--single {
+  grid-template-columns: 1fr;
+}
+
 .cd-card-hint {
   font-size: 0.76rem;
   color: var(--text-muted);

@@ -1,11 +1,11 @@
-// Barangay Platero OVRMS — Announcements (Secretary / Barangay Captain): post, edit and
+// Barangay Platero OVRMS — Announcements (Secretary): post, edit and
 // remove barangay-wide announcements. Posting emails every citizen (server-side,
 // see announcements/views.py) — editing doesn't; the post date is set by the
 // server when it's first saved and an edit leaves it alone.
 
 document.addEventListener("DOMContentLoaded", () => {
   const user = getAdminUser();
-  const canManage = !!user && user.role === "staff" && ["Secretary", "Barangay Captain"].includes(user.position);
+  const canManage = !!user && user.role === "staff" && user.position === "Secretary";
 
   const listEl = document.getElementById("announcementsList");
   const newBtn = document.getElementById("newAnnouncementBtn");
@@ -232,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim();
     if (!title || !description) {
-      errorEl.textContent = "Add a title and a description.";
+      errorEl.textContent = "Add a title and content.";
       errorEl.hidden = false;
       return;
     }

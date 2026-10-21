@@ -49,12 +49,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!concern) {
     document.querySelector(".concern-detail__main").innerHTML =
-      "<p>Suggestion/Concern not found.</p>";
+      "<p>Concern/Suggestion not found.</p>";
     return;
   }
 
   document.title = "Concern/Suggestion — Barangay Platero OVRMS";
-  document.getElementById("concernLocation").value = concern.location;
   document.getElementById("concernDescription").value = concern.description;
   renderConcernEvidence(document.getElementById("concernEvidence"), concern.attachments);
 
@@ -90,9 +89,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     )
     .join("");
 
+  // The Remarks box is always shown; it reads "No remarks yet" (from the
+  // HTML) until the Secretary leaves one.
   if (concern.remarks) {
-    document.getElementById("remarksCard").hidden = false;
-    document.getElementById("remarksText").textContent = concern.remarks;
+    const remarksText = document.getElementById("remarksText");
+    remarksText.textContent = concern.remarks;
+    remarksText.classList.remove("remarks-card__text--empty");
     showRemarksPopupOnce(concern.id, concern.remarks);
   }
 });

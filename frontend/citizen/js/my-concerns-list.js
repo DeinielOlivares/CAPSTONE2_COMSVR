@@ -56,15 +56,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 
+    // Header row sits in the same grid as the data rows so the columns line
+    // up; the View Details column is intentionally left without a header.
+    const header = `
+      <div class="concern-row concern-row--concerns concern-row--head" aria-hidden="true">
+        <span>Concern/Suggestion</span>
+        <span>Submission Date</span>
+        <span></span>
+        <span class="concern-row__status-head">Status</span>
+      </div>`;
+
     list.innerHTML = pageRows.length
-      ? pageRows
+      ? header +
+        pageRows
           .map(
             (c) => `
-      <div class="concern-row">
-        <span class="concern-row__title">${titleFor(c.description)}</span>
-        <span class="concern-row__date">${formatDate(c.created_at)}</span>
+      <div class="concern-row concern-row--concerns">
+        <span class="concern-row__title" data-label="Concern/Suggestion">${titleFor(c.description)}</span>
+        <span class="concern-row__date" data-label="Submission Date">${formatDate(c.created_at)}</span>
         <a class="concern-row__link" href="my-concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a>
-        <span class="status-badge ${c.status === "reviewed" ? "status-badge--resolved" : "status-badge--submitted"}">Status: ${c.status === "reviewed" ? "Reviewed" : "Submitted"}</span>
+        <span class="status-badge ${c.status === "reviewed" ? "status-badge--resolved" : "status-badge--submitted"}" data-label="Status">${c.status === "reviewed" ? "Reviewed" : "Submitted"}</span>
       </div>`
           )
           .join("")

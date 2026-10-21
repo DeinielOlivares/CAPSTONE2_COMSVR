@@ -50,6 +50,17 @@ class FailedLoginLockoutTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self._login(GOOD_PASSWORD).status_code, 200)
 
+    def test_email_is_matched_regardless_of_case(self):
+        # Stored as typed (only the domain is lowercased), e.g. by a phone
+        # keyboard capitalizing the first letter at signup.
+        User.objects.create_user(username="maria", email="Maria@Test.com", password=GOOD_PASSWORD, is_verified=True)
+        for email in ("Maria@test.com", "maria@test.com", "MARIA@TEST.COM", " maria@test.com "):
+            self.assertEqual(self._login(GOOD_PASSWORD, email=email).status_code, 200, email)
+        self.assertEqual(self._login(GOOD_PASSWORD, email="JUAN@test.com").status_code, 200)
+
+    def test_wrong_password_still_refused_whatever_the_case(self):
+        self.assertEqual(self._login("wrong-password", email="JUAN@TEST.COM").status_code, 401)
+
     def test_wrong_password_and_unknown_email_get_the_same_message(self):
         self.assertEqual(self._login("wrong-password").data["detail"], "Incorrect email or password.")
         self.assertEqual(
@@ -672,6 +683,27 @@ class DisableDeleteWithClaimsTests(APITestCase):
         self.assertIn("Deleted Juan Cruz's account — 2 claimed reports released", logs)
         self.assertEqual(sum("Released Juan Cruz's claim" in a and "(account deleted)" in a for a in logs), 2)
 
+    def test_deleting_investigator_keeps_closed_reports_status_remarks_and_name(self):
+        self.reports[0].status = self.Report.Status.RESOLVED
+        self.reports[0].remarks = "Warned the owner."
+        self.reports[0].save()
+        self.reports[1].status = self.Report.Status.IN_ACTION
+        self.reports[1].save()
+
+        self.assertEqual(self.client.delete(self.url).status_code, 204)
+
+        closed, active = (self.Report.objects.get(pk=r.pk) for r in self.reports)
+        self.assertEqual(closed.status, self.Report.Status.RESOLVED)
+        self.assertEqual(closed.remarks, "Warned the owner.")
+        self.assertEqual(closed.investigator_name, "Juan Cruz")
+        # Still being worked, so it goes back to the queue — but keeps its progress.
+        self.assertEqual(active.status, self.Report.Status.IN_ACTION)
+        self.assertEqual(active.investigator_name, "")
+
+        data = self.client.get(f"/api/reports/staff/{closed.pk}/").json()
+        self.assertEqual(data["assignedInvestigator"], "Juan Cruz")
+        self.assertIsNone(data["assignedInvestigatorId"])
+
     def test_long_log_entries_are_trimmed_not_dropped(self):
         self.reports[0].ordinance = "A" * 255
         self.reports[0].save()
@@ -1002,3 +1034,83 @@ class SignupCodeThrottleTests(APITestCase):
         for _ in range(5):
             self.assertEqual(self.client.post("/api/auth/signup/verify-code/", body, format="json").status_code, 400)
         self.assertEqual(self.client.post("/api/auth/signup/verify-code/", body, format="json").status_code, 429)
+
+
+class DeletedAccountRecordsTests(APITestCase):
+    """Deleting any account never deletes what that person submitted, handled, answered or published."""
+
+    def setUp(self):
+        from announcements.models import Announcement
+        from reports.models import Concern, Question, Report
+
+        self.Report, self.Concern, self.Question, self.Announcement = Report, Concern, Question, Announcement
+        self.admin = User.objects.create_user(
+            username="adm", email="adm@test.com", password="x", role=User.Role.ADMIN, is_verified=True
+        )
+        self.secretary = User.objects.create_user(
+            username="sec", email="sec@test.com", password="x", role=User.Role.STAFF, position="Secretary",
+            first_name="Sara", last_name="Santos", is_verified=True,
+        )
+        self.citizen = User.objects.create_user(
+            username="cit", email="cit@test.com", password=GOOD_PASSWORD, is_verified=True,
+            first_name="Juana", last_name="Reyes", contact_number="09171234567",
+        )
+        self.report = Report.objects.create(
+            citizen=self.citizen, location="Purok 1", ordinance="Ord 1", incident_date="2026-09-01",
+            nature_of_violation="x",
+        )
+        self.concern = Concern.objects.create(citizen=self.citizen, description="More streetlights please.")
+        self.question = Question.objects.create(
+            citizen=self.citizen, question="When is clean-up?", answer="Saturday.", answered_by=self.secretary,
+            answered_at=timezone.now(),
+        )
+        self.announcement = Announcement.objects.create(title="Hi", description="There", posted_by=self.secretary)
+
+    def test_citizen_self_delete_keeps_their_submissions(self):
+        self.client.force_authenticate(self.citizen)
+        response = self.client.delete("/api/auth/me/", {"password": GOOD_PASSWORD}, format="json")
+        self.assertEqual(response.status_code, 204, getattr(response, "data", None))
+        self.assertFalse(User.objects.filter(pk=self.citizen.pk).exists())
+
+        report = self.Report.objects.get(pk=self.report.pk)
+        self.assertIsNone(report.citizen)
+        self.assertEqual(report.citizen_name, "Juana Reyes")
+        self.assertEqual(report.citizen_contact, "09171234567")
+        self.assertTrue(self.Concern.objects.filter(pk=self.concern.pk).exists())
+        self.assertTrue(self.Question.objects.filter(pk=self.question.pk).exists())
+
+        self.client.force_authenticate(self.secretary)
+        concern = self.client.get(f"/api/concerns/staff/{self.concern.pk}/").json()
+        self.assertEqual(concern["reporter"], "Juana Reyes")
+        self.assertEqual(concern["contact_number"], "09171234567")
+
+    def test_admin_deleting_a_citizen_keeps_their_submissions(self):
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.delete(f"/api/auth/admin/users/{self.citizen.pk}/").status_code, 204)
+        self.assertEqual(self.Report.objects.count(), 1)
+        self.assertEqual(self.Concern.objects.count(), 1)
+        self.assertEqual(self.Question.objects.count(), 1)
+
+    def test_deleting_secretary_keeps_answers_and_announcements_with_their_name(self):
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.delete(f"/api/auth/admin/users/{self.secretary.pk}/").status_code, 204)
+
+        question = self.Question.objects.get(pk=self.question.pk)
+        self.assertEqual(question.answer, "Saturday.")
+        self.assertEqual(question.answered_by_name_snapshot, "Sara Santos")
+        self.assertEqual(question.answered_by_role_snapshot, "Secretary")
+
+        self.client.force_authenticate(self.citizen)
+        mine = self.client.get("/api/questions/").json()
+        mine = mine["results"] if isinstance(mine, dict) else mine
+        self.assertEqual(mine[0]["answered_by_name"], "Sara Santos")
+        self.assertEqual(mine[0]["answered_by_role"], "Secretary")
+        feed = self.client.get("/api/announcements/").json()
+        self.assertEqual(feed[0]["posted_by_name"], "Sara Santos")
+
+    def test_disabling_an_account_changes_nothing_on_its_records(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(f"/api/auth/admin/users/{self.secretary.pk}/", {"active": False}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.Question.objects.get(pk=self.question.pk).answered_by, self.secretary)
+        self.assertEqual(self.Announcement.objects.get(pk=self.announcement.pk).posted_by, self.secretary)
