@@ -423,7 +423,15 @@ button {
 }
 
 .field input.field-invalid,
-.field select.field-invalid {
+.field select.field-invalid,
+.field textarea.field-invalid,
+.field .combobox__trigger.field-invalid,
+.field .author-select__box.field-invalid {
+  border-color: #c0392b;
+}
+
+/* A hidden file input is flagged; its visible drop zone gets the outline. */
+.field:has(input[type="file"].field-invalid) .upload-drop {
   border-color: #c0392b;
 }
 

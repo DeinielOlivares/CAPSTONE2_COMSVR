@@ -224,6 +224,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const otherField = document.getElementById("otherOrdinanceField");
   const otherInput = document.getElementById("otherOrdinanceInput");
   select.addEventListener("change", () => {
+    clearFieldInvalid(ordinanceTrigger);
     const isOther = select.value === "other";
     otherField.hidden = !isOther;
     otherInput.required = isOther;
@@ -385,37 +386,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearFormError(form);
-    clearFieldInvalid(locationInput);
-    clearFieldInvalid(blockLotInput);
+    form.querySelectorAll(".field-invalid").forEach(clearFieldInvalid);
 
     if (!isLoggedIn()) {
       showFormError(form, "Please log in to submit a report.");
       return;
     }
 
+    // Every empty required field is outlined in red with its own message
+    // (the form has "novalidate", so there's no browser popup).
+    flagMissingRequired(form);
+
+    // An empty street and one that isn't in the list get the same message.
     if (!STREETS.includes(locationInput.value.trim())) {
-      markFieldInvalid(locationInput, "Please select a street from the list.");
+      markFieldInvalid(locationInput, "Please select/enter a valid street.");
+    }
+
+    // The real <select> is hidden (see the custom dropdown above it), which
+    // takes it out of the check above — so it is flagged here, on the
+    // dropdown button the person actually sees.
+    if (!select.value) {
+      markFieldInvalid(ordinanceTrigger, "Please fill out this field.");
+    } else if (select.value === "other" && !otherInput.value.trim()) {
+      markFieldInvalid(otherInput, "Please fill out this field.");
+    }
+
+    const firstInvalid = form.querySelector(".field-invalid");
+    if (firstInvalid) {
+      // Scroll only: focusing the Street box would open its dropdown list
+      // right over the message.
+      firstInvalid.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
 
     const blockLot = blockLotInput.value.trim();
-    if (!blockLot) {
-      markFieldInvalid(blockLotInput, "Please enter the Block, Lot, etc.");
-      return;
-    }
-
-    // The real <select> is hidden (see the custom dropdown above it), which
-    // takes it out of native constraint validation — so "required" has to
-    // be enforced here instead of relying on the browser to block submit.
-    if (!select.value) {
-      showFormError(form, "Please select the ordinance in violation.");
-      return;
-    }
-
-    if (select.value === "other" && !otherInput.value.trim()) {
-      showFormError(form, "Please specify the ordinance in violation.");
-      return;
-    }
 
     const formData = new FormData();
     // Combines Block/Lot with the selected street into one location string

@@ -11,9 +11,15 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearFormError(form);
+    form.querySelectorAll(".field-invalid").forEach(clearFieldInvalid);
 
     if (!isLoggedIn()) {
       showFormError(form, "Please log in to submit a concern/suggestion.");
+      return;
+    }
+
+    if (!flagMissingRequired(form)) {
+      form.querySelector(".field-invalid").focus();
       return;
     }
 

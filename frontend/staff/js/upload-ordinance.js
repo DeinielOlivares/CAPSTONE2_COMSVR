@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </span>`
       )
       .join("");
+    if (authors.length) clearFieldInvalid(authorBox);
     authorTagsEl.querySelectorAll("[data-remove-author]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -185,11 +186,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   pdfInput.addEventListener("change", () => {
     const file = pdfInput.files[0];
     pdfLabelText.textContent = file ? file.name : "Click to browse for the ordinance PDF";
+    clearFieldInvalid(pdfInput);
     if (file && !isAcceptableOrdinancePdf(file)) {
-      uploadError.textContent = ORDINANCE_FILE_ERROR;
-      uploadError.hidden = false;
-    } else if (uploadError.textContent === ORDINANCE_FILE_ERROR) {
-      uploadError.hidden = true;
+      markFieldInvalid(pdfInput, ORDINANCE_FILE_ERROR);
     }
   });
 
@@ -198,6 +197,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     uploadError.hidden = true;
+    form.querySelectorAll(".field-invalid").forEach(clearFieldInvalid);
+
+    // Every empty required field is outlined in red with its own message
+    // (the form has "novalidate", so there's no browser popup). The author
+    // box and the PDF are custom controls, so they are flagged here.
+    flagMissingRequired(form);
+    if (!authors.length) markFieldInvalid(authorBox, "Please fill out this field.");
+    const pdfFile = pdfInput.files[0];
+    if (!pdfFile) {
+      markFieldInvalid(pdfInput, "Please fill out this field.");
+    } else if (!isAcceptableOrdinancePdf(pdfFile)) {
+      markFieldInvalid(pdfInput, ORDINANCE_FILE_ERROR);
+    }
+    if (form.querySelector(".field-invalid")) {
+      const first = form.querySelector(".field-invalid");
+      first.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (typeof first.focus === "function") first.focus({ preventScroll: true });
+      return;
+    }
 
     const fields = {
       number: numberInput.value.trim(),
@@ -211,23 +229,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       description: descriptionInput.value.trim(),
       pdfFile: pdfInput.files[0],
     };
-
-    if (!authors.length || !fields.category) {
-      uploadError.textContent = "Please add at least one author and select a category.";
-      uploadError.hidden = false;
-      return;
-    }
-
-    if (!fields.pdfFile) {
-      uploadError.textContent = "Please attach the ordinance PDF.";
-      uploadError.hidden = false;
-      return;
-    }
-    if (!isAcceptableOrdinancePdf(fields.pdfFile)) {
-      uploadError.textContent = ORDINANCE_FILE_ERROR;
-      uploadError.hidden = false;
-      return;
-    }
 
     uploadConfirm.disabled = true;
     uploadConfirm.textContent = "Uploading...";

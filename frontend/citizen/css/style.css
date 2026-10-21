@@ -527,7 +527,15 @@ button {
 }
 
 .field input.field-invalid,
-.field select.field-invalid {
+.field select.field-invalid,
+.field textarea.field-invalid,
+.field .combobox__trigger.field-invalid,
+.field .author-select__box.field-invalid {
+  border-color: #c0392b;
+}
+
+/* A hidden file input is flagged; its visible drop zone gets the outline. */
+.field:has(input[type="file"].field-invalid) .upload-drop {
   border-color: #c0392b;
 }
 
@@ -1970,6 +1978,21 @@ label.geo-toggle {
   flex-shrink: 0;
 }
 
+.consent-row {
+  flex-wrap: wrap;
+}
+
+.consent-row input.field-invalid {
+  outline: 2px solid #c0392b;
+  outline-offset: 1px;
+}
+
+.consent-row .field-error {
+  flex-basis: 100%;
+  text-align: center;
+  margin: 0;
+}
+
 .btn-row {
   display: flex;
   justify-content: center;
@@ -2673,6 +2696,7 @@ label.geo-toggle {
 
 .concern-detail__sidebar > .btn {
   margin-top: 0;
+  text-align: center;
 }
 
 /* Download Report sits above Back to Reports — keep the two apart. */

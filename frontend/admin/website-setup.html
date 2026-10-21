@@ -84,7 +84,6 @@
         <!-- Website branding -->
         <section class="setup-card" aria-labelledby="brandingHeading">
           <h2 class="setup-card__title" id="brandingHeading">Website Branding</h2>
-          <p class="field-hint" style="margin: -4px 0 16px;">The brand shown in the navbar/sidebar and the page background across the Citizen, Staff and Admin portals. Takes effect right away everywhere, but doesn't change the browser tab's title.</p>
           <form id="brandingForm" novalidate>
             <!-- Logo and background pickers side by side (stacked on narrow screens) -->
             <div class="setup-photo-row">
@@ -94,7 +93,7 @@
               <div>
                 <label class="btn btn-muted setup-photo__pick" for="brandingLogoInput">Choose Logo</label>
                 <input type="file" id="brandingLogoInput" accept="image/jpeg,image/png,image/webp" hidden />
-                <p class="field-hint">Recommended: a <strong>square</strong> image, ideally a <strong>PNG with a transparent background</strong>. JPG or WebP also work, up to 5 MB. Leave unset to keep the default leaf icon.</p>
+                <p class="field-hint">(.PNG, .JPG, .WEBP, up to 5 MB.)</p>
                 <p class="setup-photo__warn" id="brandingLogoWarn" role="status" hidden></p>
               </div>
             </div>
@@ -107,7 +106,7 @@
                   <button type="button" class="btn btn-muted setup-photo__pick" id="brandingBgReset" hidden>Use Default Background</button>
                 </div>
                 <input type="file" id="brandingBgInput" accept="image/jpeg,image/png,image/webp" hidden />
-                <p class="field-hint">The photo behind every page across the Citizen, Staff and Admin portals. Recommended: a <strong>landscape</strong> photo at least <strong>1920 px wide</strong>. JPG, PNG or WebP, up to 5 MB. It's softly blurred when saved so the text on top stays readable.</p>
+                <p class="field-hint">(.PNG, .JPG, .WEBP, up to 5 MB.)</p>
                 <p class="setup-photo__warn" id="brandingBgWarn" role="status" hidden></p>
               </div>
             </div>
@@ -127,7 +126,6 @@
         <!-- Site footer -->
         <section class="setup-card" aria-labelledby="footerHeading">
           <h2 class="setup-card__title" id="footerHeading">Site Footer</h2>
-          <p class="field-hint" style="margin: -4px 0 16px;">The text and links at the bottom of every citizen page. The contact details and emergency hotline above also appear there. Leave a list empty to use the built-in links.</p>
           <form id="footerForm" novalidate>
             <div class="setup-grid">
               <div class="field setup-grid__wide">
@@ -149,7 +147,6 @@
                 <button type="button" class="btn btn-muted" style="width: auto; padding: 8px 14px; margin-top: 8px;" data-footer-add="legal">+ Add link</button>
               </div>
             </div>
-            <p class="field-hint">A link can be a page name such as <code>faqs.html</code>, or a full address starting with <code>https://</code>, <code>mailto:</code> or <code>tel:</code>.</p>
             <div class="setup-actions">
               <span class="setup-status" id="footerStatus" role="status"></span>
               <button type="submit" class="btn" style="width: auto; padding: 12px 28px;" id="footerSave">Save Footer</button>
