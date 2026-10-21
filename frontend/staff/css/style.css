@@ -313,7 +313,6 @@ button {
 }
 
 .auth-card--outline .auth-card__title {
-  font-family: var(--serif);
   font-size: 1.9rem;
 }
 

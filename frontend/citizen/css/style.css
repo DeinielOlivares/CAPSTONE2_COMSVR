@@ -459,13 +459,7 @@ button {
 }
 
 .auth-card--outline .auth-card__title {
-  font-family: var(--serif);
   font-size: 1.9rem;
-}
-
-/* Same body font as the rest of the page instead of the serif heading. */
-.auth-card--outline .auth-card__title--plain {
-  font-family: inherit;
 }
 
 .auth-card__title {
