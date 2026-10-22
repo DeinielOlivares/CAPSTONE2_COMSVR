@@ -145,7 +145,10 @@ class FailedLoginLockoutTests(APITestCase):
         User.objects.filter(pk=self.user.pk).update(is_verified=False)
         for _ in range(MAX_FAILED_LOGINS + 1):
             response = self._login(GOOD_PASSWORD)
-            self.assertIn("under verification", response.data["detail"])
+            self.assertEqual(response.status_code, 401)
+            # Same message as a wrong password — see CustomTokenObtainPairSerializer.
+            self.assertEqual(response.data["detail"], "Incorrect email or password.")
+        self.assertEqual(self._login("wrong-password").data["detail"], "Incorrect email or password.")
         self.user.refresh_from_db()
         self.assertIsNone(self.user.locked_until)
 

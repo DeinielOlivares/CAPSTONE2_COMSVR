@@ -765,12 +765,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Citizens start unverified until an Administrator approves their
         # voter's ID (see AdminApproveVerificationView). Staff/Admin accounts
-        # are created pre-verified, so this only ever blocks citizens.
+        # are created pre-verified, so this only ever blocks citizens. The
+        # message is the same as a wrong password, so whether the password
+        # was right isn't given away before the account is approved (the
+        # approval email tells them when they can log in).
         if not self.user.is_verified:
-            raise AuthenticationFailed(
-                "Your account is still under verification. Please try again later.",
-                code="account_unverified",
-            )
+            raise AuthenticationFailed("Incorrect email or password.", code="no_active_account")
 
         # LoginSession tracks the open/closed session itself (see LogoutView);
         # log_action is the separate "Logged in" row shown on View Audit Logs.

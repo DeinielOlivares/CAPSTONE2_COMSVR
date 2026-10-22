@@ -5271,6 +5271,11 @@ button {
   .concerns-page-layout {
     grid-template-columns: 1fr;
   }
+
+  /* Categories act as a filter, so stacked they go above the list. */
+  .concerns-page-layout > .folders-card {
+    order: -1;
+  }
 }
 
 /* ---------- Mobile navigation (sidebar becomes an off-canvas drawer) ----------
@@ -5314,6 +5319,11 @@ button {
 
   .concerns-page-layout {
     grid-template-columns: 1fr;
+  }
+
+  /* Categories act as a filter, so stacked they go above the list. */
+  .concerns-page-layout > .folders-card {
+    order: -1;
   }
 }
 

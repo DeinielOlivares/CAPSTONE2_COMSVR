@@ -586,7 +586,7 @@ async function apiLogin(email, password, remember) {
   }
 
   if (!response.ok) {
-    // Surfaces the backend's actual reason (e.g. "still under verification")
+    // Surfaces the backend's actual reason (e.g. a locked account)
     // instead of a generic message, so an unverified/pending account gets a
     // meaningfully different prompt than a wrong password.
     const data = await response.json().catch(() => ({}));
@@ -670,7 +670,7 @@ async function apiCompleteAccountSetup(uid, token, details) {
 // Public citizen self-registration. Takes a FormData (text fields + the
 // voter_id_image file) since it's a multipart request, not JSON. Doesn't
 // log the resident in — the account stays unverified until an admin
-// approves it, see apiLogin's "still under verification" handling above.
+// approves it (until then login answers "Incorrect email or password.").
 async function apiRegister(formData) {
   let response;
   try {
