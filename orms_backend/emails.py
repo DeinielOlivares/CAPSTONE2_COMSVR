@@ -18,7 +18,7 @@ below:
       6-digit code — see reports/verification.py)
     - their account gets automatically disabled for filing reports too
       fast (suspicious activity)
-    - the Secretary or Barangay Captain posts a new Announcement (every
+    - the Secretary posts a new Announcement (every
       citizen gets this one — see announcements/views.py)
   Any account (citizen, staff, or admin) gets emailed when...
     - someone else creates it for them (an Administrator creating a
@@ -149,6 +149,8 @@ def send_report_resolved_email(report):
     # Resolved/With Remarks, in status-timeline terms — the last of the 4
     # stages. Includes remarks in the body when there are any, rather than a
     # separate email.
+    if not report.citizen:  # the citizen has since deleted their account
+        return
     send_templated_email(
         to=report.citizen.email,
         subject=f"Barangay Platero OVRMS — Your report has been marked {report.get_status_display()}",
@@ -161,6 +163,8 @@ def send_report_reassigned_email(report):
     # Sent only when a report that had already been forfeited by its
     # original Investigator gets claimed by a *different* one (see
     # StaffReportClaimView) — not on every claim, just an actual handoff.
+    if not report.citizen:  # the citizen has since deleted their account
+        return
     send_templated_email(
         to=report.citizen.email,
         subject="Barangay Platero OVRMS — A new investigator is handling your report",
@@ -170,6 +174,8 @@ def send_report_reassigned_email(report):
 
 
 def send_question_answered_email(question):
+    if not question.citizen:  # the citizen has since deleted their account
+        return
     send_templated_email(
         to=question.citizen.email,
         subject="Barangay Platero OVRMS — Your question has been answered",

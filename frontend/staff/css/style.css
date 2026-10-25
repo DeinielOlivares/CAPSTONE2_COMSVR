@@ -2143,9 +2143,23 @@ button {
 
 .report-row__top {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1.1fr 0.9fr 0.8fr 1fr;
   align-items: center;
   gap: 16px;
+}
+
+/* The citizen who filed it — shown so staff can find every report one
+   person filed by searching their name. */
+.reports-search-note {
+  padding: 14px 0 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.report-row__reporter {
+  font-size: 0.9rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .report-row__claim {
@@ -5257,6 +5271,11 @@ button {
   .concerns-page-layout {
     grid-template-columns: 1fr;
   }
+
+  /* Categories act as a filter, so stacked they go above the list. */
+  .concerns-page-layout > .folders-card {
+    order: -1;
+  }
 }
 
 /* ---------- Mobile navigation (sidebar becomes an off-canvas drawer) ----------
@@ -5300,6 +5319,11 @@ button {
 
   .concerns-page-layout {
     grid-template-columns: 1fr;
+  }
+
+  /* Categories act as a filter, so stacked they go above the list. */
+  .concerns-page-layout > .folders-card {
+    order: -1;
   }
 }
 
@@ -5481,6 +5505,10 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.cd-row--single {
+  grid-template-columns: 1fr;
 }
 
 .cd-card-hint {

@@ -55,19 +55,19 @@
     <div class="auth-card auth-card--wide">
       <h1 class="auth-card__title">Sign Up</h1>
       <form data-goto="verify-email.html" data-signup-step1 novalidate>
-        <div class="form-row">
-          <div class="field">
-            <label for="signupLastName">Last Name</label>
-            <input type="text" id="signupLastName" name="last_name" placeholder="lastname" required />
-          </div>
+        <div class="form-row form-row--with-mi">
           <div class="field">
             <label for="signupFirstName">Given Name</label>
             <input type="text" id="signupFirstName" name="first_name" placeholder="given name" required />
           </div>
-        </div>
-        <div class="field field--narrow">
-          <label for="signupMiddleInitial">Middle Initial</label>
-          <input type="text" id="signupMiddleInitial" name="middle_initial" placeholder="M.I." maxlength="10" />
+          <div class="field">
+            <label for="signupMiddleInitial">M.I.</label>
+            <input type="text" id="signupMiddleInitial" name="middle_initial" placeholder="M.I." maxlength="10" />
+          </div>
+          <div class="field">
+            <label for="signupLastName">Last Name</label>
+            <input type="text" id="signupLastName" name="last_name" placeholder="last name" required />
+          </div>
         </div>
         <div class="form-row">
           <div class="field">

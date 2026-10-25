@@ -47,7 +47,8 @@ class OrdinanceSerializer(serializers.ModelSerializer):
 
     def get_uploaded_by_name(self, obj):
         if not obj.uploaded_by:
-            return None
+            # Kept from before the uploader's account was deleted, if it was.
+            return obj.uploaded_by_name_snapshot or None
         return obj.uploaded_by.get_full_name() or obj.uploaded_by.username
 
     # Uploaded or last edited within LATEST_NEW_DAYS — gets the "New" tag, and

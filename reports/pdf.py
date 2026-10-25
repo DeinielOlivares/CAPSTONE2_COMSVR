@@ -43,6 +43,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .serializers import citizen_contact, citizen_name
+from .serializers import investigator_name as serializer_investigator_name
+
 NAVY = colors.HexColor("#16223f")
 MUTED = colors.HexColor("#5b5748")
 BORDER = colors.HexColor("#cde8d0")
@@ -246,12 +249,10 @@ def _report_story(report, scale):
     other reports' stories (build_reports_pdf)."""
     styles = _ReportPdfStyles(scale)
 
-    reporter_name = report.citizen.get_full_name() or report.citizen.username
-    investigator_name = (
-        report.assigned_investigator.get_full_name() or report.assigned_investigator.username
-        if report.assigned_investigator
-        else "—"
-    )
+    # Same fallbacks as the API: the names kept on the report survive either
+    # account being deleted (see accounts/signals.py).
+    reporter_name = citizen_name(report)
+    investigator_name = serializer_investigator_name(report) or "—"
     incident_datetime = report.incident_date.strftime("%B %d, %Y")
     if report.incident_time:
         incident_datetime += f", {report.incident_time.strftime('%I:%M %p')}"
@@ -274,7 +275,7 @@ def _report_story(report, scale):
         styles.field_table(
             [
                 styles.field_row("Name", reporter_name),
-                styles.field_row("Contact Number", report.citizen.contact_number),
+                styles.field_row("Contact Number", citizen_contact(report) or "—"),
             ]
         ),
         Paragraph("Investigation", styles.heading),

@@ -390,9 +390,9 @@ class MeView(APIView):
         only (AdminAccountDetailView.delete already covers Staff/Admin
         removal, with its own last-admin/claimed-reports handling that a
         generic self-delete here doesn't account for). Requires the current
-        password (see DeleteAccountSerializer). Report/Concern/Question all
-        CASCADE off User, so this also wipes everything the citizen ever
-        submitted — the confirmation UI says so up front.
+        password (see DeleteAccountSerializer). The citizen's
+        Reports/Concerns/Questions are kept — their link to User is SET_NULL
+        and accounts/signals.py copies the name onto each one first.
         """
         if request.user.role != User.Role.CITIZEN:
             return Response({"detail": "Only a citizen account can be deleted this way."}, status=403)
@@ -471,15 +471,13 @@ class IsSecretaryOrAdmin(permissions.BasePermission):
 
 
 class IsAnnouncementManager(permissions.BasePermission):
-    """Secretary, Barangay Captain, or Administrator — who may post/edit/delete Announcements."""
+    """Secretary or Administrator — who may post/edit/delete Announcements."""
 
     def has_permission(self, request, view):
         user = request.user
         if not (user and user.is_authenticated):
             return False
-        return user.role == User.Role.ADMIN or (
-            user.role == User.Role.STAFF and user.position in ("Secretary", "Barangay Captain")
-        )
+        return user.role == User.Role.ADMIN or (user.role == User.Role.STAFF and user.position == "Secretary")
 
 
 class IsDocumentManager(permissions.BasePermission):

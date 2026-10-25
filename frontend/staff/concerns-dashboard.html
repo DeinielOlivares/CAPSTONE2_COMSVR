@@ -56,7 +56,7 @@
             "concerns.html": ["Secretary", "Barangay Captain"],
             "ordinances.html": ["Barangay Captain", "Secretary", "Investigator"],
             "questions.html": ["Barangay Captain", "Secretary", "Investigator"],
-            "announcements.html": ["Barangay Captain", "Secretary"],
+            "announcements.html": ["Secretary"],
           };
           var remembered = localStorage.getItem("orms_remember_me") === "1";
           var store = remembered ? localStorage : sessionStorage;
@@ -186,20 +186,12 @@
           </div>
         </div>
 
-        <div class="cd-row">
+        <div class="cd-row cd-row--single">
           <div class="dash-card">
             <div class="dash-card__header">
               <h2>Needs attention</h2>
             </div>
             <ul class="cd-flags" id="attentionList"></ul>
-          </div>
-
-          <div class="dash-card">
-            <div class="dash-card__header">
-              <h2>Where concerns come from</h2>
-              <span class="cd-card-hint" id="streetsHint"></span>
-            </div>
-            <div id="streetBars"></div>
           </div>
         </div>
 

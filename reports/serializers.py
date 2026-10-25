@@ -17,6 +17,29 @@ BARANGAY_LAT_RANGE = (14.29, 14.34)
 BARANGAY_LNG_RANGE = (121.06, 121.11)
 
 
+DELETED_ACCOUNT_LABEL = "Deleted account"
+
+
+def citizen_name(obj):
+    """Who filed `obj` — their live name, or the name kept from before their account was deleted."""
+    if obj.citizen:
+        return obj.citizen.get_full_name() or obj.citizen.username
+    return obj.citizen_name or DELETED_ACCOUNT_LABEL
+
+
+def citizen_contact(obj):
+    if obj.citizen:
+        return obj.citizen.contact_number
+    return getattr(obj, "citizen_contact", "")
+
+
+def investigator_name(report):
+    """Who has (or, for a closed report, had) this report — kept even if their account was deleted."""
+    if report.assigned_investigator:
+        return report.assigned_investigator.get_full_name() or report.assigned_investigator.username
+    return report.investigator_name or None
+
+
 def validate_attachment_files(files):
     if len(files) > MAX_ATTACHMENTS:
         raise serializers.ValidationError(f"You can attach at most {MAX_ATTACHMENTS} files.")
@@ -40,7 +63,7 @@ class ReportSerializer(serializers.ModelSerializer):
     # The citizen's own name/contact, for the downloadable report form (see
     # frontend/citizen/js/report-form-download.js) — it's their own report.
     reporter = serializers.SerializerMethodField(read_only=True)
-    contact_number = serializers.CharField(source="citizen.contact_number", read_only=True)
+    contact_number = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Report
@@ -58,12 +81,13 @@ class ReportSerializer(serializers.ModelSerializer):
         return validate_attachment_files(files)
 
     def get_reporter(self, obj):
-        return obj.citizen.get_full_name() or obj.citizen.username
+        return citizen_name(obj)
+
+    def get_contact_number(self, obj):
+        return citizen_contact(obj)
 
     def get_claimed_by(self, obj):
-        if not obj.assigned_investigator:
-            return None
-        return obj.assigned_investigator.get_full_name() or obj.assigned_investigator.username
+        return investigator_name(obj)
 
     def validate(self, attrs):
         lat, lng = attrs.get("latitude"), attrs.get("longitude")
@@ -140,7 +164,7 @@ class StaffReportSerializer(serializers.ModelSerializer):
     # Lets the dashboard's geospatial analysis count distinct reporters —
     # two citizens can share a name, so `reporter` alone can't.
     reporterId = serializers.UUIDField(source="citizen_id", read_only=True)
-    contact_number = serializers.CharField(source="citizen.contact_number", read_only=True)
+    contact_number = serializers.SerializerMethodField(read_only=True)
     attachments = serializers.SerializerMethodField()
     assignedInvestigator = serializers.SerializerMethodField()
     assignedInvestigatorId = serializers.UUIDField(source="assigned_investigator_id", read_only=True)
@@ -155,12 +179,13 @@ class StaffReportSerializer(serializers.ModelSerializer):
         ]
 
     def get_reporter(self, obj):
-        return obj.citizen.get_full_name() or obj.citizen.username
+        return citizen_name(obj)
+
+    def get_contact_number(self, obj):
+        return citizen_contact(obj)
 
     def get_assignedInvestigator(self, obj):
-        if not obj.assigned_investigator:
-            return None
-        return obj.assigned_investigator.get_full_name() or obj.assigned_investigator.username
+        return investigator_name(obj)
 
     def get_attachments(self, obj):
         request = self.context.get("request")
@@ -213,7 +238,7 @@ class StaffConcernSerializer(serializers.ModelSerializer):
     """Read side for Staff/Admin (View Concerns/Suggestions Dashboard) — same idea as StaffReportSerializer."""
 
     reporter = serializers.SerializerMethodField()
-    contact_number = serializers.CharField(source="citizen.contact_number", read_only=True)
+    contact_number = serializers.SerializerMethodField(read_only=True)
     attachments = serializers.SerializerMethodField()
     folder = ConcernFolderMiniSerializer(read_only=True)
 
@@ -225,7 +250,10 @@ class StaffConcernSerializer(serializers.ModelSerializer):
         ]
 
     def get_reporter(self, obj):
-        return obj.citizen.get_full_name() or obj.citizen.username
+        return citizen_name(obj)
+
+    def get_contact_number(self, obj):
+        return citizen_contact(obj)
 
     def get_attachments(self, obj):
         request = self.context.get("request")
@@ -247,6 +275,18 @@ class StaffConcernUpdateSerializer(serializers.ModelSerializer):
         model = Concern
         fields = ["status", "remarks", "folder"]
         read_only_fields = ["status"]
+
+
+def _answered_by_name(question):
+    if question.answered_by:
+        return question.answered_by.get_full_name() or question.answered_by.username
+    return question.answered_by_name_snapshot or None
+
+
+def _answered_by_role(question):
+    if question.answered_by:
+        return _staff_role_label(question.answered_by)
+    return question.answered_by_role_snapshot or None
 
 
 def _staff_role_label(user):
@@ -274,10 +314,10 @@ class QuestionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "answer", "created_at", "answered_at"]
 
     def get_answered_by_name(self, obj):
-        return obj.answered_by.get_full_name() or obj.answered_by.username if obj.answered_by else None
+        return _answered_by_name(obj)
 
     def get_answered_by_role(self, obj):
-        return _staff_role_label(obj.answered_by)
+        return _answered_by_role(obj)
 
     def create(self, validated_data):
         validated_data["citizen"] = self.context["request"].user
@@ -293,7 +333,7 @@ class StaffQuestionSerializer(serializers.ModelSerializer):
     """
 
     asker = serializers.SerializerMethodField()
-    asker_email = serializers.CharField(source="citizen.email", read_only=True)
+    asker_email = serializers.SerializerMethodField()
     is_answered = serializers.BooleanField(read_only=True)
     answered_by_name = serializers.SerializerMethodField()
     answered_by_role = serializers.SerializerMethodField()
@@ -307,13 +347,16 @@ class StaffQuestionSerializer(serializers.ModelSerializer):
         ]
 
     def get_asker(self, obj):
-        return obj.citizen.get_full_name() or obj.citizen.username
+        return citizen_name(obj)
+
+    def get_asker_email(self, obj):
+        return obj.citizen.email if obj.citizen else ""
 
     def get_answered_by_name(self, obj):
-        return obj.answered_by.get_full_name() or obj.answered_by.username if obj.answered_by else None
+        return _answered_by_name(obj)
 
     def get_answered_by_role(self, obj):
-        return _staff_role_label(obj.answered_by)
+        return _answered_by_role(obj)
 
 
 class StaffQuestionAnswerSerializer(serializers.ModelSerializer):

@@ -68,17 +68,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     const start = pageSize ? (page - 1) * pageSize : 0;
     const pageRows = pageSize ? rows.slice(start, start + pageSize) : rows;
 
+    // Header row sits in the same grid as the data rows so the columns line
+    // up; the View Details column is intentionally left without a header.
+    const header = `
+        <div class="concern-row concern-row--reports concern-row--head" aria-hidden="true">
+          <span>Ordinance in Violation</span>
+          <span>Time Since Report</span>
+          <span>Investigator</span>
+          <span></span>
+          <span class="concern-row__status-head">Status</span>
+        </div>`;
+
     list.innerHTML = pageRows.length
-      ? pageRows
+      ? header +
+        pageRows
           .map((r) => {
             const label = REPORT_STATUS_LABELS[r.status] || r.status;
             return `
-        <div class="concern-row">
-          <span class="concern-row__title">${r.ordinance}</span>
-          <span class="concern-row__date">${daysOld(r.created_at)}</span>
-          <span class="concern-row__handler">${r.claimed_by ? `Handled by ${r.claimed_by}` : "Not yet claimed"}</span>
+        <div class="concern-row concern-row--reports">
+          <span class="concern-row__title" data-label="Ordinance in Violation">${r.ordinance}</span>
+          <span class="concern-row__date" data-label="Time Since Report">${daysOld(r.created_at)}</span>
+          <span class="concern-row__handler" data-label="Investigator">${r.claimed_by || "Not yet claimed"}</span>
           <a class="concern-row__link" href="my-report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>
-          <span class="status-badge ${badgeClass[label] || ""}">Status: ${label}</span>
+          <span class="status-badge ${badgeClass[label] || ""}" data-label="Status">${label}</span>
         </div>`;
           })
           .join("")

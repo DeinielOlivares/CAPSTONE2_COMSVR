@@ -107,9 +107,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>`;
   }).join("");
 
+  // The Remarks box is always shown; it reads "No remarks yet" (from the
+  // HTML) until the investigator leaves one.
   if (report.remarks) {
-    document.getElementById("remarksCard").hidden = false;
-    document.getElementById("remarksText").textContent = report.remarks;
+    const remarksText = document.getElementById("remarksText");
+    remarksText.textContent = report.remarks;
+    remarksText.classList.remove("remarks-card__text--empty");
   }
 
   const downloadBtn = document.getElementById("downloadReportBtn");

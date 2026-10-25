@@ -51,7 +51,7 @@ class StaffAnnouncementListCreateView(generics.ListCreateAPIView):
     """
     GET /api/announcements/staff/ — every Barangay Staff role can view the
     list (same as Reports/Concerns dashboards being read-only for non-owners).
-    POST — Secretary/Barangay Captain/Admin only; emails every citizen.
+    POST — Secretary/Admin only; emails every citizen.
     """
 
     queryset = Announcement.objects.select_related("posted_by").all()
@@ -72,7 +72,7 @@ class StaffAnnouncementListCreateView(generics.ListCreateAPIView):
 
 
 class StaffAnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """PATCH/DELETE /api/announcements/staff/<id>/ — Secretary/Barangay Captain/Admin only."""
+    """PATCH/DELETE /api/announcements/staff/<id>/ — Secretary/Admin only."""
 
     queryset = Announcement.objects.select_related("posted_by").all()
     serializer_class = AnnouncementSerializer

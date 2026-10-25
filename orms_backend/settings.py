@@ -40,6 +40,8 @@ DATA_ENCRYPTION_KEY = config("DATA_ENCRYPTION_KEY", default="")
 MODIFIED_BLOWFISH_ITERATIONS = config("MODIFIED_BLOWFISH_ITERATIONS", default=1000, cast=int)
 
 AUTH_USER_MODEL = "accounts.User"
+# Login matches the email regardless of case — see accounts/backends.py.
+AUTHENTICATION_BACKENDS = ["accounts.backends.CaseInsensitiveEmailBackend"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

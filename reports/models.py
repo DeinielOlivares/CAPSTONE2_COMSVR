@@ -29,7 +29,15 @@ class Report(models.Model):
     CLOSED_STATUSES = (Status.RESOLVED, Status.WITH_REMARKS)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports")
+    # SET_NULL, not CASCADE: a deleted citizen account must never take its
+    # submissions with it. Their name/contact are copied onto the record just
+    # before the account is removed (see accounts/signals.py), so staff still
+    # see who filed it.
+    citizen = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="reports"
+    )
+    citizen_name = EncryptedTextField(blank=True)
+    citizen_contact = EncryptedTextField(blank=True)
     # Encrypted at rest. The heatmap groups by it in the browser, after the API
     # has decrypted it, so nothing needs the database to read it.
     location = EncryptedTextField(max_length=255)
@@ -63,6 +71,9 @@ class Report(models.Model):
     assigned_investigator = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="claimed_reports"
     )
+    # The Investigator's name, copied here if their account is deleted (see
+    # accounts/signals.py) — a closed report keeps showing who handled it.
+    investigator_name = EncryptedTextField(blank=True)
     # Set each time the assigned Investigator opens this report's detail page
     # (see StaffReportDetailView.get) — shown to the citizen alongside who's
     # claimed it, so they can see it's actually being looked at.
@@ -154,7 +165,15 @@ class Concern(models.Model):
         REVIEWED = "reviewed", "Reviewed"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="concerns")
+    # SET_NULL, not CASCADE: a deleted citizen account must never take its
+    # submissions with it. Their name/contact are copied onto the record just
+    # before the account is removed (see accounts/signals.py), so staff still
+    # see who filed it.
+    citizen = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="concerns"
+    )
+    citizen_name = EncryptedTextField(blank=True)
+    citizen_contact = EncryptedTextField(blank=True)
     location = EncryptedTextField(max_length=255, blank=True)
     # Encrypted at rest, same as Report's narrative and remarks.
     description = EncryptedTextField()
@@ -196,13 +215,21 @@ class Question(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="questions")
+    # SET_NULL + name snapshot, same as Report.citizen.
+    citizen = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="questions"
+    )
+    citizen_name = EncryptedTextField(blank=True)
     # Encrypted at rest: free text a resident may put personal details in.
     question = EncryptedTextField()
     answer = models.TextField(blank=True)
     answered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="answered_questions"
     )
+    # Who answered, copied here if their account is deleted (see
+    # accounts/signals.py) — the answer keeps its attribution.
+    answered_by_name_snapshot = EncryptedTextField(blank=True)
+    answered_by_role_snapshot = models.CharField(max_length=50, blank=True)
     answered_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

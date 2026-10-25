@@ -395,7 +395,8 @@ class StaffReportClaimView(APIView):
         reassigned = bool(report.previous_investigator_id) and report.previous_investigator_id != request.user.id
         report.assigned_investigator = request.user
         report.previous_investigator = None
-        report.save(update_fields=["assigned_investigator", "previous_investigator"])
+        report.investigator_name = ""
+        report.save(update_fields=["assigned_investigator", "previous_investigator", "investigator_name"])
         log_action(request.user, f"Claimed a report — {report.ordinance}")
         if reassigned:
             send_report_reassigned_email(report)
@@ -453,7 +454,8 @@ class StaffReportAssignView(APIView):
         reassigned = bool(previous_holder) and previous_holder.id != investigator.id
         report.assigned_investigator = investigator
         report.previous_investigator = None
-        report.save(update_fields=["assigned_investigator", "previous_investigator"])
+        report.investigator_name = ""
+        report.save(update_fields=["assigned_investigator", "previous_investigator", "investigator_name"])
 
         investigator_name = investigator.get_full_name() or investigator.username
         log_action(request.user, f"Assigned a report to {investigator_name} — {report.ordinance}")

@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from orms_backend.encrypted_fields import EncryptedTextField
+
 
 def pdf_storage():
     """
@@ -61,6 +63,9 @@ class Ordinance(models.Model):
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_ordinances"
     )
+    # The uploader's name, copied here if their account is deleted (see
+    # accounts/signals.py).
+    uploaded_by_name_snapshot = EncryptedTextField(blank=True)
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

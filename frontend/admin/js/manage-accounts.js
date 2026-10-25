@@ -45,9 +45,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function compareBySort(a, b) {
       if (sortValue === "owner") return a.owner.localeCompare(b.owner);
       if (sortValue === "owner_desc") return b.owner.localeCompare(a.owner);
-      // Lower activityMinutes = less time since last activity = more recent.
-      if (sortValue === "recent") return a.activityMinutes - b.activityMinutes;
-      if (sortValue === "recent_desc") return b.activityMinutes - a.activityMinutes;
       // Account IDs are UUIDs (not sequential numbers), so "Newest"/"Oldest"
       // sort by join date instead of trying to compare IDs numerically.
       if (sortValue === "id_asc") return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);

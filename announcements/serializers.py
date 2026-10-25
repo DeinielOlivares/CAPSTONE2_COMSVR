@@ -54,7 +54,8 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 
     def get_posted_by_name(self, obj):
         if not obj.posted_by:
-            return None
+            # Kept from before the poster's account was deleted, if it was.
+            return obj.posted_by_name_snapshot or None
         return obj.posted_by.get_full_name() or obj.posted_by.username
 
     def get_is_read(self, obj):
