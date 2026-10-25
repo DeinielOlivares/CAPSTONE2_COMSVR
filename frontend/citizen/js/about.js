@@ -4,13 +4,6 @@
 // an Administrator from the Admin Portal's About Us Setup page, so a new
 // administration after an election is a data change, not a code change.
 
-// Row order on the page; members within a row come sorted by the API.
-const COUNCIL_ROWS = [
-  { group: "chairman", className: "council__row council__row--lead" },
-  { group: "member", className: "council__row" },
-  { group: "officer", className: "council__row" },
-];
-
 function renderAboutLogos(logos) {
   const strip = document.getElementById("aboutLogos");
   if (!strip) return;
@@ -63,13 +56,28 @@ function renderCouncil(council) {
     rows.innerHTML = `<p class="council__loading">The barangay officials will be listed here soon.</p>`;
     return;
   }
-  rows.innerHTML = COUNCIL_ROWS.map(({ group, className }) => {
-    const members = council.filter((m) => m.group === group);
-    if (!members.length) return "";
-    return chunkIntoBalancedRows(members, COUNCIL_MAX_PER_ROW)
-      .map((row) => `<div class="${className}">${row.map(renderCouncilMember).join("")}</div>`)
+  const byGroup = (group) => council.filter((m) => m.group === group);
+  rows.innerHTML = renderCouncilLead(byGroup("chairman"), byGroup("officer")) +
+    chunkIntoBalancedRows(byGroup("member"), COUNCIL_MAX_PER_ROW)
+      .map((row) => `<div class="council__row">${row.map(renderCouncilMember).join("")}</div>`)
       .join("");
-  }).join("");
+}
+
+// Top row, like the wall in the barangay hall: the Punong Barangay in the
+// middle with the appointed officers flanking him, alternating sides in
+// their API order (1st left, 2nd right, 3rd further left, ...). The left
+// side is laid out row-reverse in CSS, so its first item sits next to the
+// captain and any extra officers grow outward without moving him off-center.
+function renderCouncilLead(chairmen, officers) {
+  if (!chairmen.length && !officers.length) return "";
+  const left = officers.filter((_, i) => i % 2 === 0);
+  const right = officers.filter((_, i) => i % 2 === 1);
+  return `
+    <div class="council__lead">
+      <div class="council__lead-side council__lead-side--left">${left.map(renderCouncilMember).join("")}</div>
+      <div class="council__lead-center">${chairmen.map(renderCouncilMember).join("")}</div>
+      <div class="council__lead-side council__lead-side--right">${right.map(renderCouncilMember).join("")}</div>
+    </div>`;
 }
 
 loadSiteAbout()

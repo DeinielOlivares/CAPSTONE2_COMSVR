@@ -3583,13 +3583,51 @@ label.geo-toggle {
   border-radius: 50%;
 }
 
-.council__row--lead .council-member {
-  width: 260px;
+/* Top row: officers | Punong Barangay | officers. The equal 1fr side
+   columns keep the captain centered however many officers there are. */
+.council__lead {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 28px;
+  margin-bottom: 48px;
 }
 
-.council__row--lead .council-member img {
-  width: 170px;
-  height: 170px;
+.council__lead-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 28px;
+}
+
+/* row-reverse + flex-start packs the first (nearest) officer against the
+   captain, with later ones extending outward to the left. */
+.council__lead-side--left {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.council__lead-side--right {
+  justify-content: flex-start;
+}
+
+.council__lead-center {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+}
+
+.council__lead-center .council-member {
+  width: 240px;
+}
+
+.council__lead-center .council-member img {
+  width: 210px;
+  height: 210px;
+}
+
+.council__lead-center .council-member__name {
+  font-size: 1.05rem;
 }
 
 /* Member without a photo yet: a ringed silhouette-free circle. */
@@ -3603,9 +3641,9 @@ label.geo-toggle {
   background: var(--cream);
 }
 
-.council__row--lead .council-member__placeholder {
-  width: 170px;
-  height: 170px;
+.council__lead-center .council-member__placeholder {
+  width: 210px;
+  height: 210px;
 }
 
 .council-member img {
@@ -3875,10 +3913,37 @@ label.geo-toggle {
     width: calc(50% - 6px);
   }
 
-  .council-member img,
-  .council__row--lead .council-member img {
+  .council-member img {
     width: 120px;
     height: 120px;
+  }
+
+  /* Phones: captain on top, officers paired beneath, then the committee. */
+  .council__lead {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 12px;
+  }
+
+  .council__lead-center {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .council__lead-side,
+  .council__lead-side--left {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .council__lead-side .council-member {
+    width: 100%;
+  }
+
+  .council__lead-center .council-member img,
+  .council__lead-center .council-member__placeholder {
+    width: 160px;
+    height: 160px;
   }
 
   .legal-page {
