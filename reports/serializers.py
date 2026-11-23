@@ -1,9 +1,14 @@
+import logging
+
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
 from orms_backend.codes import CODE_EXHAUSTED, CODE_OK, check_code
 
 from .models import FAQ, Concern, ConcernAttachment, ConcernFolder, Question, Report, ReportAttachment, ReportVerificationCode
+
+logger = logging.getLogger(__name__)
 
 MAX_ATTACHMENTS = 5
 MAX_TOTAL_ATTACHMENT_BYTES = 50 * 1024 * 1024
@@ -46,6 +51,29 @@ def validate_attachment_files(files):
     if sum(f.size for f in files) > MAX_TOTAL_ATTACHMENT_BYTES:
         raise serializers.ValidationError("Attachments can't total more than 50MB.")
     return files
+
+
+def create_with_attachments(model, attachment_model, parent_field, validated_data, files):
+    """
+    Saves a submission and its files as one unit. If any upload fails, the
+    database row is rolled back and files already uploaded are removed, since
+    storage isn't covered by the transaction.
+    """
+    uploaded = []
+    try:
+        with transaction.atomic():
+            record = model.objects.create(**validated_data)
+            for f in files:
+                attachment = attachment_model.objects.create(**{parent_field: record, "file": f})
+                uploaded.append(attachment.file)
+    except Exception:
+        for file in uploaded:
+            try:
+                file.storage.delete(file.name)
+            except Exception:
+                logger.exception("Could not remove uploaded file %s after a failed submission", file.name)
+        raise
+    return record
 
 
 class ReportSerializer(serializers.ModelSerializer):
@@ -111,10 +139,7 @@ class ReportSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         files = validated_data.pop("files", [])
         validated_data["citizen"] = self.context["request"].user
-        report = Report.objects.create(**validated_data)
-        for f in files:
-            ReportAttachment.objects.create(report=report, file=f)
-        return report
+        return create_with_attachments(Report, ReportAttachment, "report", validated_data, files)
 
 
 class ConcernSerializer(serializers.ModelSerializer):
@@ -144,10 +169,7 @@ class ConcernSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         files = validated_data.pop("files", [])
         validated_data["citizen"] = self.context["request"].user
-        concern = Concern.objects.create(**validated_data)
-        for f in files:
-            ConcernAttachment.objects.create(concern=concern, file=f)
-        return concern
+        return create_with_attachments(Concern, ConcernAttachment, "concern", validated_data, files)
 
 
 class StaffReportSerializer(serializers.ModelSerializer):

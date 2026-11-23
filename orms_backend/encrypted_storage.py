@@ -122,8 +122,28 @@ class EncryptedStorage(Storage):
             return RawMediaCloudinaryStorage()
         return FileSystemStorage()
 
+    @property
+    def _videos(self):
+        # Cloudinary's default "image" type rejects videos as an invalid image.
+        if settings.STORAGES["default"]["BACKEND"] == "cloudinary_storage.storage.MediaCloudinaryStorage":
+            from cloudinary_storage.storage import VideoMediaCloudinaryStorage
+
+            class ExtensionKeepingVideoStorage(VideoMediaCloudinaryStorage):
+                # Cloudinary's public_id drops the extension, but the stored name
+                # needs it: it's how this class and the frontend recognise a video.
+                def _save(self, name, content):
+                    return super()._save(name, content) + posixpath.splitext(name)[1].lower()
+
+                def delete(self, name):
+                    return super().delete(posixpath.splitext(name)[0])
+
+            return ExtensionKeepingVideoStorage()
+        return self._plain
+
     def _backend(self, name):
-        return self._blobs if is_encrypted_name(name) else self._plain
+        if is_encrypted_name(name):
+            return self._blobs
+        return self._videos if _is_video(name) else self._plain
 
     def get_available_name(self, name, max_length=None):
         # The backend storages pick their own collision-free names in _save.
@@ -132,7 +152,7 @@ class EncryptedStorage(Storage):
     def _save(self, name, content):
         name = str(name).replace("\\", "/")
         if _is_video(name):
-            return self._plain.save(name, content)
+            return self._videos.save(name, content)
         if hasattr(content, "seek"):
             content.seek(0)
         blob = encrypt_bytes(content.read(), mimetypes.guess_type(name)[0] or "application/octet-stream")
@@ -147,14 +167,14 @@ class EncryptedStorage(Storage):
 
     def _open(self, name, mode="rb"):
         if not is_encrypted_name(name):
-            return self._plain.open(name, mode)
+            return self._backend(name).open(name, mode)
         file = ContentFile(self.read(name)[1])
         file.name = name
         return file
 
     def url(self, name):
         if not is_encrypted_name(name):
-            return self._plain.url(name)
+            return self._backend(name).url(name)
         return protected_url(name)
 
     def delete(self, name):

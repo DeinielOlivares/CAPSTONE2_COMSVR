@@ -197,6 +197,30 @@ class EncryptedStorageTests(TestCase):
         self.assertEqual(self._on_disk(attachment.file.name), b"not-really-a-video")
         self.assertTrue(attachment.file.url.endswith(".mp4"))
 
+    def test_videos_upload_to_cloudinary_as_video_and_keep_their_extension(self):
+        cloudinary_storages = {
+            "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+        }
+        import cloudinary
+
+        # cloudinary_storage refuses to import without credentials; nothing here reaches the network.
+        with override_settings(STORAGES=cloudinary_storages), \
+                mock.patch.dict(os.environ, {"CLOUDINARY_URL": "cloudinary://key:secret@test"}), \
+                mock.patch.object(cloudinary.config(), "cloud_name", "test", create=True), \
+                mock.patch("cloudinary.uploader.upload", return_value={"public_id": "media/concerns/2026/11/clip_abc"}) as upload, \
+                mock.patch("cloudinary.uploader.destroy", return_value={"result": "ok"}) as destroy:
+            storage = EncryptedStorage()
+            name = storage.save("concerns/2026/11/clip.MP4", ContentFile(b"video-bytes"))
+            url = storage.url(name)
+            storage.delete(name)
+
+        self.assertEqual(upload.call_args.kwargs["resource_type"], "video")
+        self.assertEqual(name, "media/concerns/2026/11/clip_abc.mp4")
+        self.assertIn("/video/upload/", url)
+        self.assertTrue(url.endswith(".mp4"))
+        destroy.assert_called_once_with("media/concerns/2026/11/clip_abc", invalidate=True, resource_type="video")
+
     def test_deleting_removes_the_encrypted_file(self):
         storage = EncryptedStorage()
         name = storage.save("reports/2026/10/evidence.jpg", ContentFile(self.png))

@@ -1,14 +1,86 @@
+import base64
+from types import SimpleNamespace
+from unittest import mock
+
 from django.core import mail
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
-from accounts.models import User
+from accounts.management.commands.find_partial_submissions import partial_submission_ids
+from accounts.models import User, log_action
 from orms_backend.codes import MAX_CODE_ATTEMPTS
+from orms_backend.encrypted_storage import EncryptedStorage
 
-from .models import Concern, Report, ReportVerificationCode
+from .models import Concern, ConcernAttachment, Report, ReportVerificationCode
+from .serializers import ReportSerializer
 
 REAL_CACHE = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+    DATA_ENCRYPTION_KEY=base64.b64encode(b"k" * 32).decode(),
+    MODIFIED_BLOWFISH_ITERATIONS=10,
+)
+class AllOrNothingSubmissionTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="juan", email="juan@test.com", password="x", is_verified=True
+        )
+        self.client.force_authenticate(self.user)
+        self.client.raise_request_exception = False
+
+    def _fail_second_upload(self):
+        real_save = EncryptedStorage._save
+        calls = []
+
+        def save(storage, name, content):
+            calls.append(name)
+            if len(calls) == 2:
+                raise RuntimeError("upload failed")
+            return real_save(storage, name, content)
+
+        return mock.patch.object(EncryptedStorage, "_save", save)
+
+    def _videos(self):
+        return [SimpleUploadedFile(f"clip{i}.mp4", b"video", "video/mp4") for i in range(2)]
+
+    def test_failed_upload_leaves_no_concern_and_removes_earlier_files(self):
+        with self._fail_second_upload(), mock.patch.object(EncryptedStorage, "delete") as delete:
+            response = self.client.post(
+                "/api/concerns/", {"description": "x", "files": self._videos()}, format="multipart"
+            )
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(Concern.objects.exists())
+        self.assertFalse(ConcernAttachment.objects.exists())
+        self.assertEqual(delete.call_count, 1)
+        self.assertEqual(mail.outbox, [])
+
+    def test_failed_upload_leaves_no_report(self):
+        request = SimpleNamespace(user=self.user)
+        serializer = ReportSerializer(
+            data={
+                "location": "Main Street", "ordinance": "Ord 1", "incident_date": "2026-10-01",
+                "nature_of_violation": "x", "files": self._videos(),
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        with self._fail_second_upload(), self.assertRaises(RuntimeError):
+            serializer.save()
+        self.assertFalse(Report.objects.exists())
+
+    def test_finder_flags_the_failed_attempt_not_the_successful_retry(self):
+        failed = Concern.objects.create(citizen=self.user, description="x")
+        retry = Concern.objects.create(citizen=self.user, description="x")
+        log_action(self.user, "Submitted a suggestion")
+        self.assertEqual(partial_submission_ids(Concern, "Submitted a suggestion"), [failed.pk])
+        self.assertTrue(Concern.objects.filter(pk=retry.pk).exists())
 
 
 class ReportVerificationCodeTests(APITestCase):
