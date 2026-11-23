@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       accounts = await getAllAccounts();
       render();
     } catch (err) {
-      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="4">${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="4">${safeText(err.message)}</td></tr>`;
     }
   }
 
@@ -81,9 +81,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (a) => `
         <tr data-id="${a.id}">
-          <td><a class="admin-table__owner-link" href="#" data-id="${a.id}">${a.owner}</a></td>
-          <td>${a.email}</td>
-          <td>${a.type}</td>
+          <td><a class="admin-table__owner-link" href="#" data-id="${a.id}">${safeText(a.owner)}</a></td>
+          <td>${safeText(a.email)}</td>
+          <td>${safeText(a.type)}</td>
           <td>${
             a.setupPending
               ? '<span class="status-pending">Setup Pending</span>'
@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function escapeClaimHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function renderClaimedReports(account) {

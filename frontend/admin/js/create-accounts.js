@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const query = citizenStreetInput.value.trim().toLowerCase();
         const matches = query ? STREETS.filter((s) => s.toLowerCase().includes(query)) : STREETS;
         citizenStreetList.innerHTML = matches.length
-          ? matches.map((s) => `<li data-value="${s}">${s}</li>`).join("")
+          ? matches.map((s) => `<li data-value="${safeText(s)}">${safeText(s)}</li>`).join("")
           : `<li class="combobox__empty">No matching street</li>`;
         citizenStreetList.hidden = false;
       };

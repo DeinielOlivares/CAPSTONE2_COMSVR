@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str == null ? "" : String(str);
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   const IMAGE_MAX_BYTES = 5 * 1024 * 1024;

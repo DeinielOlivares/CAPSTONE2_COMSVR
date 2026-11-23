@@ -86,9 +86,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const label = REPORT_STATUS_LABELS[r.status] || r.status;
             return `
         <div class="concern-row concern-row--reports">
-          <span class="concern-row__title" data-label="Ordinance in Violation">${r.ordinance}</span>
+          <span class="concern-row__title" data-label="Ordinance in Violation">${safeText(r.ordinance)}</span>
           <span class="concern-row__date" data-label="Time Since Report">${daysOld(r.created_at)}</span>
-          <span class="concern-row__handler" data-label="Investigator">${r.claimed_by || "Not yet claimed"}</span>
+          <span class="concern-row__handler" data-label="Investigator">${safeText(r.claimed_by || "Not yet claimed")}</span>
           <a class="concern-row__link" href="my-report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>
           <span class="status-badge ${badgeClass[label] || ""}" data-label="Status">${label}</span>
         </div>`;
@@ -126,6 +126,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     reports = await getMyReports();
     render();
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    list.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
   }
 });

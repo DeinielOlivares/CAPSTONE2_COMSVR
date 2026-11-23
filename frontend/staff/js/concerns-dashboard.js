@@ -20,14 +20,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await Promise.all([ensureConcernsLoaded(), ensureFoldersLoaded()]);
   } catch (err) {
-    if (dashboardMain) dashboardMain.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    if (dashboardMain) dashboardMain.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     return;
   }
 
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text == null ? "" : String(text);
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;

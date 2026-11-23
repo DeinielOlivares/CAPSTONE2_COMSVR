@@ -181,7 +181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function escapeStreetHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   const streetsLayer = L.layerGroup().addTo(map);
@@ -498,4 +498,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       showFormError(errorForm, err.message);
       redraw();
     });
+});
+
+// Never a real submit: Save is handled by its own button.
+document.addEventListener("submit", (e) => {
+  if (e.target.id === "boundaryForm") e.preventDefault();
 });

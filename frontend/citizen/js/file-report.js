@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   ordinanceOptionsList.innerHTML = ordinanceLoadError
     ? `<li class="combobox__empty">Could not load ordinances — try reloading the page.</li><li role="option" data-id="other">Other</li>`
-    : `${ordinancesForPicker.map((o) => `<li role="option" data-id="${o.id}">${ordinanceLabel(o)}</li>`).join("")}<li role="option" data-id="other">Other</li>`;
+    : `${ordinancesForPicker.map((o) => `<li role="option" data-id="${o.id}">${safeText(ordinanceLabel(o))}</li>`).join("")}<li role="option" data-id="other">Other</li>`;
 
   // Single entry point for picking an ordinance, whichever UI triggered it
   // (the dropdown itself or a TF-IDF suggestion below) — drives the real
@@ -260,7 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     suggestionsList.innerHTML = results
-      .map((r) => `<li data-id="${r.id}">${r.number} — ${r.title}</li>`)
+      .map((r) => `<li data-id="${r.id}">${safeText(r.number)} — ${safeText(r.title)}</li>`)
       .join("");
     suggestionsPanel.hidden = false;
   }
@@ -301,7 +301,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const query = locationInput.value.trim().toLowerCase();
     const matches = query ? STREETS.filter((s) => s.toLowerCase().includes(query)) : STREETS;
     locationList.innerHTML = matches.length
-      ? matches.map((s) => `<li data-value="${s}">${s}</li>`).join("")
+      ? matches.map((s) => `<li data-value="${safeText(s)}">${safeText(s)}</li>`).join("")
       : `<li class="combobox__empty">No matching street</li>`;
     locationList.hidden = false;
   }

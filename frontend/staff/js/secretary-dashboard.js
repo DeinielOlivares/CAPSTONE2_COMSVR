@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     questions = loadedQuestions;
   } catch (err) {
     if (dashboardMain) {
-      dashboardMain.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+      dashboardMain.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     }
     return;
   }
@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // the pie to match its colour to.
     categoryLegend.innerHTML = folders
       .filter((f) => (counts[f.id] || 0) > 0)
-      .map((f) => `<li title="${f.name} (${counts[f.id] || 0})"><span class="pie-legend__dot" style="background:${folderColor(f.id)}"></span><span class="pie-legend__label">${f.name} (${counts[f.id] || 0})</span></li>`)
+      .map((f) => `<li title="${safeText(f.name)} (${counts[f.id] || 0})"><span class="pie-legend__dot" style="background:${folderColor(f.id)}"></span><span class="pie-legend__label">${safeText(f.name)} (${counts[f.id] || 0})</span></li>`)
       .join("");
   }
 

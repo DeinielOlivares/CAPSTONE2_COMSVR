@@ -9,13 +9,14 @@
 function legalEscape(str) {
   const div = document.createElement("div");
   div.textContent = str == null ? "" : String(str);
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function legalInline(text, profile) {
   let out = legalEscape(text);
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
+    if (!/^(https?:\/\/|mailto:|tel:|#|[^:]*$)/i.test(url)) return label;
     const isExternal = /^https?:\/\//i.test(url);
     const target = isExternal ? ' target="_blank" rel="noopener"' : "";
     return `<a href="${url}"${target}>${label}</a>`;

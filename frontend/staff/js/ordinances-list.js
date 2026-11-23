@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureOrdinancesLoaded();
     updateSearchPlaceholder();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="2" class="ordinances-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2" class="ordinances-empty">${safeText(err.message)}</td></tr>`;
     return;
   }
 
@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function render() {

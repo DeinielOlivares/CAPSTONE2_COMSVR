@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await Promise.all([ensureConcernsLoaded(), ensureFoldersLoaded()]);
   } catch (err) {
-    main.innerHTML = `<p>${err.message}</p>`;
+    main.innerHTML = `<p>${safeText(err.message)}</p>`;
     return;
   }
 
@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (concern.folderId) {
       folderAssigned.hidden = false;
       assignFolderBtn.hidden = true;
-      folderChip.innerHTML = `<svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${concern.folderName}`;
+      folderChip.innerHTML = `<svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${safeText(concern.folderName)}`;
       // Only the Secretary can remove a folder assignment — Barangay
       // Captain sees the same chip, read-only.
       folderUnassignBtn.hidden = !isSecretary;
@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function populateFolderSelect() {
     assignFolderSelect.innerHTML =
       `<option value="">&mdash; Select a category &mdash;</option>` +
-      liveFolders().map((f) => `<option value="${f.id}">${f.name}</option>`).join("");
+      liveFolders().map((f) => `<option value="${safeText(f.id)}">${safeText(f.name)}</option>`).join("");
   }
 
   assignFolderBtn.addEventListener("click", () => {

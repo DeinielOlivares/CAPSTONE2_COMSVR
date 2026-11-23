@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureReportsLoaded();
   } catch (err) {
     if (dashboardMain) {
-      dashboardMain.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+      dashboardMain.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     }
     return;
   }
@@ -561,7 +561,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <div class="status-bar-chart__col">
           <span class="status-bar-chart__count">${count}</span>
           <div class="status-bar-chart__bar" style="height:${height}px;background:${color}"></div>
-          <span class="status-bar-chart__label">${name}</span>
+          <span class="status-bar-chart__label">${safeText(name)}</span>
         </div>`;
       })
       .join("");
@@ -615,11 +615,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             const days = daysBetween(r.dateSubmitted, now);
             return `
         <tr>
-          <td>${r.ordinance || "—"}</td>
-          <td>${r.location || "—"}</td>
+          <td>${safeText(r.ordinance || "—")}</td>
+          <td>${safeText(r.location || "—")}</td>
           <td><span class="status-pill ${agingPillClass(days)}">${days} ${days === 1 ? "day" : "days"}</span></td>
           <td><span class="status-pill ${statusPillClass(r.status)}">${r.status}</span></td>
-          <td>${r.assignedInvestigator || "Unclaimed"}</td>
+          <td>${safeText(r.assignedInvestigator || "Unclaimed")}</td>
           <td><a class="recent-reports-table__view-btn" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a></td>
         </tr>`;
           })

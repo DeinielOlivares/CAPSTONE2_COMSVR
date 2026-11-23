@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .map(
             (c) => `
       <div class="concern-row concern-row--concerns">
-        <span class="concern-row__title" data-label="Concern/Suggestion">${titleFor(c.description)}</span>
+        <span class="concern-row__title" data-label="Concern/Suggestion">${safeText(titleFor(c.description))}</span>
         <span class="concern-row__date" data-label="Submission Date">${formatDate(c.created_at)}</span>
         <a class="concern-row__link" href="my-concern-detail.html?id=${encodeURIComponent(c.id)}">View Details</a>
         <span class="status-badge ${c.status === "reviewed" ? "status-badge--resolved" : "status-badge--submitted"}" data-label="Status">${c.status === "reviewed" ? "Reviewed" : "Submitted"}</span>
@@ -107,6 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     concerns = await getMyConcerns();
     render();
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    list.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
   }
 });

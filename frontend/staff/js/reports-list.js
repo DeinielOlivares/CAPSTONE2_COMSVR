@@ -21,7 +21,7 @@ const REPORT_VIEWS = {
 function escapeReportHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureReportsLoaded();
   } catch (err) {
     [listMine, listUnclaimed, listOthers].forEach((list) => (list.innerHTML = ""));
-    listsByGroup[view.group].innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    listsByGroup[view.group].innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     return;
   }
 
@@ -193,7 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `
         <div class="report-row">
           <div class="report-row__top">
-            <span class="concern-row__title">${r.incidentType}</span>
+            <span class="concern-row__title">${safeText(r.incidentType)}</span>
             <span class="report-row__reporter" title="Filed by">${escapeReportHtml(r.reporter || "")}</span>
             <span class="concern-row__date">${formatReportDate(r.dateSubmitted)}</span>
             <a class="concern-row__link" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a>

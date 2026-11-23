@@ -131,7 +131,7 @@ function getCurrentUser() {
 function renderAvatar(container, user) {
   if (!container) return;
   if (user && user.profilePicture) {
-    container.innerHTML = `<img class="avatar-img" src="${user.profilePicture}" alt="" />`;
+    container.innerHTML = `<img class="avatar-img" src="${safeText(user.profilePicture)}" alt="" />`;
   } else if (user && user.initials) {
     container.textContent = user.initials;
   }
@@ -2340,7 +2340,7 @@ document.addEventListener("DOMContentLoaded", () => {
               (n) => `
               <li class="notif-dropdown__item">
                 <div class="notif-dropdown__content" data-goto="${n.id}">
-                  <span class="notif-dropdown__message">${n.message}</span>
+                  <span class="notif-dropdown__message">${safeText(n.message)}</span>
                   <span class="notif-dropdown__time">${citizenTimeAgo(n.time)}</span>
                 </div>
                 <button type="button" class="notif-dropdown__dismiss" data-dismiss="${n.id}" aria-label="Dismiss notification">&times;</button>
@@ -2548,7 +2548,7 @@ function wireStreetCombobox(inputId, listId) {
     const query = streetInput.value.trim().toLowerCase();
     const matches = query ? STREETS.filter((s) => s.toLowerCase().includes(query)) : STREETS;
     streetList.innerHTML = matches.length
-      ? matches.map((s) => `<li data-value="${s}">${s}</li>`).join("")
+      ? matches.map((s) => `<li data-value="${safeText(s)}">${safeText(s)}</li>`).join("")
       : `<li class="combobox__empty">No matching street</li>`;
     streetList.hidden = false;
   };

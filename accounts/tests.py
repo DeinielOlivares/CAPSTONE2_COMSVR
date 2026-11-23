@@ -246,6 +246,8 @@ class AuthThrottleTests(APITestCase):
         blocked = self._login()
         self.assertEqual(blocked.status_code, 429)
         self.assertIn("Retry-After", blocked)
+        # No countdown in the message shown to the user.
+        self.assertEqual(blocked.data["detail"], "Too many attempts. Please try again later.")
 
     def test_reset_verify_is_limited(self):
         body = {"email": "juan@test.com", "code": "000000"}

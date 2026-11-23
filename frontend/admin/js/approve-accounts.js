@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       accounts = await getPendingVerifications();
       render();
     } catch (err) {
-      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="4">${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="4">${safeText(err.message)}</td></tr>`;
     }
   }
 
@@ -55,10 +55,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (a) => `
         <tr data-id="${a.id}">
-          <td><a class="admin-table__owner-link" href="#" data-id="${a.id}">${a.owner}</a></td>
-          <td>${a.email}</td>
+          <td><a class="admin-table__owner-link" href="#" data-id="${a.id}">${safeText(a.owner)}</a></td>
+          <td>${safeText(a.email)}</td>
           <td><a class="admin-table__owner-link" href="#" data-photo-id="${a.id}">View Photo</a></td>
-          <td>${a.created}</td>
+          <td>${safeText(a.created)}</td>
         </tr>`
       )
       .join("");

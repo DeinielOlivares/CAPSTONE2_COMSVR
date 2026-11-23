@@ -9,6 +9,9 @@ from pathlib import Path
 
 import dj_database_url
 from decouple import Csv, config
+from django.utils.csp import CSP
+
+from .csp import inline_script_hashes
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,6 +67,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # These two sit before WhiteNoise so the portal HTML it serves gets their headers too.
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -71,7 +77,6 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "accounts.middleware.CurrentRequestMiddleware",
 ]
 
@@ -158,6 +163,25 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 WHITENOISE_ROOT = BASE_DIR / "frontend"
 WHITENOISE_INDEX_FILE = "index.html"
 
+# Content-Security-Policy: a second layer behind output escaping. Scripts run
+# only from this site, plus the portal pages' own inline scripts by exact hash
+# (recomputed at startup, see orms_backend/csp.py). Inline styles stay allowed
+# because the pages and Leaflet set style attributes.
+SECURE_CSP = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF, *inline_script_hashes(WHITENOISE_ROOT)],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "img-src": [CSP.SELF, "data:", "blob:", "https://res.cloudinary.com", "https://server.arcgisonline.com"],
+    "media-src": [CSP.SELF, "blob:", "https://res.cloudinary.com"],
+    "connect-src": [CSP.SELF, "https://res.cloudinary.com"],
+    "font-src": [CSP.SELF, "data:"],
+    "worker-src": [CSP.SELF, "blob:"],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
+
 # User-uploaded files (voter's ID images, evidence photos/videos).
 #
 # Render's disk does NOT persist uploads across deploys/restarts, so in
@@ -210,6 +234,8 @@ REST_FRAMEWORK = {
     # Rate limiting. Everything gets the broad anon/user limits below; views
     # that override throttle_classes with ScopedRateThrottle + a throttle_scope
     # get their own tighter one from the matching entry.
+    # Replaces DRF's "Expected available in N seconds" 429 text with a generic one.
+    "EXCEPTION_HANDLER": "orms_backend.exceptions.exception_handler",
     "DEFAULT_THROTTLE_CLASSES": (
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",

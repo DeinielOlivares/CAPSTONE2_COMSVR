@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       logs = await getAuditLogs();
       render();
     } catch (err) {
-      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="5">${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td class="admin-table__empty" colspan="5">${safeText(err.message)}</td></tr>`;
     }
   }
 
@@ -84,11 +84,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (a, i) => `
         <tr data-row-index="${i}">
-          <td>${a.owner}</td>
-          <td>${a.type}</td>
-          <td>${a.timeLabel}</td>
-          <td>${a.ipAddress || "—"}</td>
-          <td>${a.action}</td>
+          <td>${safeText(a.owner)}</td>
+          <td>${safeText(a.type)}</td>
+          <td>${safeText(a.timeLabel)}</td>
+          <td>${safeText(a.ipAddress || "—")}</td>
+          <td>${safeText(a.action)}</td>
         </tr>`
       )
       .join("");

@@ -6,7 +6,7 @@
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -142,6 +142,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     faqs = await getManagedFAQs();
     renderFaqManageList();
   } catch (err) {
-    if (faqManageList) faqManageList.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    if (faqManageList) faqManageList.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
   }
 });

@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureReportsLoaded();
   } catch (err) {
     if (dashboardMain) {
-      dashboardMain.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+      dashboardMain.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     }
     return;
   }
@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const days = daysBetween(r.dateSubmitted, now);
             return `
         <tr data-id="${r.id}">
-          <td>${r.location || "—"}</td>
+          <td>${safeText(r.location || "—")}</td>
           <td><span class="status-pill ${agingPillClass(days)}">${days} ${days === 1 ? "day" : "days"}</span></td>
           <td><span class="status-pill ${statusPillClass(r.status)}">${r.status}</span></td>
           <td><a class="recent-reports-table__view-btn" href="report-detail.html?id=${encodeURIComponent(r.id)}">View Details</a></td>

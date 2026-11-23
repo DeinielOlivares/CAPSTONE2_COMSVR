@@ -84,7 +84,7 @@
 
         <section class="setup-card" aria-labelledby="boundaryHeading">
           <h2 class="setup-card__title" id="boundaryHeading">Barangay Outline</h2>
-          <form id="boundaryForm" onsubmit="return false">
+          <form id="boundaryForm">
             <div class="boundary-toolbar">
               <label class="btn btn-muted boundary-toolbar__btn" for="boundaryFile">Upload File</label>
               <input type="file" id="boundaryFile" accept=".geojson,.json,.kml,application/geo+json,application/vnd.google-earth.kml+xml" hidden />
@@ -151,6 +151,7 @@
     </div>
   </div>
 
+  <script src="/shared/escape.js"></script>
   <script src="/staff/vendor/leaflet/leaflet.js"></script>
   <script src="/staff/js/street-coordinates.js"></script>
   <script src="js/map-boundary.js"></script>

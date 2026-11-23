@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
             (n) => `
             <li class="notif-page__item">
               <div class="notif-dropdown__content" data-goto="${n.id}">
-                <span class="notif-dropdown__message">${n.message}</span>
+                <span class="notif-dropdown__message">${safeText(n.message)}</span>
                 <span class="notif-dropdown__time">${timeAgo(n.time)}</span>
               </div>
               <button type="button" class="notif-dropdown__dismiss" data-dismiss="${n.id}" aria-label="Dismiss notification">&times;</button>

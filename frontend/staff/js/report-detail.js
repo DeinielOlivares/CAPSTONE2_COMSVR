@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureOrdinancesLoaded();
     await ensureReportsLoaded();
   } catch (err) {
-    main.innerHTML = `<p>${err.message}</p>`;
+    main.innerHTML = `<p>${safeText(err.message)}</p>`;
     return;
   }
 

@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await Promise.all([ensureConcernsLoaded(), ensureFoldersLoaded()]);
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    list.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
     return;
   }
 
@@ -82,13 +82,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         (f) => `
         <div class="folder-row">
           <button type="button" class="folder-chip${activeFolderId === f.id ? " active" : ""}" data-folder="${f.id}">
-            <span><svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${f.name}</span>
+            <span><svg class="nav-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.4a1.5 1.5 0 011.1.5l1.3 1.4a1.5 1.5 0 001.1.5H19.5A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg> ${safeText(f.name)}</span>
             <span class="folder-chip__count">(${f.count})</span>
           </button>
           ${
             isSecretary
-              ? `<button type="button" class="folder-icon-btn" data-rename="${f.id}" aria-label="Rename ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20H5.5a1.5 1.5 0 01-1.5-1.5V12"/><path d="M17.4 3.6a2.1 2.1 0 013 3L10 17l-4.5 1.2L6.8 13.7z"/></svg></button>
-          <button type="button" class="folder-icon-btn folder-icon-btn--delete" data-delete="${f.id}" aria-label="Delete ${f.name}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>`
+              ? `<button type="button" class="folder-icon-btn" data-rename="${f.id}" aria-label="Rename ${safeText(f.name)}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20H5.5a1.5 1.5 0 01-1.5-1.5V12"/><path d="M17.4 3.6a2.1 2.1 0 013 3L10 17l-4.5 1.2L6.8 13.7z"/></svg></button>
+          <button type="button" class="folder-icon-btn folder-icon-btn--delete" data-delete="${f.id}" aria-label="Delete ${safeText(f.name)}"><svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>`
               : ""
           }
         </div>`

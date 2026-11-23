@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str == null ? "" : String(str);
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   async function readError(response, fallback) {

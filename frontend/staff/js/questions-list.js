@@ -7,7 +7,7 @@
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function formatQuestionDate(iso) {
@@ -131,6 +131,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     questions = await getQuestions();
     render();
   } catch (err) {
-    list.innerHTML = `<div class="ordinances-empty">${err.message}</div>`;
+    list.innerHTML = `<div class="ordinances-empty">${safeText(err.message)}</div>`;
   }
 });

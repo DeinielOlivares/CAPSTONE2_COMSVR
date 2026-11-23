@@ -26,7 +26,7 @@ function loadSiteAbout() {
 function escapeSiteHtml(str) {
   const div = document.createElement("div");
   div.textContent = str == null ? "" : String(str);
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function barangayLinks(profile) {

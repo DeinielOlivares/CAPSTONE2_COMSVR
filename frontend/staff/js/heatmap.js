@@ -92,7 +92,7 @@ function streetOf(locationName) {
 function escapeHeatmapHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // Tooltip body for one heat spot: where it is, then each ordinance
